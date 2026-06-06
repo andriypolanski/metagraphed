@@ -365,14 +365,14 @@ async function fetchGithubRepo(fullName) {
     const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
     const body = await response.json().catch(() => null);
     if (!response.ok) {
-      return {
+      return githubHtmlFallback(fullName, {
         status: response.status === 403 ? "rate-limited-or-forbidden" : "failed",
         full_name: fullName,
         status_code: response.status,
         error: body?.message || `HTTP ${response.status}`,
         latency_ms: Math.round(performance.now() - started),
         captured_at: new Date().toISOString()
-      };
+      });
     }
     return {
       status: "captured",
@@ -389,33 +389,64 @@ async function fetchGithubRepo(fullName) {
       captured_at: new Date().toISOString()
     };
   } catch (error) {
-    return {
+    return githubHtmlFallback(fullName, {
       status: "failed",
       full_name: fullName,
       error: error.message,
       latency_ms: Math.round(performance.now() - started),
       captured_at: new Date().toISOString()
+    });
+  }
+}
+
+async function githubHtmlFallback(fullName, failure) {
+  const started = performance.now();
+  try {
+    const response = await fetch(`https://github.com/${fullName}`, {
+      method: "HEAD",
+      headers: {
+        accept: "text/html",
+        "user-agent": "metagraphed-adapter-snapshot/0.0"
+      }
+    });
+    await response.body?.cancel?.();
+    if (!response.ok) {
+      return failure;
+    }
+    return {
+      ...failure,
+      status: "html-fallback",
+      html_url: `https://github.com/${fullName}`,
+      fallback_reason: failure.status,
+      fallback_status_code: response.status,
+      fallback_latency_ms: Math.round(performance.now() - started)
     };
+  } catch {
+    return failure;
   }
 }
 
 function summarizeGithubMetadata(repos) {
   const captured = repos.filter((repo) => repo.status === "captured");
+  const usable = repos.filter((repo) => ["captured", "html-fallback"].includes(repo.status));
   return {
-    status: captured.length === 0 && repos.length > 0 ? "degraded" : "captured",
+    status: usable.length === 0 && repos.length > 0 ? "degraded" : "captured",
     repository_count: repos.length,
     captured_count: captured.length,
+    html_fallback_count: repos.filter((repo) => repo.status === "html-fallback").length,
     archived_count: captured.filter((repo) => repo.archived).length,
     disabled_count: captured.filter((repo) => repo.disabled).length,
     latest_push_at: captured.map((repo) => repo.pushed_at).filter(Boolean).sort().at(-1) || null,
     rate_limited_or_forbidden_count: repos.filter((repo) => repo.status === "rate-limited-or-forbidden").length,
-    repositories: captured.map((repo) => ({
+    repositories: usable.map((repo) => ({
       full_name: repo.full_name,
-      archived: repo.archived,
-      default_branch: repo.default_branch,
-      pushed_at: repo.pushed_at,
-      open_issues_count: repo.open_issues_count,
-      topic_count: repo.topics.length
+      archived: repo.archived ?? null,
+      default_branch: repo.default_branch || null,
+      html_url: repo.html_url || null,
+      metadata_level: repo.status === "captured" ? "github-api" : "html-fallback",
+      pushed_at: repo.pushed_at || null,
+      open_issues_count: repo.open_issues_count ?? null,
+      topic_count: repo.topics?.length || 0
     }))
   };
 }

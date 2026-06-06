@@ -8,7 +8,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve Metagraphed. Schema-valid submissions are not auto-published; a maintainer still reviews source facts, auth requirements, and probe safety before promotion into the curated registry.
+        Thanks for helping improve Metagraphed. Schema-valid submissions are not auto-published; a maintainer still reviews source facts, auth requirements, and probe safety before promotion into the curated registry. Approved imports require the `metagraphed-import-approved` label and open a pull request.
   - type: input
     id: netuid
     attributes:

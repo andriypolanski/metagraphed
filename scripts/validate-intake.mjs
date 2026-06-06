@@ -16,6 +16,7 @@ checkIncludes(interfaceTemplate.toLowerCase(), "interface template", [
   "id: source_url",
   "id: auth_required",
   "schema-valid submissions are not auto-published",
+  "metagraphed-import-approved",
   "read-only probes"
 ]);
 

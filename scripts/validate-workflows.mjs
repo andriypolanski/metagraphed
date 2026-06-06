@@ -26,6 +26,12 @@ for (const workflow of workflows) {
   if (workflow === "intake-validation.yml") {
     check(content.includes("contains(github.event.issue.labels.*.name, 'interface-submission')"), workflow, "intake must be exact-label gated");
   }
+  if (workflow === "intake-import-pr.yml") {
+    check(content.includes("contains(github.event.issue.labels.*.name, 'interface-submission')"), workflow, "intake import must require interface-submission label");
+    check(content.includes("contains(github.event.issue.labels.*.name, 'metagraphed-import-approved')"), workflow, "intake import must require maintainer approval label");
+    check(content.includes("peter-evans/create-pull-request@"), workflow, "intake import must open a PR instead of direct-publishing");
+    check(content.includes("npm run intake:import"), workflow, "intake import must use the checked-in import script");
+  }
 }
 
 if (errors.length > 0) {

@@ -1,0 +1,80 @@
+name: Intake Import PR
+
+on:
+  issues:
+    types:
+      - labeled
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: intake-import-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  import:
+    if: contains(github.event.issue.labels.*.name, 'interface-submission') && contains(github.event.issue.labels.*.name, 'metagraphed-import-approved')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+
+      - name: Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Write issue payload
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        with:
+          script: |
+            const fs = require('fs');
+            fs.writeFileSync('issue.json', JSON.stringify(context.payload.issue, null, 2));
+
+      - name: Import approved candidate
+        run: npm run intake:import -- --issue-json issue.json --out intake-report.json
+
+      - name: Rebuild artifacts
+        run: npm run build
+
+      - name: Validate import
+        run: |
+          npm run validate
+          npm run validate:schemas
+          npm run validate:api
+          npm run validate:openapi
+          npm run validate:intake
+          npm run validate:workflows
+          npm run scan:public-safety
+          npm test
+
+      - name: Open import pull request
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676
+        with:
+          branch: intake/interface-${{ github.event.issue.number }}
+          commit-message: "feat(intake): import subnet interface submission"
+          title: "feat(intake): import subnet interface submission"
+          body: |
+            ## Summary
+            - Imports a maintainer-approved subnet interface candidate from issue #${{ github.event.issue.number }}.
+            - Rebuilds public registry artifacts from the reviewed candidate source.
+
+            ## Validation
+            - npm run validate
+            - npm run validate:schemas
+            - npm run validate:api
+            - npm run validate:openapi
+            - npm run validate:intake
+            - npm run validate:workflows
+            - npm run scan:public-safety
+            - npm test
+          labels: |
+            interface-submission
+            maintainer-review

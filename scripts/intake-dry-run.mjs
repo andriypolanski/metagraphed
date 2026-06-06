@@ -17,6 +17,7 @@ const write = args.includes("--write");
 const native = await loadNativeSnapshot();
 const providers = await loadProviders();
 const providerIds = new Set(providers.map((provider) => provider.id));
+const importApprovalLabel = "metagraphed-import-approved";
 const report = await buildReport(issueJsonPath ? JSON.parse(await fs.readFile(issueJsonPath, "utf8")) : null);
 
 if (outPath) {
@@ -24,8 +25,8 @@ if (outPath) {
 }
 
 if (write) {
-  if (report.state !== "schema-valid") {
-    console.error("Refusing to import an invalid intake report.");
+  if (!report.import_allowed) {
+    console.error(`Refusing to import without schema-valid intake and ${importApprovalLabel} maintainer approval label.`);
     process.exit(1);
   }
   await writeJson(path.join(repoRoot, "registry/candidates/community", `${report.candidate.id}.json`), {
@@ -41,6 +42,8 @@ console.log(stableStringify(report));
 async function buildReport(issue) {
   const generatedAt = new Date().toISOString();
   const fields = parseIssueFields(issue?.body || "");
+  const labels = issueLabels(issue);
+  const importApproved = labels.includes(importApprovalLabel);
   const errors = [];
 
   const netuid = Number(fields.netuid);
@@ -93,9 +96,10 @@ async function buildReport(issue) {
         auth_required: authRequired,
         public_safe: true,
         rate_limit_notes: fields["rate limits or access notes"] || "",
-        review_notes: "Community-submitted candidate. Maintainer review is required before promotion."
+        review_notes: `Community-submitted candidate from issue ${issue?.number || "unknown"}. Maintainer review is required before promotion.`
       }
     : null;
+  const schemaValid = errors.length === 0;
 
   return {
     schema_version: 1,
@@ -106,12 +110,17 @@ async function buildReport(issue) {
       author: issue.user?.login || null
     } : null,
     state: errors.length === 0 ? "schema-valid" : "schema-invalid",
+    labels,
     errors,
     candidate,
     publish_allowed: false,
-    next_action: errors.length === 0
-      ? "maintainer-review"
-      : "resubmission-needed"
+    import_allowed: schemaValid && importApproved,
+    approval_required_label: importApprovalLabel,
+    next_action: !schemaValid
+      ? "resubmission-needed"
+      : importApproved
+        ? "open-import-pr"
+        : "maintainer-review"
   };
 }
 
@@ -151,6 +160,13 @@ function normalizeAuth(value) {
   if (normalized === "yes") return true;
   if (normalized === "unknown") return false;
   return null;
+}
+
+function issueLabels(issue) {
+  return (issue?.labels || [])
+    .map((label) => typeof label === "string" ? label : label?.name)
+    .filter(Boolean)
+    .sort();
 }
 
 function valueAfter(flag) {
