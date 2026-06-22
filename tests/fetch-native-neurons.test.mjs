@@ -8,11 +8,10 @@ const repoRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const python = process.platform === "win32" ? "python" : "python3";
 
 function runSelfTest() {
-  return spawnSync(
-    python,
-    ["scripts/fetch-native-subnets.py", "--self-test"],
-    { cwd: repoRoot, encoding: "utf8" },
-  );
+  return spawnSync(python, ["scripts/fetch-native-subnets.py", "--self-test"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
 }
 
 test("fetch-native-subnets --self-test normalizes SDK neuron rows (#1348)", () => {
