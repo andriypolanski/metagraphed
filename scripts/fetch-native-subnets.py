@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
+"""Fetch decoded Bittensor Finney subnet metadata + optional per-UID neurons (#1348).
+
+Default stdout: subnet registry snapshot for sync-subnets.mjs.
+With --neurons-out: emit per-UID neuron rows (same D1 shape as loadStagedNeurons).
+With --neurons-only: skip identity RPC + subnet stdout (refresh-metagraph path).
+With --self-test: offline normalization checks (no chain RPC).
+"""
 import argparse
 import json
+import os
+import sys
 from datetime import datetime, timezone
-
-import bittensor as bt
 
 
 def to_tao(value):
@@ -135,14 +142,136 @@ def classify_name(raw_name, netuid):
     return "chain"
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Fetch decoded Bittensor Finney subnet metadata.")
-    parser.add_argument("--network", default="finney")
-    args = parser.parse_args()
+def _at(values, uid):
+    if not values or uid < 0 or uid >= len(values):
+        return None
+    return values[uid]
 
-    subtensor = bt.SubtensorApi(network=args.network)
-    infos = subtensor.metagraphs.get_all_metagraphs_info(all_mechanisms=True)
 
+def _bool_int(value):
+    return 1 if value else 0
+
+
+def _ratio(value):
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number >= 0 else None
+
+
+def format_axon(axon):
+    if not axon:
+        return None
+    ip = getattr(axon, "ip", None) or ""
+    if not ip or ip == "0.0.0.0":
+        return None
+    port = getattr(axon, "port", None)
+    if port:
+        return f"{ip}:{port}"
+    return str(ip)
+
+
+def normalize_neuron(netuid, uid, info, captured_at_ms):
+    """Map one MetagraphInfo UID slot to the D1 `neurons` row shape (#1303/#1348).
+
+    Per-UID arrays come from get_all_metagraphs_info — same source as economics
+    aggregation. validator_trust is not exposed on MetagraphInfo (null). Units:
+      stake_tao / emission_tao = Balance -> TAO float (Σ stake matches economics)
+      trust/consensus/incentive/dividends/rank = SDK u16-normalized 0..1 ratios
+    """
+    block = int(getattr(info, "block", 0) or 0)
+    immunity_period = int(getattr(info, "immunity_period", 0) or 0)
+    registered_at_block = _at(getattr(info, "block_at_registration", None) or [], uid)
+    is_immunity_period = bool(
+        registered_at_block is not None
+        and immunity_period > 0
+        and block - registered_at_block < immunity_period
+    )
+    stake = to_tao(_at(getattr(info, "total_stake", None) or [], uid))
+    if stake is not None:
+        stake = round(stake, 9)
+    return {
+        "netuid": int(netuid),
+        "uid": int(uid),
+        "hotkey": _at(getattr(info, "hotkeys", None) or [], uid),
+        "coldkey": _at(getattr(info, "coldkeys", None) or [], uid),
+        "active": _bool_int(_at(getattr(info, "active", None) or [], uid)),
+        "validator_permit": _bool_int(
+            _at(getattr(info, "validator_permit", None) or [], uid)
+        ),
+        "rank": _ratio(_at(getattr(info, "rank", None) or [], uid)),
+        "trust": _ratio(_at(getattr(info, "trust", None) or [], uid)),
+        "validator_trust": None,
+        "consensus": _ratio(_at(getattr(info, "consensus", None) or [], uid)),
+        "incentive": _ratio(_at(getattr(info, "incentives", None) or [], uid)),
+        "dividends": _ratio(_at(getattr(info, "dividends", None) or [], uid)),
+        "emission_tao": to_tao(_at(getattr(info, "emission", None) or [], uid)),
+        "stake_tao": stake,
+        "registered_at_block": registered_at_block,
+        "is_immunity_period": _bool_int(is_immunity_period),
+        "axon": format_axon(_at(getattr(info, "axons", None) or [], uid)),
+        "block_number": block,
+        "captured_at": captured_at_ms,
+    }
+
+
+def emit_neurons(by_netuid, captured_at_ms):
+    rows = []
+    for netuid in sorted(by_netuid):
+        info = by_netuid[netuid]
+        num_uids = int(getattr(info, "num_uids", 0) or 0)
+        for uid in range(num_uids):
+            rows.append(normalize_neuron(netuid, uid, info, captured_at_ms))
+    return rows
+
+
+def verify_neuron_economics(by_netuid, rows):
+    """Best-effort Σ stake + validator_count cross-check vs economics (#1348)."""
+    warnings = 0
+    for netuid, info in by_netuid.items():
+        subnet_rows = [row for row in rows if row["netuid"] == netuid]
+        econ = normalize_economics(info)
+        stake_sum = round(
+            sum(row["stake_tao"] or 0 for row in subnet_rows),
+            9,
+        )
+        expected_stake = econ.get("total_stake_tao")
+        if (
+            expected_stake is not None
+            and subnet_rows
+            and abs(stake_sum - expected_stake) > 0.01
+        ):
+            warnings += 1
+            print(
+                f"netuid {netuid}: stake sum {stake_sum} != economics {expected_stake}",
+                file=sys.stderr,
+            )
+        validator_count = sum(row["validator_permit"] for row in subnet_rows)
+        expected_validators = econ.get("validator_count")
+        if (
+            expected_validators is not None
+            and validator_count != expected_validators
+        ):
+            warnings += 1
+            print(
+                f"netuid {netuid}: validator_count {validator_count} != economics {expected_validators}",
+                file=sys.stderr,
+            )
+    return warnings
+
+
+def write_neurons_json(path, rows):
+    directory = os.path.dirname(path)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(rows, handle)
+
+
+def select_primary_infos(infos):
     by_netuid = {}
     mechanisms = {}
     for info in infos:
@@ -151,6 +280,96 @@ def main():
         mechanisms.setdefault(netuid, set()).add(mechid)
         if mechid == 0 or netuid not in by_netuid:
             by_netuid[netuid] = info
+    return by_netuid, mechanisms
+
+
+def run_self_test():
+    class MockAxon:
+        ip = "1.2.3.4"
+        port = 8091
+
+    class MockBalance:
+        def __init__(self, tao):
+            self._tao = tao
+
+        def __float__(self):
+            return self._tao
+
+    class MockInfo:
+        block = 8454388
+        num_uids = 253
+        immunity_period = 7200
+        hotkeys = ["5HbNZ77cXQXbUjXG3YLVBGk6N4WbtKtGQYAWLXd2aWa8fqGe"] * 253
+        coldkeys = ["5FRXwb2qsEhqDQQKcm5m2MF26xTWwW65MHTEtKFFydypuqjG"] * 253
+        active = [False] * 252 + [True]
+        validator_permit = [False] * 252 + [True]
+        rank = [0.0] * 252 + [1.0]
+        trust = [0.0] * 253
+        consensus = [0.0] * 253
+        incentives = [0.0] * 253
+        dividends = [0.0] * 252 + [0.53974212252994583047]
+        emission = [MockBalance(0.0)] * 252 + [MockBalance(22.129845598)]
+        total_stake = [MockBalance(0.0)] * 252 + [MockBalance(1344255.529357282)]
+        block_at_registration = [6702485] * 253
+        axons = [None] * 252 + [MockAxon()]
+
+    row = normalize_neuron(1, 252, MockInfo(), 1000)
+    assert row["stake_tao"] == 1344255.529357282
+    assert row["emission_tao"] == 22.129845598
+    assert row["validator_permit"] == 1
+    assert row["active"] == 1
+    assert row["axon"] == "1.2.3.4:8091"
+    assert row["registered_at_block"] == 6702485
+    assert row["is_immunity_period"] == 0
+    assert row["validator_trust"] is None
+    assert row["dividends"] == 0.53974212252994583047
+
+    by_netuid = {1: MockInfo()}
+    rows = emit_neurons(by_netuid, 1000)
+    assert len(rows) == 253
+    assert verify_neuron_economics(by_netuid, rows) == 0
+    print("fetch-native-subnets self-test ok", file=sys.stderr)
+
+
+def main():
+    import bittensor as bt
+
+    parser = argparse.ArgumentParser(description="Fetch decoded Bittensor Finney subnet metadata.")
+    parser.add_argument("--network", default="finney")
+    parser.add_argument(
+        "--neurons-out",
+        help="Write per-UID neuron rows JSON (D1/loadStagedNeurons shape) to this path",
+    )
+    parser.add_argument(
+        "--neurons-only",
+        action="store_true",
+        help="Only fetch neurons (skip subnet stdout + identity RPC)",
+    )
+    args = parser.parse_args()
+
+    if args.neurons_only and not args.neurons_out:
+        parser.error("--neurons-only requires --neurons-out")
+
+    subtensor = bt.SubtensorApi(network=args.network)
+    infos = subtensor.metagraphs.get_all_metagraphs_info(all_mechanisms=True)
+    by_netuid, mechanisms = select_primary_infos(infos)
+    captured_at_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+
+    if args.neurons_out:
+        rows = emit_neurons(by_netuid, captured_at_ms)
+        warnings = verify_neuron_economics(by_netuid, rows)
+        write_neurons_json(args.neurons_out, rows)
+        print(
+            f"wrote {len(rows)} neurons across {len(by_netuid)} subnets -> {args.neurons_out}",
+            file=sys.stderr,
+        )
+        if warnings:
+            print(
+                f"warning: {warnings} subnet(s) failed economics cross-check",
+                file=sys.stderr,
+            )
+        if args.neurons_only:
+            return
 
     identities = {}
     for netuid in sorted(by_netuid):
@@ -191,4 +410,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if "--self-test" in sys.argv:
+        run_self_test()
+    else:
+        main()

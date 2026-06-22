@@ -1,13 +1,14 @@
 -- Per-UID metagraph snapshot (#1303, epic #1302): the chain-level depth
 -- metagraphed previously lacked. One row per (netuid, uid), refreshed daily by
--- the refresh-metagraph workflow (Taostats source) — latest-only, REPLACE-on-
--- conflict, so the table stays bounded (~33k rows: 129 subnets x <=256 UIDs) and
--- never grows unbounded. Powers /api/v1/subnets/{netuid}/metagraph + /neurons/{uid}
+-- the refresh-metagraph workflow (Bittensor SDK source #1348; Taostats fallback
+-- via scripts/fetch-metagraph.mjs) — latest-only, REPLACE-on-conflict, so the
+-- table stays bounded (~33k rows: 129 subnets x <=256 UIDs) and never grows
+-- unbounded. Powers /api/v1/subnets/{netuid}/metagraph + /neurons/{uid}
 -- (#1304) and /validators (#1305).
 --
 -- Units (verified against /api/v1/economics ground truth 2026-06-21):
---   stake_tao   = Taostats total_alpha_stake / 1e9  (sum matches economics total_stake_tao)
---   emission_tao= Taostats emission / 1e9
+--   stake_tao   = total_stake / 1e9 via SDK Balance (Σ matches economics total_stake_tao)
+--   emission_tao= emission / 1e9
 --   trust/validator_trust/consensus/incentive/dividends = 0..1 ratios (as-is)
 --   validator_permit/active/is_immunity_period = 0/1 booleans
 CREATE TABLE IF NOT EXISTS neurons (
