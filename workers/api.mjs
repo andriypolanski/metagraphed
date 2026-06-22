@@ -517,13 +517,25 @@ export async function handleScheduled(controller, env = {}, ctx = {}) {
     // Roll the day's raw checks into the durable daily uptime table BEFORE
     // pruning, so long-term history is never lost when 30-day raw rows are
     // deleted (PR3). Roll the chain events the same way (#1346) before their
-    // 90-day window is pruned. Then prune + snapshot.
-    await rollupDailyUptime(env);
-    await rollupAccountEventsDaily(env).catch(() => {});
+    // 90-day window is pruned. Skip prune when either rollup fails so raw rows
+    // are never deleted without being aggregated first.
+    const uptimeRollup = await rollupDailyUptime(env);
+    const eventsRollup = await rollupAccountEventsDaily(env);
+    const snapshotPromise = writeSubnetSnapshot(env, { readArtifact });
+    if (!uptimeRollup.rolled || !eventsRollup.rolled) {
+      const snapshot = await snapshotPromise;
+      return {
+        pruned: false,
+        rollup_skipped_prune: true,
+        uptime_rolled: uptimeRollup.rolled,
+        events_rolled: eventsRollup.rolled,
+        snapshot,
+      };
+    }
     const [pruned] = await Promise.all([
       pruneHealthHistory(env),
       pruneAccountEvents(env).catch(() => ({ pruned: false })),
-      writeSubnetSnapshot(env, { readArtifact }),
+      snapshotPromise,
     ]);
     return pruned;
   }
