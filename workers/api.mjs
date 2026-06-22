@@ -246,7 +246,10 @@ export default {
 // capped at the u16 max (65535) — matching the existing netuid guard in
 // src/webhooks.mjs and avoiding rejection of legitimately high subnet ids.
 const STAGED_NEURONS_KEY = "metagraph/neurons-pending.json";
+const STAGED_EVENTS_KEY = "events/account-events-pending.json";
 const MAX_STAGED_NEURONS_BYTES = 2_000_000;
+const MAX_STAGED_EVENTS_BYTES = 2_000_000;
+const MAX_STAGED_EVENT_ROWS = 50_000;
 const MAX_STAGED_NEURON_ROWS = 50_000;
 const MAX_STAGED_NEURON_STRING_BYTES = 512;
 const MAX_STAGED_NETUID = 65_535;
@@ -381,39 +384,62 @@ export async function loadStagedNeurons(env) {
 }
 
 // Load a staged chain-event batch from R2 into D1 (#1346, epic #1345). The
-// refresh-events CI job decodes finney's System.Events first-party (no Taostats)
-// and writes account_events rows as JSON to R2 (events/account-events-pending.json)
-// with its existing R2 permission; we load them here through the binding (no
-// API-token D1 permission) with PARAMETERIZED INSERT OR IGNORE keyed
+// refresh-events CI job decodes finney's System.Events first-party (no Taostats),
+// wraps rows in an HMAC-signed envelope, and writes it to R2 with its existing R2
+// permission; we load only authenticated, bounded, schema-valid rows through the
+// binding (no API-token D1 permission) with PARAMETERIZED INSERT OR IGNORE keyed
 // (block_number, event_index) — so overlapping poller windows re-insert harmlessly
-// (idempotent, no cursor needed) and a tampered file can only fail, never inject.
-// Then delete the object so each batch loads once.
+// (idempotent, no cursor needed). Then delete the object so each batch loads once.
 export async function loadStagedEvents(env) {
   const bucket = env.METAGRAPH_ARCHIVE;
   const db = env.METAGRAPH_HEALTH_DB;
-  if (!bucket?.get || !db?.prepare) return { ok: false, reason: "unavailable" };
-  const key = "events/account-events-pending.json";
+  const signingKey = env.METAGRAPH_STAGING_SIGNING_KEY;
+  if (!bucket?.get || !db?.prepare || !signingKey) {
+    return { ok: false, reason: "unavailable" };
+  }
+  const key = STAGED_EVENTS_KEY;
   const object = await bucket.get(key);
   if (!object) return { ok: false, reason: "none" };
-  let parsed;
+  if (Number(object.size || 0) > MAX_STAGED_EVENTS_BYTES) {
+    await bucket.delete(key);
+    return { ok: false, reason: "too_large" };
+  }
+  let envelope;
   try {
-    parsed = await object.json();
+    envelope = await object.json();
   } catch {
     await bucket.delete(key);
     return { ok: false, reason: "parse_failed" };
   }
-  const rows = validEventRows(parsed);
-  if (!rows.length) {
+  const rows = Array.isArray(envelope?.rows) ? envelope.rows : [];
+  if (
+    envelope?.schema_version !== 1 ||
+    !/^[a-f0-9]{64}$/.test(String(envelope?.hmac_sha256 || ""))
+  ) {
+    await bucket.delete(key);
+    return { ok: false, reason: "unauthenticated" };
+  }
+  if (rows.length > MAX_STAGED_EVENT_ROWS) {
+    await bucket.delete(key);
+    return { ok: false, reason: "too_many_rows" };
+  }
+  const expected = await hmacHex(signingKey, JSON.stringify(rows));
+  if (!timingSafeStringEqual(expected, envelope.hmac_sha256)) {
+    await bucket.delete(key);
+    return { ok: false, reason: "unauthenticated" };
+  }
+  const validRows = validEventRows(rows);
+  if (!validRows.length) {
     await bucket.delete(key);
     return { ok: false, reason: "empty" };
   }
-  const statements = eventInsertStatements(db, rows);
+  const statements = eventInsertStatements(db, validRows);
   const STMTS_PER_BATCH = 50;
   for (let i = 0; i < statements.length; i += STMTS_PER_BATCH) {
     await db.batch(statements.slice(i, i + STMTS_PER_BATCH));
   }
   await bucket.delete(key);
-  return { ok: true, rows: rows.length };
+  return { ok: true, rows: validRows.length };
 }
 
 // POST /api/v1/internal/events (#1360): the realtime ingest path for the

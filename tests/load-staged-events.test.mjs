@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { test } from "vitest";
 import { handleScheduled, loadStagedEvents } from "../workers/api.mjs";
 import { EVENTS_LOAD_CRON } from "../workers/config.mjs";
+
+const SIGNING_KEY = "test-staged-events-secret";
 
 function eventRow(block_number, event_index) {
   return {
@@ -17,6 +20,16 @@ function eventRow(block_number, event_index) {
   };
 }
 
+function signedEnvelope(rows, key = SIGNING_KEY) {
+  return {
+    schema_version: 1,
+    hmac_sha256: createHmac("sha256", key)
+      .update(JSON.stringify(rows))
+      .digest("hex"),
+    rows,
+  };
+}
+
 function mockEnv({
   rows,
   bad = false,
@@ -24,14 +37,18 @@ function mockEnv({
   deleted = [],
   prepared = [],
   batches = [],
+  signingKey = SIGNING_KEY,
+  size,
 }) {
   return {
     env: {
+      METAGRAPH_STAGING_SIGNING_KEY: signingKey,
       METAGRAPH_ARCHIVE: {
         async get(key) {
           getCalls.push(key);
           if (rows == null) return null;
           return {
+            size: size ?? JSON.stringify(rows).length,
             async json() {
               if (bad) throw new Error("bad json");
               return rows;
@@ -59,16 +76,14 @@ function mockEnv({
   };
 }
 
-test("loadStagedEvents loads JSON via parameterized batches + deletes it (#1346)", async () => {
+test("loadStagedEvents loads signed JSON via parameterized batches + deletes it (#1346)", async () => {
   const rows = Array.from({ length: 12 }, (_, i) => eventRow(1000 + i, i));
-  const m = mockEnv({ rows });
+  const m = mockEnv({ rows: signedEnvelope(rows) });
   const r = await loadStagedEvents(m.env);
   assert.equal(r.ok, true);
   assert.equal(r.rows, 12);
   assert.deepEqual(m.getCalls, ["events/account-events-pending.json"]);
-  // 12 rows / 10 per statement = 2 statements, one batch (<=50).
   assert.deepEqual(m.batches, [2]);
-  // Idempotent + parameterized: INSERT OR IGNORE keyed (block,index), values bound.
   assert.ok(m.prepared[0].startsWith("INSERT OR IGNORE INTO account_events ("));
   assert.ok(m.prepared[0].includes("VALUES (?"));
   assert.ok(
@@ -88,14 +103,33 @@ test("loadStagedEvents no-ops when nothing is staged", async () => {
 });
 
 test("loadStagedEvents deletes + bails on unparseable JSON", async () => {
-  const m = mockEnv({ rows: [], bad: true });
+  const m = mockEnv({ rows: signedEnvelope([]), bad: true });
   const r = await loadStagedEvents(m.env);
   assert.equal(r.reason, "parse_failed");
   assert.deepEqual(m.deleted, ["events/account-events-pending.json"]);
 });
 
+test("loadStagedEvents rejects an unsigned envelope", async () => {
+  const rows = [eventRow(1000, 0)];
+  const m = mockEnv({ rows });
+  const r = await loadStagedEvents(m.env);
+  assert.equal(r.reason, "unauthenticated");
+  assert.equal(m.batches.length, 0);
+  assert.deepEqual(m.deleted, ["events/account-events-pending.json"]);
+});
+
+test("loadStagedEvents rejects a bad HMAC", async () => {
+  const rows = [eventRow(1000, 0)];
+  const envelope = signedEnvelope(rows);
+  envelope.hmac_sha256 = "0".repeat(64);
+  const m = mockEnv({ rows: envelope });
+  const r = await loadStagedEvents(m.env);
+  assert.equal(r.reason, "unauthenticated");
+  assert.equal(m.batches.length, 0);
+});
+
 test("loadStagedEvents drops rows lacking the (block, index) key", async () => {
-  const m = mockEnv({ rows: [{ event_kind: "X" }] }); // no block_number/event_index
+  const m = mockEnv({ rows: signedEnvelope([{ event_kind: "StakeAdded" }]) });
   const r = await loadStagedEvents(m.env);
   assert.equal(r.reason, "empty");
   assert.equal(m.batches.length, 0);
@@ -105,11 +139,11 @@ test("loadStagedEvents drops rows lacking the (block, index) key", async () => {
 test("loadStagedEvents drops rows missing required insert fields", async () => {
   const valid = eventRow(1000, 0);
   const m = mockEnv({
-    rows: [
+    rows: signedEnvelope([
       { ...valid, observed_at: null },
       { ...valid, event_index: 1, event_kind: null },
       { ...valid, event_index: 2 },
-    ],
+    ]),
   });
   const r = await loadStagedEvents(m.env);
   assert.equal(r.ok, true);
@@ -127,20 +161,20 @@ test("loadStagedEvents is a safe no-op without bindings", async () => {
 test("handleScheduled fast-load cron drains staged batches + skips the probe (#1346 Option A)", async () => {
   const drained = [];
   const env = {
+    METAGRAPH_STAGING_SIGNING_KEY: SIGNING_KEY,
     METAGRAPH_ARCHIVE: {
       async get(key) {
-        // Only the events batch is staged; the neuron key returns nothing.
         return key === "events/account-events-pending.json"
           ? {
               async json() {
-                return [
+                return signedEnvelope([
                   {
                     block_number: 1,
                     event_index: 0,
                     event_kind: "StakeAdded",
                     observed_at: 1,
                   },
-                ];
+                ]);
               },
             }
           : null;
@@ -157,7 +191,6 @@ test("handleScheduled fast-load cron drains staged batches + skips the probe (#1
     },
   };
   const r = await handleScheduled({ cron: EVENTS_LOAD_CRON }, env, {});
-  // Early-returns the fast-load marker (i.e. never falls through to the prober).
   assert.deepEqual(r, { ok: true, fast_load: true });
   assert.ok(
     drained.includes("events/account-events-pending.json"),

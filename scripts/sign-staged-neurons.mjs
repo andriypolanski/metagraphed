@@ -12,7 +12,7 @@ if (!inputPath || !key) {
 
 const rows = JSON.parse(readFileSync(inputPath, "utf8"));
 if (!Array.isArray(rows))
-  throw new Error("staged neurons payload must be an array");
+  throw new Error("staged payload must be a JSON array");
 const payload = JSON.stringify(rows);
 const hmac_sha256 = createHmac("sha256", key).update(payload).digest("hex");
 writeFileSync(
