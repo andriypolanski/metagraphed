@@ -129,3 +129,115 @@ export async function pruneAccountEvents(env, overrides = {}) {
     return { pruned: false };
   }
 }
+
+// Keep only well-formed account_events rows (a valid (block_number, event_index)
+// primary key). Shared by the staged-batch loader (#1346) and the realtime ingest
+// endpoint (#1360) so both reject garbage identically.
+export function validEventRows(rows) {
+  return Array.isArray(rows)
+    ? rows.filter(
+        (r) =>
+          Number.isInteger(r?.block_number) &&
+          Number.isInteger(r?.event_index) &&
+          typeof r?.event_kind === "string" &&
+          Number.isInteger(r?.observed_at),
+      )
+    : [];
+}
+
+// Build parameterized INSERT OR IGNORE statements for account_events rows, chunked
+// under D1's 100-bound-param limit (9 cols x 10 = 90). Idempotent on (block_number,
+// event_index). Values are ALWAYS bound, never interpolated — a tampered payload
+// can only fail, never inject. Shared by loadStagedEvents (#1346) + the ingest
+// endpoint (#1360).
+export function eventInsertStatements(db, rows) {
+  const cols = EVENT_INSERT_COLUMNS;
+  const colList = cols.join(",");
+  const ROWS_PER_STMT = 10;
+  const statements = [];
+  for (let i = 0; i < rows.length; i += ROWS_PER_STMT) {
+    const chunk = rows.slice(i, i + ROWS_PER_STMT);
+    const tuples = chunk
+      .map(() => `(${cols.map(() => "?").join(",")})`)
+      .join(",");
+    const values = chunk.flatMap((row) => cols.map((c) => row[c] ?? null));
+    statements.push(
+      db
+        .prepare(
+          `INSERT OR IGNORE INTO account_events (${colList}) VALUES ${tuples}`,
+        )
+        .bind(...values),
+    );
+  }
+  return statements;
+}
+
+// ---- Entity API builders (#1347) -------------------------------------------
+// The columns the account handlers SELECT for an event row.
+export const ACCOUNT_EVENT_COLUMNS =
+  "block_number, event_index, event_kind, hotkey, coldkey, netuid, uid, amount_tao, observed_at";
+
+// One neurons-table row (subset) → an AccountRegistration: where this hotkey is
+// currently registered + staked (the live cross-subnet footprint).
+export function formatRegistration(row) {
+  if (!row || typeof row !== "object") return null;
+  return {
+    netuid: row.netuid ?? null,
+    uid: row.uid ?? null,
+    stake_tao: row.stake_tao ?? null,
+    validator_permit: Boolean(row.validator_permit),
+    active: Boolean(row.active),
+  };
+}
+
+// Cross-subnet account summary: event-history aggregates (from account_events,
+// matched by hotkey OR coldkey) joined to current registrations (from neurons,
+// by hotkey). `agg` is the single aggregate row; kinds/registrations/recent are
+// row arrays. Null-safe on a cold/absent store (returns a schema-stable zero).
+export function buildAccountSummary(
+  ss58,
+  { agg, kinds, registrations, recent } = {},
+) {
+  const a = agg || {};
+  return {
+    schema_version: 1,
+    ss58,
+    event_count: a.c ?? 0,
+    subnet_count: a.sc ?? 0,
+    first_block: a.fb ?? null,
+    last_block: a.lb ?? null,
+    first_seen_at: toIso(a.fo),
+    last_seen_at: toIso(a.lo),
+    event_kinds: (kinds || [])
+      .filter((k) => k && k.kind)
+      .map((k) => ({ kind: k.kind, count: k.count ?? 0 })),
+    registrations: (registrations || [])
+      .map(formatRegistration)
+      .filter(Boolean),
+    recent_events: (recent || []).map(formatAccountEvent).filter(Boolean),
+  };
+}
+
+// Paginated event history for one account (newest first).
+export function buildAccountEvents(rows, ss58, { limit, offset } = {}) {
+  const events = (rows || []).map(formatAccountEvent).filter(Boolean);
+  return {
+    schema_version: 1,
+    ss58,
+    event_count: events.length,
+    limit: limit ?? null,
+    offset: offset ?? null,
+    events,
+  };
+}
+
+// The subnets where this account's hotkey is currently registered.
+export function buildAccountSubnets(rows, ss58) {
+  const subnets = (rows || []).map(formatRegistration).filter(Boolean);
+  return {
+    schema_version: 1,
+    ss58,
+    subnet_count: subnets.length,
+    subnets,
+  };
+}
