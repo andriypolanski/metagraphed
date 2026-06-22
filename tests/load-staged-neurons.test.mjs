@@ -39,6 +39,22 @@ function signedEnvelope(rows, key = SIGNING_KEY) {
   };
 }
 
+function signedCoverageEnvelope(
+  rows,
+  refreshed_netuids,
+  captured_at,
+  key = SIGNING_KEY,
+) {
+  const payload = JSON.stringify({ rows, refreshed_netuids, captured_at });
+  return {
+    schema_version: 1,
+    hmac_sha256: createHmac("sha256", key).update(payload).digest("hex"),
+    rows,
+    refreshed_netuids,
+    captured_at,
+  };
+}
+
 function mockEnv({
   rows,
   bad = false,
@@ -46,6 +62,7 @@ function mockEnv({
   deleted = [],
   prepared = [],
   batches = [],
+  runs = [],
   size,
 }) {
   return {
@@ -70,7 +87,16 @@ function mockEnv({
       METAGRAPH_HEALTH_DB: {
         prepare(sql) {
           prepared.push(sql);
-          return { bind: (...v) => ({ sql, v }) };
+          return {
+            bind: (...v) => ({
+              sql,
+              v,
+              async run() {
+                runs.push({ sql, v });
+                return { meta: { changes: 1 } };
+              },
+            }),
+          };
         },
         async batch(stmts) {
           batches.push(stmts.length);
@@ -81,6 +107,7 @@ function mockEnv({
     deleted,
     prepared,
     batches,
+    runs,
   };
 }
 
@@ -192,4 +219,29 @@ test("loadStagedNeurons rejects rows that fail per-field bounding (#1360)", asyn
     assert.equal(m.batches.length, 0, `${name} must never reach a D1 write`);
     assert.deepEqual(m.deleted, ["metagraph/neurons-pending.json"]);
   }
+});
+
+test("loadStagedNeurons purges prior-capture rows within refreshed subnets", async () => {
+  const captured_at = 2_000_000_000_000;
+  const rows = [{ ...neuronRow(1, 0), captured_at }];
+  const m = mockEnv({
+    rows: signedCoverageEnvelope(rows, [1], captured_at),
+  });
+  const r = await loadStagedNeurons(m.env);
+  assert.equal(r.ok, true);
+  assert.equal(r.purged, 1);
+  const purge = m.runs.find((run) => run.sql.includes("DELETE FROM neurons"));
+  assert.ok(purge);
+  assert.deepEqual(purge.v, [1, captured_at]);
+});
+
+test("loadStagedNeurons rejects coverage metadata that disagrees with row captured_at", async () => {
+  const captured_at = 2_000_000_000_000;
+  const rows = [{ ...neuronRow(1, 0), captured_at: captured_at + 1 }];
+  const m = mockEnv({
+    rows: signedCoverageEnvelope(rows, [1], captured_at),
+  });
+  const r = await loadStagedNeurons(m.env);
+  assert.equal(r.reason, "invalid");
+  assert.equal(m.batches.length, 0);
 });

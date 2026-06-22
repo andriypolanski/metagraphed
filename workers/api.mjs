@@ -251,6 +251,65 @@ const MAX_STAGED_NEURON_ROWS = 50_000;
 const MAX_STAGED_NEURON_STRING_BYTES = 512;
 const MAX_STAGED_NETUID = 65_535;
 const MAX_STAGED_UID = 65_535;
+const MAX_STAGED_REFRESHED_NETUIDS = 256;
+
+function neuronStagingSignPayload(rows, refreshed_netuids, captured_at) {
+  if (refreshed_netuids == null && captured_at == null) {
+    return JSON.stringify(rows);
+  }
+  return JSON.stringify({ rows, refreshed_netuids, captured_at });
+}
+
+function parseNeuronStagingMeta(envelope, rows) {
+  const hasRefreshed = envelope?.refreshed_netuids !== undefined;
+  const hasCaptured = envelope?.captured_at !== undefined;
+  if (!hasRefreshed && !hasCaptured) {
+    return { legacy: true };
+  }
+  if (!hasRefreshed || !hasCaptured) {
+    return { invalid: true };
+  }
+  const refreshed_netuids = envelope.refreshed_netuids;
+  const captured_at = envelope.captured_at;
+  if (
+    !Array.isArray(refreshed_netuids) ||
+    refreshed_netuids.length > MAX_STAGED_REFRESHED_NETUIDS ||
+    !Number.isInteger(captured_at) ||
+    captured_at < 0
+  ) {
+    return { invalid: true };
+  }
+  const refreshedSet = new Set();
+  for (const netuid of refreshed_netuids) {
+    if (
+      !Number.isInteger(netuid) ||
+      netuid < 0 ||
+      netuid > MAX_STAGED_NETUID ||
+      refreshedSet.has(netuid)
+    ) {
+      return { invalid: true };
+    }
+    refreshedSet.add(netuid);
+  }
+  for (const row of rows) {
+    if (row.captured_at !== captured_at || !refreshedSet.has(row.netuid)) {
+      return { invalid: true };
+    }
+  }
+  return { legacy: false, refreshed_netuids, captured_at };
+}
+
+async function purgeStaleNeuronRows(db, refreshed_netuids, captured_at) {
+  let purged = 0;
+  for (const netuid of refreshed_netuids) {
+    const result = await db
+      .prepare(`DELETE FROM neurons WHERE netuid = ? AND captured_at < ?`)
+      .bind(netuid, captured_at)
+      .run();
+    purged += result?.meta?.changes ?? 0;
+  }
+  return purged;
+}
 
 function utf8Bytes(value) {
   return new TextEncoder().encode(value);
@@ -314,7 +373,9 @@ function validStagedNeuronRow(row) {
 // using its existing R2 permission; we load only authenticated, bounded,
 // schema-valid rows through the METAGRAPH_HEALTH_DB binding — which needs no
 // API-token D1 permission — with PARAMETERIZED inserts (values are always bound,
-// never interpolated), then delete the object so it loads exactly once.
+// never interpolated), then delete prior-capture rows within refreshed subnets
+// so deregistered UIDs do not linger after a partial refresh. Then delete the
+// staged object so it loads exactly once.
 export async function loadStagedNeurons(env) {
   const bucket = env.METAGRAPH_ARCHIVE;
   const db = env.METAGRAPH_HEALTH_DB;
@@ -347,14 +408,26 @@ export async function loadStagedNeurons(env) {
     await bucket.delete(STAGED_NEURONS_KEY);
     return { ok: false, reason: "too_many_rows" };
   }
-  const expected = await hmacHex(signingKey, JSON.stringify(rows));
-  if (!timingSafeStringEqual(expected, envelope.hmac_sha256)) {
-    await bucket.delete(STAGED_NEURONS_KEY);
-    return { ok: false, reason: "unauthenticated" };
-  }
   if (!rows.length || rows.some((row) => !validStagedNeuronRow(row))) {
     await bucket.delete(STAGED_NEURONS_KEY);
     return { ok: false, reason: "invalid" };
+  }
+  const stagingMeta = parseNeuronStagingMeta(envelope, rows);
+  if (stagingMeta.invalid) {
+    await bucket.delete(STAGED_NEURONS_KEY);
+    return { ok: false, reason: "invalid" };
+  }
+  const expected = await hmacHex(
+    signingKey,
+    neuronStagingSignPayload(
+      rows,
+      stagingMeta.legacy ? null : stagingMeta.refreshed_netuids,
+      stagingMeta.legacy ? null : stagingMeta.captured_at,
+    ),
+  );
+  if (!timingSafeStringEqual(expected, envelope.hmac_sha256)) {
+    await bucket.delete(STAGED_NEURONS_KEY);
+    return { ok: false, reason: "unauthenticated" };
   }
   const cols = NEURON_INSERT_COLUMNS;
   const colList = cols.join(",");
@@ -376,8 +449,20 @@ export async function loadStagedNeurons(env) {
   for (let i = 0; i < statements.length; i += STMTS_PER_BATCH) {
     await db.batch(statements.slice(i, i + STMTS_PER_BATCH));
   }
+  let purged = 0;
+  if (!stagingMeta.legacy) {
+    try {
+      purged = await purgeStaleNeuronRows(
+        db,
+        stagingMeta.refreshed_netuids,
+        stagingMeta.captured_at,
+      );
+    } catch {
+      return { ok: false, reason: "purge_failed" };
+    }
+  }
   await bucket.delete(STAGED_NEURONS_KEY);
-  return { ok: true, rows: rows.length };
+  return { ok: true, rows: rows.length, purged };
 }
 
 // Load a staged chain-event batch from R2 into D1 (#1346, epic #1345). The
