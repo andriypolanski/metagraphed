@@ -148,6 +148,33 @@ describe("neuronsSnapshotReadyForDailyRollup", () => {
 
   test("returns false without a DB binding", async () => {
     assert.equal(await neuronsSnapshotReadyForDailyRollup(null), false);
+    assert.equal(await neuronsSnapshotReadyForDailyRollup({}), false);
+  });
+
+  test("returns false when the completeness probe throws", async () => {
+    const db = {
+      prepare() {
+        return {
+          bind() {
+            return { all: () => Promise.reject(new Error("D1 down")) };
+          },
+        };
+      },
+    };
+    assert.equal(await neuronsSnapshotReadyForDailyRollup(db), false);
+  });
+
+  test("returns true when the probe response omits results", async () => {
+    const db = {
+      prepare() {
+        return {
+          bind() {
+            return { all: () => Promise.resolve({}) };
+          },
+        };
+      },
+    };
+    assert.equal(await neuronsSnapshotReadyForDailyRollup(db), true);
   });
 });
 
