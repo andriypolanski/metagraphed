@@ -79,6 +79,7 @@ import {
   formatPercentiles,
   formatRpcUsage,
   formatTrends,
+  formatTrajectory,
   formatUptime,
   INCIDENT_GAP_MS,
   MIN_INCIDENT_SAMPLES,
@@ -92,7 +93,6 @@ import {
   overlayRpcPoolEligibility,
   overlaySubnetEconomics,
   overlaySubnetHealth,
-  loadSubnetTrajectory,
   resolveLiveEconomics,
   resolveLiveHealth,
 } from "../src/health-serving.mjs";
@@ -2489,7 +2489,7 @@ async function handleHealthTrends(request, env, netuid, url, ctx = {}) {
     const windowRows = await Promise.all(
       Object.entries(HEALTH_TREND_WINDOWS).map(async ([label, days]) => {
         if (!db?.prepare) {
-          return [label, []];
+          return [label, markD1FallbackRows([])];
         }
         try {
           const result = await withTimeout(
@@ -2609,7 +2609,7 @@ function markD1FallbackResponse(response) {
 
 async function d1All(env, sql, params) {
   const db = env.METAGRAPH_HEALTH_DB;
-  if (!db?.prepare) return [];
+  if (!db?.prepare) return markD1FallbackRows([]);
   try {
     const result = await withTimeout(
       db
@@ -2894,7 +2894,7 @@ async function handleGlobalIncidents(request, env, url) {
     incidentRows,
     maxIncidents: MAX_INCIDENT_ROWS,
   });
-  return envelopeResponse(
+  const response = envelopeResponse(
     request,
     {
       data,
@@ -2906,14 +2906,28 @@ async function handleGlobalIncidents(request, env, url) {
     },
     "short",
   );
+  return hasD1FallbackRows(incidentRows)
+    ? markD1FallbackResponse(response)
+    : response;
 }
 
 // Week-over-week structural trajectory from daily snapshots.
 async function handleTrajectory(request, env, netuid, url) {
   const validationError = validateQueryParams(url, []);
   if (validationError) return analyticsQueryError(validationError);
-  const data = await loadSubnetTrajectory(d1Runner(env), netuid);
-  return envelopeResponse(
+  const rows = await d1All(
+    env,
+    `SELECT snapshot_date, completeness_score, surface_count, endpoint_count,
+            validator_count, miner_count, total_stake_tao, alpha_price_tao,
+            emission_share
+     FROM subnet_snapshots
+     WHERE netuid = ?
+     ORDER BY snapshot_date DESC
+     LIMIT 400`,
+    [netuid],
+  );
+  const data = formatTrajectory({ netuid, rows });
+  const response = envelopeResponse(
     request,
     {
       data,
@@ -2925,6 +2939,9 @@ async function handleTrajectory(request, env, netuid, url) {
     },
     "short",
   );
+  return hasD1FallbackRows(rows)
+    ? markD1FallbackResponse(response)
+    : response;
 }
 
 // --- Per-UID metagraph (#1304/#1305): served live from the neurons D1 tier ---
@@ -3377,7 +3394,7 @@ async function handleUptime(request, env, netuid, url) {
     rows,
     now: new Date().toISOString(),
   });
-  return envelopeResponse(
+  const response = envelopeResponse(
     request,
     {
       data,
@@ -3389,6 +3406,9 @@ async function handleUptime(request, env, netuid, url) {
     },
     "short",
   );
+  return hasD1FallbackRows(rows)
+    ? markD1FallbackResponse(response)
+    : response;
 }
 
 // Small {meta, completeness} projection over profiles.json, cached in-isolate.
@@ -3546,7 +3566,7 @@ async function handleLeaderboards(request, env, url) {
     economicsRows,
     subnetMeta,
   });
-  return envelopeResponse(
+  const response = envelopeResponse(
     request,
     {
       data,
@@ -3560,6 +3580,9 @@ async function handleLeaderboards(request, env, url) {
     },
     "standard",
   );
+  return hasD1FallbackRows(healthRows, rpcRows, growthSamples)
+    ? markD1FallbackResponse(response)
+    : response;
 }
 
 // The data domains /api/v1/compare can place side by side: registry structure
@@ -3746,7 +3769,7 @@ async function handleCompare(request, env, url) {
     healthRows,
     observedAt: meta?.last_run_at ?? null,
   });
-  return envelopeResponse(
+  const response = envelopeResponse(
     request,
     {
       data,
@@ -3760,6 +3783,9 @@ async function handleCompare(request, env, url) {
     },
     "standard",
   );
+  return hasD1FallbackRows(healthRows)
+    ? markD1FallbackResponse(response)
+    : response;
 }
 
 // Best-effort, async usage telemetry for the RPC proxy (B3). A telemetry write

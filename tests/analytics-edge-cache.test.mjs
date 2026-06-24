@@ -367,6 +367,80 @@ describe("analytics edge cache", () => {
     assert.equal(cache.store.size, 0);
   });
 
+  test("NO-CACHE-ON-ERROR: D1 fallback on the five additional edge-cached routes is not cached", async () => {
+    const routes = [
+      {
+        path: "/api/v1/registry/leaderboards",
+        search: "",
+      },
+      {
+        path: "/api/v1/incidents",
+        search: "?window=7d",
+      },
+      {
+        path: "/api/v1/subnets/7/trajectory",
+        search: "",
+      },
+      {
+        path: "/api/v1/subnets/7/uptime",
+        search: "?window=90d",
+      },
+      {
+        path: "/api/v1/compare",
+        search: "?netuids=7",
+      },
+    ];
+    originalCaches = globalThis.caches;
+    for (const r of routes) {
+      const cache = mockCaches();
+      cache.install();
+      const queries = [];
+      const env = analyticsEnv(queries, {
+        d1Error: new Error("D1 unavailable"),
+      });
+      const url = `https://api.metagraph.sh${r.path}${r.search}`;
+
+      const res = await handleRequest(new Request(url), env, ctx);
+      await Promise.resolve();
+      assert.equal(res.status, 200, `${r.path}: fallback is still 200`);
+      assert.deepEqual(
+        cache.putKeys,
+        [],
+        `${r.path}: D1 fallback must not poison the edge cache`,
+      );
+      assert.equal(cache.store.size, 0, `${r.path}: cache stays empty`);
+    }
+  });
+
+  test("NO-CACHE-ON-ERROR: an unbound D1 binding with a warm snapshot stamp is not cached", async () => {
+    originalCaches = globalThis.caches;
+    const cache = mockCaches();
+    cache.install();
+    const env = {
+      ...createLocalArtifactEnv(),
+      METAGRAPH_HEALTH_DB: {},
+      METAGRAPH_CONTROL: {
+        async get(key) {
+          return key === "health:meta" ? { last_run_at: LAST_RUN_AT } : null;
+        },
+      },
+    };
+
+    const res = await handleRequest(
+      new Request("https://api.metagraph.sh/api/v1/registry/leaderboards"),
+      env,
+      ctx,
+    );
+    await Promise.resolve();
+    assert.equal(res.status, 200);
+    assert.deepEqual(
+      cache.putKeys,
+      [],
+      "an unbound D1 cold fallback must not seed the edge cache",
+    );
+    assert.equal(cache.store.size, 0);
+  });
+
   test("transparency: the cached body equals the uncached body for the same handler", async () => {
     // Same request, once with the cache stubbed and once without — the served
     // body must be byte-identical (the cache adds nothing to the payload).
