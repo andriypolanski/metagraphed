@@ -1287,6 +1287,14 @@ export async function handleScheduled(controller, env = {}, ctx = {}) {
     // for deletion, so a day is never dropped from D1 before it exists in R2. Its
     // own cron minute so the ~33k-row work never piles onto the probe/prune/fast
     // crons; each step is .catch-isolated.
+    //
+    // Drain any pending R2-staged neuron snapshot BEFORE rolling up so the daily
+    // row is taken against a fully loaded metagraph, not a concurrent */3 load
+    // mid-batch. rollupNeuronDaily also skips when mixed captured_at stamps remain.
+    const staged = await loadStagedNeurons(env).catch(() => ({
+      ok: false,
+      reason: "load-error",
+    }));
     const rolled = await rollupNeuronDaily(env).catch(() => ({
       rolled: false,
     }));
@@ -1302,7 +1310,7 @@ export async function handleScheduled(controller, env = {}, ctx = {}) {
       archived.archived && archivedPrunable.archived
         ? await pruneNeuronDaily(env).catch(() => ({ pruned: false }))
         : { pruned: false, reason: "archive-not-confirmed" };
-    return { rolled, archived, archivedPrunable, pruned };
+    return { staged, rolled, archived, archivedPrunable, pruned };
   }
   return runHealthProber(env, ctx);
 }

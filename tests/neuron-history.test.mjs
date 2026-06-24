@@ -3,6 +3,7 @@ import { describe, test } from "vitest";
 import {
   parseHistoryWindow,
   rollupNeuronDaily,
+  neuronsSnapshotReadyForDailyRollup,
   archiveNeuronDaily,
   archivePrunableNeuronDaily,
   pruneNeuronDaily,
@@ -19,6 +20,39 @@ import {
 import { handleRequest, handleScheduled } from "../workers/api.mjs";
 import { NEURON_HISTORY_ROLLUP_CRON } from "../workers/config.mjs";
 import { createLocalArtifactEnv } from "../scripts/lib.mjs";
+
+const ctx = { waitUntil: (promise) => promise };
+
+function isPartialNeuronsSnapshotProbe(sql) {
+  return sql.includes("FROM neurons n_latest") && sql.includes("n_old");
+}
+
+function rollupDb({ run, partialSnapshot = false, onRun } = {}) {
+  return {
+    prepare(sql) {
+      return {
+        bind(...params) {
+          return {
+            all: () => {
+              if (isPartialNeuronsSnapshotProbe(sql)) {
+                return Promise.resolve({
+                  results: partialSnapshot ? [{ partial: 1 }] : [],
+                });
+              }
+              return Promise.resolve({ results: [] });
+            },
+            run: () => {
+              onRun?.(sql, params);
+              return run
+                ? run(sql, params)
+                : Promise.resolve({ meta: { changes: 42 } });
+            },
+          };
+        },
+      };
+    },
+  };
+}
 
 // A neuron_daily read row (NEURON_DAILY_READ_COLUMNS shape: snapshot_date + the
 // live neuron columns) — formatNeuron consumes the same fields.
@@ -65,8 +99,6 @@ function historyEnv(rows, captured = {}) {
   };
 }
 
-const ctx = { waitUntil: (p) => p };
-
 describe("parseHistoryWindow", () => {
   test("accepts the documented windows + defaults", () => {
     assert.deepEqual(parseHistoryWindow("7d"), { label: "7d", days: 7 });
@@ -103,21 +135,32 @@ describe("isValidSnapshotDate", () => {
   });
 });
 
+describe("neuronsSnapshotReadyForDailyRollup", () => {
+  test("returns true when no subnet mixes latest and older captured_at stamps", async () => {
+    const env = rollupDb();
+    assert.equal(await neuronsSnapshotReadyForDailyRollup(env), true);
+  });
+
+  test("returns false when a subnet still has mixed captured_at stamps", async () => {
+    const env = rollupDb({ partialSnapshot: true });
+    assert.equal(await neuronsSnapshotReadyForDailyRollup(env), false);
+  });
+
+  test("returns false without a DB binding", async () => {
+    assert.equal(await neuronsSnapshotReadyForDailyRollup(null), false);
+  });
+});
+
 describe("rollupNeuronDaily", () => {
   test("issues a single INSERT...SELECT with a consistent captured_at snapshot + idempotent upsert", async () => {
     const captured = {};
     const env = {
-      METAGRAPH_HEALTH_DB: {
-        prepare(sql) {
+      METAGRAPH_HEALTH_DB: rollupDb({
+        onRun: (sql, params) => {
           captured.sql = sql;
-          return {
-            bind(...params) {
-              captured.params = params;
-              return { run: () => Promise.resolve({ meta: { changes: 42 } }) };
-            },
-          };
+          captured.params = params;
         },
-      },
+      }),
     };
     const res = await rollupNeuronDaily(env, { now: 1_780_000_000_001 });
     assert.deepEqual(res, { rolled: true, rows: 42 });
@@ -139,15 +182,23 @@ describe("rollupNeuronDaily", () => {
     });
   });
 
+  test("skips rollup when the live neurons table has a partial snapshot load", async () => {
+    const env = {
+      METAGRAPH_HEALTH_DB: rollupDb({ partialSnapshot: true }),
+    };
+    assert.deepEqual(await rollupNeuronDaily(env, { now: 1 }), {
+      rolled: false,
+      reason: "incomplete-snapshot",
+    });
+  });
+
   test("reports rows:null when the run result omits meta.changes", async () => {
     // A run() that returns no `.meta.changes` must surface rows:null, exercising
     // the `?? null` fallback rather than leaking undefined.
     const env = {
-      METAGRAPH_HEALTH_DB: {
-        prepare() {
-          return { bind: () => ({ run: () => Promise.resolve({}) }) };
-        },
-      },
+      METAGRAPH_HEALTH_DB: rollupDb({
+        run: () => Promise.resolve({}),
+      }),
     };
     const res = await rollupNeuronDaily(env, { now: 1 });
     assert.equal(res.rolled, true);
@@ -222,16 +273,10 @@ describe("rollupNeuronDaily idempotency invariant (#1345)", () => {
     // at best, a drift risk at worst).
     const seen = [];
     const env = {
-      METAGRAPH_HEALTH_DB: {
-        prepare(sql) {
-          seen.push(sql);
-          return {
-            bind: () => ({
-              run: () => Promise.resolve({ meta: { changes: 5 } }),
-            }),
-          };
-        },
-      },
+      METAGRAPH_HEALTH_DB: rollupDb({
+        onRun: (sql) => seen.push(sql),
+        run: () => Promise.resolve({ meta: { changes: 5 } }),
+      }),
     };
     await rollupNeuronDaily(env, { now: 1 });
     await rollupNeuronDaily(env, { now: 2 });
@@ -648,6 +693,9 @@ describe("handleScheduled rollup cron (#1345)", () => {
                 return Promise.resolve({ meta: { changes: 1 } });
               },
               all: () => {
+                if (isPartialNeuronsSnapshotProbe(sql)) {
+                  return Promise.resolve({ results: [] });
+                }
                 if (sql.includes("MAX(snapshot_date)")) {
                   return Promise.resolve({ results: [{ day: latestDay }] });
                 }
@@ -696,6 +744,9 @@ describe("handleScheduled rollup cron (#1345)", () => {
             return {
               run: () => Promise.resolve({ meta: { changes: 1 } }),
               all: () => {
+                if (isPartialNeuronsSnapshotProbe(sql)) {
+                  return Promise.resolve({ results: [] });
+                }
                 if (sql.includes("MAX(snapshot_date)")) {
                   return Promise.resolve({ results: [{ day: latestDay }] });
                 }
@@ -752,6 +803,9 @@ describe("handleScheduled rollup cron (#1345)", () => {
                 return Promise.resolve({ meta: { changes: 1 } });
               },
               all: () => {
+                if (isPartialNeuronsSnapshotProbe(sql)) {
+                  return Promise.resolve({ results: [] });
+                }
                 if (sql.includes("MAX(snapshot_date)")) {
                   return Promise.resolve({ results: [{ day: latestDay }] });
                 }

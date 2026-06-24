@@ -51,11 +51,37 @@ function toIso(ms) {
   return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
 }
 
+// True when no subnet represented at the latest captured_at stamp still carries
+// older captured_at rows — the signature of a mid-batch loadStagedNeurons run.
+export async function neuronsSnapshotReadyForDailyRollup(db) {
+  if (!db?.prepare) return false;
+  try {
+    const result = await db
+      .prepare(
+        `SELECT 1 AS partial
+         FROM neurons n_latest
+         WHERE n_latest.captured_at = (SELECT MAX(captured_at) FROM neurons)
+           AND EXISTS (
+             SELECT 1 FROM neurons n_old
+             WHERE n_old.netuid = n_latest.netuid
+               AND n_old.captured_at < n_latest.captured_at
+           )
+         LIMIT 1`,
+      )
+      .bind()
+      .all();
+    return (result?.results?.length ?? 0) === 0;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Daily rollup: snapshot the current `neurons` table into `neuron_daily` for the
  * captured UTC day. A single atomic INSERT...SELECT in the health DB:
- *  - WHERE captured_at = MAX(captured_at): one consistent snapshot stamp, so a
- *    concurrent partial load can't bleed two stamps into a single day.
+ *  - Pre-check: skip when any refreshed subnet still has mixed captured_at stamps
+ *    (a concurrent loadStagedNeurons mid-batch would corrupt the daily row).
+ *  - WHERE captured_at = MAX(captured_at): one consistent snapshot stamp.
  *  - snapshot_date = the UTC day of that captured_at, computed in SQL.
  *  - ON CONFLICT(netuid,uid,snapshot_date) DO UPDATE: intra-day re-runs are
  *    idempotent (the row reflects the last capture that UTC day).
@@ -65,6 +91,9 @@ function toIso(ms) {
 export async function rollupNeuronDaily(env, { now = Date.now() } = {}) {
   const db = env?.METAGRAPH_HEALTH_DB;
   if (!db?.prepare) return { rolled: false, reason: "no-db" };
+  if (!(await neuronsSnapshotReadyForDailyRollup(db))) {
+    return { rolled: false, reason: "incomplete-snapshot" };
+  }
   const cols = ROLLUP_COLUMNS.join(", ");
   const setClause = ROLLUP_COLUMNS.filter((c) => c !== "netuid" && c !== "uid")
     .map((c) => `${c} = excluded.${c}`)
