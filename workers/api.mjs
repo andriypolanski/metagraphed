@@ -794,20 +794,26 @@ export async function handleScheduled(controller, env = {}, ctx = {}) {
     // for deletion, so a day is never dropped from D1 before it exists in R2. Its
     // own cron minute so the ~33k-row work never piles onto the probe/prune/fast
     // crons; each step is .catch-isolated.
+    // Pin a single `now` so the backlog archive and the prune derive the SAME
+    // retention cutoff. The archive does ~33k-row R2 work and can straddle a UTC
+    // midnight; if archive and prune each called Date.now() independently, the
+    // prune's cutoff could be one day larger and delete a day from D1 that the
+    // archive never wrote to R2 — the exact gap this archive-before-prune closes.
+    const now = Date.now();
     const rolled = await rollupNeuronDaily(env).catch(() => ({
       rolled: false,
     }));
     const archived = await archiveNeuronDaily(env).catch(() => ({
       archived: false,
     }));
-    const archivedPrunable = await archivePrunableNeuronDaily(env).catch(
-      () => ({
-        archived: false,
-      }),
-    );
+    const archivedPrunable = await archivePrunableNeuronDaily(env, {
+      now,
+    }).catch(() => ({
+      archived: false,
+    }));
     const pruned =
       archived.archived && archivedPrunable.archived
-        ? await pruneNeuronDaily(env).catch(() => ({ pruned: false }))
+        ? await pruneNeuronDaily(env, { now }).catch(() => ({ pruned: false }))
         : { pruned: false, reason: "archive-not-confirmed" };
     return { rolled, archived, archivedPrunable, pruned };
   }
