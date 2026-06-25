@@ -47,9 +47,13 @@ import {
   buildAccountEvents,
   buildAccountSubnets,
   buildAccountSummary,
+  buildAccountTransfers,
+  buildAccountHistory,
   buildSubnetEvents,
+  buildBlockEvents,
   formatAccountEvent,
 } from "../../src/account-events.mjs";
+import { decodeCursor, encodeCursor } from "../../src/cursor.mjs";
 import {
   BLOCK_READ_COLUMNS,
   buildBlock,
@@ -302,7 +306,12 @@ export async function handleAccount(request, env, ss58) {
 // GET /api/v1/accounts/{ss58}/events: paginated event history (newest first),
 // optional ?kind= filter, ?limit (<=1000) / ?offset.
 export async function handleAccountEvents(request, env, ss58, url) {
-  const validationError = validateQueryParams(url, ["kind", "limit", "offset"]);
+  const validationError = validateQueryParams(url, [
+    "kind",
+    "limit",
+    "offset",
+    "cursor",
+  ]);
   if (validationError) return analyticsQueryError(validationError);
   const limit = clampInt(url.searchParams.get("limit"), 100, 1, 1000);
   const offset = clampInt(url.searchParams.get("offset"), 0, 0, 1_000_000);
@@ -313,10 +322,29 @@ export async function handleAccountEvents(request, env, ss58, url) {
     sql += " AND event_kind = ?";
     params.push(kind);
   }
-  sql += " ORDER BY block_number DESC, event_index DESC LIMIT ? OFFSET ?";
-  params.push(limit, offset);
+  // Keyset cursor (#1851): a row-value seek on (block_number, event_index). The
+  // within-block tiebreak (event_index) isn't in the per-account access indexes
+  // (idx_account_events_hotkey, idx_account_events_coldkey), so it's a small
+  // per-block in-memory sort — acceptable at per-account volume. Takes precedence
+  // over offset; malformed cursor → ignored.
+  const cur = decodeCursor(url.searchParams.get("cursor"), 2);
+  const useCursor = Boolean(cur);
+  if (useCursor) {
+    sql += " AND (block_number, event_index) < (?, ?)";
+    params.push(cur[0], cur[1]);
+  }
+  sql += " ORDER BY block_number DESC, event_index DESC LIMIT ?";
+  params.push(limit);
+  if (!useCursor) {
+    sql += " OFFSET ?";
+    params.push(offset);
+  }
   const rows = await d1All(env, sql, params);
-  const data = buildAccountEvents(rows, ss58, { limit, offset });
+  const last = rows.length === limit ? rows[rows.length - 1] : null;
+  const nextCursor = last
+    ? encodeCursor([last.block_number, last.event_index])
+    : null;
+  const data = buildAccountEvents(rows, ss58, { limit, offset, nextCursor });
   return envelopeResponse(
     request,
     {
@@ -325,6 +353,73 @@ export async function handleAccountEvents(request, env, ss58, url) {
         env,
         `/metagraph/accounts/${ss58}/events.json`,
         data.events[0]?.observed_at ?? null,
+      ),
+    },
+    "short",
+  );
+}
+
+// GET /api/v1/accounts/{ss58}/history (#1854): the durable per-day activity
+// series for an account, from the account_events_daily rollup. ?netuid filters
+// to one subnet; ?from / ?to are YYYY-MM-DD bounds (lexicographic on the TEXT
+// `day` column); ?limit (<=1000) / ?offset. Newest day first. Cold/absent store
+// → schema-stable zero (never 404).
+//
+// SCOPE: the rollup writes only hotkey-attributed rows, so an ss58 with no
+// hotkey activity returns zero days even when /events shows activity — a
+// documented limitation of the hotkey-keyed rollup, not a bug (the contract
+// description spells out the contrast with /events in full).
+const ACCOUNT_DAY_COLUMNS =
+  "day, netuid, event_count, event_kinds, first_block, last_block";
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function handleAccountHistory(request, env, ss58, url) {
+  const validationError = validateQueryParams(url, [
+    "netuid",
+    "from",
+    "to",
+    "limit",
+    "offset",
+  ]);
+  if (validationError) return analyticsQueryError(validationError);
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
+  if ((from && !DAY_RE.test(from)) || (to && !DAY_RE.test(to))) {
+    return errorResponse(
+      "invalid_param",
+      "from/to must be YYYY-MM-DD dates.",
+      400,
+    );
+  }
+  const limit = clampInt(url.searchParams.get("limit"), 100, 1, 1000);
+  const offset = clampInt(url.searchParams.get("offset"), 0, 0, 1_000_000);
+  const netuid = url.searchParams.get("netuid");
+  const params = [ss58];
+  let sql = `SELECT ${ACCOUNT_DAY_COLUMNS} FROM account_events_daily WHERE hotkey = ?`;
+  if (netuid != null && /^\d+$/.test(netuid)) {
+    sql += " AND netuid = ?";
+    params.push(Number(netuid));
+  }
+  if (from) {
+    sql += " AND day >= ?";
+    params.push(from);
+  }
+  if (to) {
+    sql += " AND day <= ?";
+    params.push(to);
+  }
+  sql += " ORDER BY day DESC LIMIT ? OFFSET ?";
+  params.push(limit, offset);
+  const rows = await d1All(env, sql, params);
+  const data = buildAccountHistory(rows, ss58, { limit, offset });
+  return envelopeResponse(
+    request,
+    {
+      data,
+      meta: await accountMeta(
+        env,
+        `/metagraph/accounts/${ss58}/history.json`,
+        null,
       ),
     },
     "short",
@@ -355,6 +450,53 @@ export async function handleAccountExtrinsics(request, env, ss58, url) {
         env,
         `/metagraph/accounts/${ss58}/extrinsics.json`,
         data.extrinsics[0]?.observed_at ?? null,
+      ),
+    },
+    "short",
+  );
+}
+
+// GET /api/v1/accounts/{ss58}/transfers: the native-TAO Balances.Transfer feed for
+// this account (#1850), newest first, from the account_events tier (event_kind=
+// 'Transfer', where the poller stores hotkey=from / coldkey=to). ?direction=
+// all|sent|received narrows by side; ?limit (<=1000) / ?offset. This is the
+// native-TAO transfer feed only, NOT a full balance ledger. Cold/absent store →
+// schema-stable zero (never 404).
+export async function handleAccountTransfers(request, env, ss58, url) {
+  const validationError = validateQueryParams(url, [
+    "direction",
+    "limit",
+    "offset",
+  ]);
+  if (validationError) return analyticsQueryError(validationError);
+  const limit = clampInt(url.searchParams.get("limit"), 100, 1, 1000);
+  const offset = clampInt(url.searchParams.get("offset"), 0, 0, 1_000_000);
+  const direction = url.searchParams.get("direction");
+  // sent => this account is the sender (hotkey=from); received => recipient
+  // (coldkey=to); default/all => either side.
+  let sideClause = "(hotkey = ? OR coldkey = ?)";
+  let sideParams = [ss58, ss58];
+  if (direction === "sent") {
+    sideClause = "hotkey = ?";
+    sideParams = [ss58];
+  } else if (direction === "received") {
+    sideClause = "coldkey = ?";
+    sideParams = [ss58];
+  }
+  const rows = await d1All(
+    env,
+    `SELECT ${ACCOUNT_EVENT_COLUMNS} FROM account_events WHERE event_kind = 'Transfer' AND ${sideClause} ORDER BY block_number DESC, event_index DESC LIMIT ? OFFSET ?`,
+    [...sideParams, limit, offset],
+  );
+  const data = buildAccountTransfers(rows, ss58, { limit, offset });
+  return envelopeResponse(
+    request,
+    {
+      data,
+      meta: await accountMeta(
+        env,
+        `/metagraph/accounts/${ss58}/transfers.json`,
+        data.transfers[0]?.observed_at ?? null,
       ),
     },
     "short",
@@ -523,16 +665,36 @@ export async function handleAccountBalance(request, env, ss58) {
 // absent store → schema-stable zero (never throws). Reuses the chain-events meta
 // (source:"chain-events") since the same first-party poller fills this tier.
 export async function handleBlocks(request, env, url) {
-  const validationError = validateQueryParams(url, ["limit", "offset"]);
+  const validationError = validateQueryParams(url, [
+    "limit",
+    "offset",
+    "cursor",
+  ]);
   if (validationError) return analyticsQueryError(validationError);
   const limit = clampInt(url.searchParams.get("limit"), 50, 1, 100);
   const offset = clampInt(url.searchParams.get("offset"), 0, 0, 1_000_000);
-  const rows = await d1All(
-    env,
-    `SELECT ${BLOCK_READ_COLUMNS} FROM blocks ORDER BY block_number DESC LIMIT ? OFFSET ?`,
-    [limit, offset],
-  );
-  const data = buildBlockFeed(rows, { limit, offset });
+  // Keyset cursor (#1851) takes precedence over offset when present: WHERE
+  // block_number < ? (PK-ordered, stable under head inserts). A malformed cursor
+  // decodes to null → ignored (falls back to offset), preserving never-throw.
+  const cur = decodeCursor(url.searchParams.get("cursor"), 1);
+  let rows;
+  if (cur) {
+    rows = await d1All(
+      env,
+      `SELECT ${BLOCK_READ_COLUMNS} FROM blocks WHERE block_number < ? ORDER BY block_number DESC LIMIT ?`,
+      [cur[0], limit],
+    );
+  } else {
+    rows = await d1All(
+      env,
+      `SELECT ${BLOCK_READ_COLUMNS} FROM blocks ORDER BY block_number DESC LIMIT ? OFFSET ?`,
+      [limit, offset],
+    );
+  }
+  // next_cursor only when the page was full (more rows likely); null at the end.
+  const last = rows.length === limit ? rows[rows.length - 1] : null;
+  const nextCursor = last ? encodeCursor([last.block_number]) : null;
+  const data = buildBlockFeed(rows, { limit, offset, nextCursor });
   return envelopeResponse(
     request,
     {
@@ -558,7 +720,23 @@ export async function handleBlock(request, env, ref) {
     : `SELECT ${BLOCK_READ_COLUMNS} FROM blocks WHERE block_number = ? LIMIT 1`;
   const param = isHash ? ref : Number(ref);
   const rows = await d1All(env, sql, [param]);
-  const data = buildBlock(rows[0], ref);
+  // prev/next chain-walk neighbors (#1853): one bounded query for the nearest
+  // STORED block numbers around the resolved height (skips pruned gaps; null at
+  // the window edges). Derived from the resolved row's number (works for the hash
+  // path too). Only when the block resolved — a cold/unknown ref has no anchor.
+  let prev = null;
+  let next = null;
+  const resolvedNumber = rows[0]?.block_number;
+  if (Number.isInteger(resolvedNumber)) {
+    const nbr = await d1All(
+      env,
+      `SELECT MAX(CASE WHEN block_number < ? THEN block_number END) AS prev, MIN(CASE WHEN block_number > ? THEN block_number END) AS next FROM blocks`,
+      [resolvedNumber, resolvedNumber],
+    );
+    prev = nbr[0]?.prev ?? null;
+    next = nbr[0]?.next ?? null;
+  }
+  const data = buildBlock(rows[0], ref, { prev, next });
   return envelopeResponse(
     request,
     {
@@ -617,6 +795,50 @@ export async function handleBlockExtrinsics(request, env, ref, url) {
   );
 }
 
+// GET /api/v1/blocks/{ref}/events: the decoded chain events in one block (#1852),
+// in natural read order (event_index ASC). ref is a numeric block_number OR a 0x
+// block_hash — a hash ref is resolved to its block_number first (idx_blocks_hash),
+// then events are read by the (block_number, event_index) PK prefix. ?limit
+// (<=1000) / ?offset. Unknown ref / cold store → 200 with block_number:null +
+// events:[] (schema-stable, never 404). Mirrors handleBlockExtrinsics.
+export async function handleBlockEvents(request, env, ref, url) {
+  const validationError = validateQueryParams(url, ["limit", "offset"]);
+  if (validationError) return analyticsQueryError(validationError);
+  const limit = clampInt(url.searchParams.get("limit"), 100, 1, 1000);
+  const offset = clampInt(url.searchParams.get("offset"), 0, 0, 1_000_000);
+  const isHash = /^0x[0-9a-fA-F]{64}$/.test(ref);
+  let blockNumber = isHash ? null : Number(ref);
+  if (isHash) {
+    const blockRows = await d1All(
+      env,
+      `SELECT block_number FROM blocks WHERE block_hash = ? LIMIT 1`,
+      [ref],
+    );
+    blockNumber = blockRows[0]?.block_number ?? null;
+  }
+  const rows =
+    blockNumber == null
+      ? []
+      : await d1All(
+          env,
+          `SELECT ${ACCOUNT_EVENT_COLUMNS} FROM account_events WHERE block_number = ? ORDER BY event_index ASC LIMIT ? OFFSET ?`,
+          [blockNumber, limit, offset],
+        );
+  const data = buildBlockEvents(rows, ref, blockNumber, { limit, offset });
+  return envelopeResponse(
+    request,
+    {
+      data,
+      meta: await accountMeta(
+        env,
+        `/metagraph/blocks/${ref}/events.json`,
+        data.events[0]?.observed_at ?? null,
+      ),
+    },
+    "short",
+  );
+}
+
 // GET /api/v1/extrinsics: the recent-extrinsic feed (newest first), served live
 // from the `extrinsics` D1 tier (#1345 block explorer). ?limit clamp <=100,
 // ?offset, and a conjunctive (AND-ed) filter set (#1846): ?block=<n>, ?signer=,
@@ -629,6 +851,7 @@ export async function handleExtrinsics(request, env, url) {
   const validationError = validateQueryParams(url, [
     "limit",
     "offset",
+    "cursor",
     "block",
     "signer",
     "call_module",
@@ -676,12 +899,29 @@ export async function handleExtrinsics(request, env, url) {
     conds.push("observed_at <= ?");
     params.push(clampInt(sp.get("to"), 0, 0, MAX));
   }
+  // Keyset cursor (#1851): a row-value seek on the (block_number, extrinsic_index)
+  // PK, ANDed with any active filters. Takes precedence over offset; a malformed
+  // cursor decodes to null → ignored. SQLite row-value comparison is PK-covered.
+  const cur = decodeCursor(sp.get("cursor"), 2);
+  const useCursor = Boolean(cur);
+  if (useCursor) {
+    conds.push("(block_number, extrinsic_index) < (?, ?)");
+    params.push(cur[0], cur[1]);
+  }
   let sql = `SELECT ${EXTRINSIC_READ_COLUMNS} FROM extrinsics`;
   if (conds.length) sql += ` WHERE ${conds.join(" AND ")}`;
-  sql += " ORDER BY block_number DESC, extrinsic_index DESC LIMIT ? OFFSET ?";
-  params.push(limit, offset);
+  sql += " ORDER BY block_number DESC, extrinsic_index DESC LIMIT ?";
+  params.push(limit);
+  if (!useCursor) {
+    sql += " OFFSET ?";
+    params.push(offset);
+  }
   const rows = await d1All(env, sql, params);
-  const data = buildExtrinsicFeed(rows, { limit, offset });
+  const last = rows.length === limit ? rows[rows.length - 1] : null;
+  const nextCursor = last
+    ? encodeCursor([last.block_number, last.extrinsic_index])
+    : null;
+  const data = buildExtrinsicFeed(rows, { limit, offset, nextCursor });
   return envelopeResponse(
     request,
     {

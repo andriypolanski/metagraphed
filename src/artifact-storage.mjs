@@ -49,7 +49,9 @@ export const R2_ONLY_PATTERNS = [
   // /api/v1/accounts/{ss58}(/events|/subnets) — never written as files.
   /^accounts\/(?:[1-9A-HJ-NP-Za-km-z]{47,48}|\{ss58\})\.json$/,
   /^accounts\/(?:[1-9A-HJ-NP-Za-km-z]{47,48}|\{ss58\})\/events\.json$/,
+  /^accounts\/(?:[1-9A-HJ-NP-Za-km-z]{47,48}|\{ss58\})\/history\.json$/,
   /^accounts\/(?:[1-9A-HJ-NP-Za-km-z]{47,48}|\{ss58\})\/extrinsics\.json$/,
+  /^accounts\/(?:[1-9A-HJ-NP-Za-km-z]{47,48}|\{ss58\})\/transfers\.json$/,
   /^accounts\/(?:[1-9A-HJ-NP-Za-km-z]{47,48}|\{ss58\})\/subnets\.json$/,
   // Live TAO balance query (#1818): computed from RPC at request time, never a static file.
   /^accounts\/(?:[1-9A-HJ-NP-Za-km-z]{47,48}|\{ss58\})\/balance\.json$/,
@@ -61,6 +63,9 @@ export const R2_ONLY_PATTERNS = [
   // Per-block extrinsics sub-resource (#1845): computed live from the extrinsics
   // D1 tier at /api/v1/blocks/{ref}/extrinsics — never written as a file.
   /^blocks\/(?:\d+|0x[0-9a-fA-F]{64}|\{ref\})\/extrinsics\.json$/,
+  // Per-block events sub-resource (#1852): computed live from the account_events
+  // D1 tier at /api/v1/blocks/{ref}/events — never written as a file.
+  /^blocks\/(?:\d+|0x[0-9a-fA-F]{64}|\{ref\})\/events\.json$/,
   // Block-explorer extrinsic tiers (#1345 second slice): computed live from the
   // extrinsics D1 tier at /api/v1/extrinsics (recent feed) + /api/v1/extrinsics/{hash}
   // (0x extrinsic_hash) — never written as files.

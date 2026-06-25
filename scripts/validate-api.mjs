@@ -146,10 +146,24 @@ const checks = [
     },
   ],
   [
+    "/api/v1/accounts/5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5/history",
+    (body) => {
+      assert.equal(Array.isArray(body.data.days), true);
+      assert.equal(typeof body.data.day_count, "number");
+    },
+  ],
+  [
     "/api/v1/accounts/5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5/extrinsics",
     (body) => {
       assert.equal(Array.isArray(body.data.extrinsics), true);
       assert.equal(typeof body.data.extrinsic_count, "number");
+    },
+  ],
+  [
+    "/api/v1/accounts/5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5/transfers",
+    (body) => {
+      assert.equal(Array.isArray(body.data.transfers), true);
+      assert.equal(typeof body.data.transfer_count, "number");
     },
   ],
   [
@@ -189,6 +203,14 @@ const checks = [
       assert.equal(body.data.ref, "1000000");
       assert.equal(Array.isArray(body.data.extrinsics), true);
       assert.equal(typeof body.data.extrinsic_count, "number");
+    },
+  ],
+  [
+    "/api/v1/blocks/1000000/events",
+    (body) => {
+      assert.equal(body.data.ref, "1000000");
+      assert.equal(Array.isArray(body.data.events), true);
+      assert.equal(typeof body.data.event_count, "number");
     },
   ],
   [

@@ -63,13 +63,16 @@ import {
   handleNeuronHistory,
   handleSubnetHistory,
   handleAccount,
+  handleAccountHistory,
   handleAccountBalance,
   handleAccountEvents,
   handleAccountExtrinsics,
+  handleAccountTransfers,
   handleAccountSubnets,
   handleBlocks,
   handleBlock,
   handleBlockExtrinsics,
+  handleBlockEvents,
   handleExtrinsics,
   handleExtrinsic,
 } from "./request-handlers/entities.mjs";
@@ -179,11 +182,14 @@ import {
 import {
   ACCOUNT_BALANCE_PATH_PATTERN,
   ACCOUNT_EVENTS_PATH_PATTERN,
+  ACCOUNT_HISTORY_PATH_PATTERN,
   ACCOUNT_EXTRINSICS_PATH_PATTERN,
+  ACCOUNT_TRANSFERS_PATH_PATTERN,
   ACCOUNT_PATH_PATTERN,
   ACCOUNT_SUBNETS_PATH_PATTERN,
   BLOCK_DETAIL_PATH_PATTERN,
   BLOCK_EXTRINSICS_PATH_PATTERN,
+  BLOCK_EVENTS_PATH_PATTERN,
   BLOCKS_FEED_PATH_PATTERN,
   EXTRINSIC_DETAIL_PATH_PATTERN,
   EXTRINSICS_FEED_PATH_PATTERN,
@@ -1189,6 +1195,17 @@ export async function handleRequest(request, env = {}, ctx = {}) {
     }
     // Account entity routes (#1347): computed live from the account_events +
     // neurons D1 tiers. More-specific paths first (each pattern is anchored).
+    const accountHistoryMatch = ACCOUNT_HISTORY_PATH_PATTERN.exec(
+      resolved.url.pathname,
+    );
+    if (accountHistoryMatch) {
+      return handleAccountHistory(
+        request,
+        env,
+        accountHistoryMatch[1],
+        resolved.url,
+      );
+    }
     const accountEventsMatch = ACCOUNT_EVENTS_PATH_PATTERN.exec(
       resolved.url.pathname,
     );
@@ -1217,6 +1234,17 @@ export async function handleRequest(request, env = {}, ctx = {}) {
         resolved.url,
       );
     }
+    const accountTransfersMatch = ACCOUNT_TRANSFERS_PATH_PATTERN.exec(
+      resolved.url.pathname,
+    );
+    if (accountTransfersMatch) {
+      return handleAccountTransfers(
+        request,
+        env,
+        accountTransfersMatch[1],
+        resolved.url,
+      );
+    }
     const accountBalanceMatch = ACCOUNT_BALANCE_PATH_PATTERN.exec(
       resolved.url.pathname,
     );
@@ -1239,6 +1267,12 @@ export async function handleRequest(request, env = {}, ctx = {}) {
         blockExtrinsicsMatch[1],
         resolved.url,
       );
+    }
+    const blockEventsMatch = BLOCK_EVENTS_PATH_PATTERN.exec(
+      resolved.url.pathname,
+    );
+    if (blockEventsMatch) {
+      return handleBlockEvents(request, env, blockEventsMatch[1], resolved.url);
     }
     const blockDetailMatch = BLOCK_DETAIL_PATH_PATTERN.exec(
       resolved.url.pathname,
