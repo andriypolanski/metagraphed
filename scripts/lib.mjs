@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Agent } from "undici";
 import {
   ARTIFACT_STORAGE_TIERS,
@@ -13,7 +14,7 @@ import {
 } from "../src/artifact-storage.mjs";
 import { sanitizeChainText } from "./lib/formatting.mjs";
 
-export const repoRoot = new URL("..", import.meta.url).pathname;
+export const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 export const publicMetagraphRoot = path.join(repoRoot, "public/metagraph");
 export const r2StagingRoot = path.join(repoRoot, R2_STAGING_RELATIVE_ROOT);
 export const generatedSourceRoot = path.join(repoRoot, "dist/metagraph-source");

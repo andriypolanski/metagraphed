@@ -513,6 +513,13 @@
     },
     {
       "contract_version": "2026-06-06.1",
+      "id": "registry-coverage-matrix",
+      "path": "/metagraph/registry/coverage-matrix.json",
+      "schema_ref": "#/components/schemas/CoverageMatrixArtifact",
+      "storage_tier": "r2"
+    },
+    {
+      "contract_version": "2026-06-06.1",
       "id": "rpc-usage",
       "path": "/metagraph/rpc/usage.json",
       "schema_ref": "#/components/schemas/RpcUsageArtifact",
@@ -4672,6 +4679,35 @@
         {
           "name": "dimensions",
           "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    {
+      "artifact_path": "/metagraph/registry/coverage-matrix.json",
+      "cache": "standard",
+      "description": "Fetch the surface kind × subnet coverage matrix, composed live from the registry surfaces list and the D1 health tier. Returns one row per subnet showing which requested surface kinds it has and their live health. `kinds` (optional) selects which surface kinds appear as columns (default: openapi,subnet-api,sse,data-artifact,sdk); `health` (optional, default true) includes live ok_count and avg_latency_ms per cell. Rows ordered by completeness_score descending.",
+      "id": "registry-coverage-matrix",
+      "method": "GET",
+      "path": "/api/v1/registry/coverage-matrix",
+      "public": true,
+      "query_collection": null,
+      "query_filter_names": [],
+      "query_parameters": [
+        {
+          "name": "kinds",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "health",
+          "schema": {
+            "enum": [
+              "true",
+              "false"
+            ],
             "type": "string"
           }
         }

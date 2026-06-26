@@ -34,12 +34,14 @@ if (!openApiMatches) {
   failWithErrors();
 }
 
+// On Windows, npx is a .cmd shim and must be resolved through the shell.
 const typegen = spawnSync(
   "npx",
   ["openapi-typescript", "public/metagraph/openapi.json"],
   {
     cwd: repoRoot,
     encoding: "utf8",
+    shell: process.platform === "win32",
   },
 );
 if (typegen.status !== 0) {

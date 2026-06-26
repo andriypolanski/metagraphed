@@ -752,6 +752,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/registry/coverage-matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch the surface kind × subnet coverage matrix, composed live from the registry surfaces list and the D1 health tier. Returns one row per subnet showing which requested surface kinds it has and their live health. `kinds` (optional) selects which surface kinds appear as columns (default: openapi,subnet-api,sse,data-artifact,sdk); `health` (optional, default true) includes live ok_count and avg_latency_ms per cell. Rows ordered by completeness_score descending. */
+        get: operations["registryCoverageMatrix"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/registry/leaderboards": {
         parameters: {
             query?: never;
@@ -2212,6 +2229,48 @@ export interface components {
          * @enum {unknown}
          */
         CoverageLevel: "native-only" | "manifested" | "probed";
+        /** @description Surface kind × subnet coverage matrix, composed live from the registry surfaces list and the D1 health tier at GET /api/v1/registry/coverage-matrix (no static file). One row per subnet ordered by completeness_score descending; one column per requested surface kind. */
+        CoverageMatrixArtifact: {
+            /** @description The surface kinds included as columns in this matrix, in canonical SurfaceKind enum order. */
+            kinds: components["schemas"]["SurfaceKind"][];
+            /** @description One row per subnet (from the registry profiles projection), ordered by completeness_score descending. */
+            matrix: components["schemas"]["CoverageMatrixRow"][];
+            observed_at: string | null;
+            schema_version: number;
+            source: string;
+            totals: components["schemas"]["CoverageMatrixTotals"];
+        };
+        /** @description Aggregated data for one (subnet, kind) pair. ok_count and avg_latency_ms are null when health data is not requested (health=false) or unavailable. */
+        CoverageMatrixKindCell: {
+            /** @description Average probe latency in milliseconds across surfaces of this kind for this subnet; null when no latency data or health not requested. */
+            avg_latency_ms?: number | null;
+            /** @description Number of surfaces of this kind registered for this subnet. */
+            count: number;
+            /** @description Number of surfaces of this kind currently reporting ok from the live prober; null when health is not requested. */
+            ok_count?: number | null;
+        };
+        /** @description One subnet's coverage across the requested surface kinds. A null cell means the subnet has no surface of that kind in the registry. */
+        CoverageMatrixRow: {
+            completeness_score: number | null;
+            /** @description Map from surface kind to cell data; null means this subnet has no surface of that kind. */
+            kinds: {
+                [key: string]: components["schemas"]["CoverageMatrixKindCell"] | null;
+            };
+            name: string | null;
+            netuid: number;
+            slug: string | null;
+        };
+        /** @description Per-kind aggregate totals across all subnets in the matrix. Keys are the requested surface kind strings. */
+        CoverageMatrixTotals: {
+            [key: string]: {
+                /** @description Number of subnets that have at least one surface of this kind. */
+                subnets_with_kind: number;
+                /** @description Total number of surfaces of this kind currently reporting ok; null when health is not requested. */
+                surfaces_ok?: number | null;
+                /** @description Total number of surfaces of this kind across all subnets in the matrix. */
+                surfaces_total: number;
+            };
+        };
         CurationArtifact: components["schemas"]["ArtifactBase"] & ({
             curation: components["schemas"]["CurationEntry"][];
         } & {
@@ -10309,6 +10368,128 @@ export interface operations {
                      */
                     "application/json": components["schemas"]["SuccessEnvelope"] & {
                         data?: components["schemas"]["ProviderEndpointsArtifact"];
+                    };
+                };
+            };
+            /** @description ETag matched and the cached response is still valid. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Query parameters were malformed or unsupported. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Artifact or API route was not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description HTTP method is not supported. */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unexpected backend error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    registryCoverageMatrix: {
+        parameters: {
+            query?: {
+                kinds?: string;
+                health?: "true" | "false";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Canonical artifact wrapped in the Metagraphed API envelope. */
+            200: {
+                headers: {
+                    "cache-control": components["headers"]["CacheControl"];
+                    etag: components["headers"]["ETag"];
+                    "x-metagraph-contract-version": components["headers"]["ContractVersion"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "kinds": [
+                     *           "archive"
+                     *         ],
+                     *         "matrix": [
+                     *           {
+                     *             "completeness_score": 100,
+                     *             "kinds": {},
+                     *             "name": "Example Subnet",
+                     *             "netuid": 7,
+                     *             "slug": "example-subnet"
+                     *           }
+                     *         ],
+                     *         "observed_at": "2026-06-01T00:00:00.000Z",
+                     *         "schema_version": 1,
+                     *         "source": "live-cron-prober",
+                     *         "totals": {
+                     *           "example": {
+                     *             "subnets_with_kind": 1,
+                     *             "surfaces_total": 1
+                     *           }
+                     *         }
+                     *       },
+                     *       "meta": {
+                     *         "artifact_path": "example",
+                     *         "cache": "short",
+                     *         "contract_version": "2026-06-06.1",
+                     *         "generated_at": "2026-06-01T00:00:00.000Z",
+                     *         "pagination": {
+                     *           "collection": "example",
+                     *           "cursor": 1,
+                     *           "limit": 1,
+                     *           "next_cursor": 1,
+                     *           "order": "asc",
+                     *           "returned": 1,
+                     *           "sort": "example",
+                     *           "total": 1
+                     *         },
+                     *         "published_at": "2026-06-01T00:00:00.000Z",
+                     *         "source": "live-cron-prober",
+                     *         "stale_contract": {
+                     *           "built_under": "example",
+                     *           "live": "example"
+                     *         }
+                     *       },
+                     *       "ok": true,
+                     *       "schema_version": 1
+                     *     }
+                     */
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["CoverageMatrixArtifact"];
                     };
                 };
             };

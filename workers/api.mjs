@@ -1023,6 +1023,20 @@ export async function handleRequest(request, env = {}, ctx = {}) {
     );
   }
 
+  // Surface kind × subnet coverage matrix (registry surfaces + live health;
+  // fileless-D1 pattern, edge-cached on the cron snapshot's last_run_at like
+  // the sibling leaderboards and compare routes).
+  if (url.pathname === "/api/v1/registry/coverage-matrix") {
+    return withEdgeCache(
+      request,
+      ctx,
+      env,
+      "coverage-matrix",
+      () => handleCoverageMatrix(request, env, url),
+      canonicalCoverageMatrixCachePath(url),
+    );
+  }
+
   // RPC reverse-proxy usage analytics (D1 telemetry; fileless-D1 pattern, B3).
   if (url.pathname === "/api/v1/rpc/usage") {
     return handleRpcUsage(request, env, url);
@@ -1336,6 +1350,7 @@ function isMainnetOnlyApiPath(pathname) {
     pathname === "/api/v1/search/semantic" ||
     pathname === "/api/v1/registry/leaderboards" ||
     pathname === "/api/v1/compare" ||
+    pathname === "/api/v1/registry/coverage-matrix" ||
     pathname.startsWith("/api/v1/webhooks/") ||
     BULK_TRENDS_PATH_PATTERN.test(pathname) ||
     TRENDS_PATH_PATTERN.test(pathname) ||
@@ -2458,6 +2473,78 @@ function canonicalCompareCachePath(url) {
   return `${url.pathname}?${params.join("&")}`;
 }
 
+// All valid surface kinds in canonical SurfaceKind enum order (mirrors 01-enums.schema.json).
+const COVERAGE_MATRIX_SURFACE_KINDS = [
+  "archive",
+  "subtensor-rpc",
+  "subtensor-wss",
+  "subnet-api",
+  "openapi",
+  "sse",
+  "sdk",
+  "example",
+  "website",
+  "source-repo",
+  "dashboard",
+  "repo-registry",
+  "docs",
+  "data-artifact",
+];
+// Default column set: the high-value callable contributor kinds (SKILL.md §A1).
+const COVERAGE_MATRIX_DEFAULT_KINDS = [
+  "openapi",
+  "subnet-api",
+  "sse",
+  "data-artifact",
+  "sdk",
+];
+
+// Returns the requested kinds normalised to canonical enum order (deduped),
+// or null when an unknown kind is present. A null kindsRaw means "not provided"
+// → return the defaults. An empty string is treated as invalid → null.
+function parseCoverageMatrixKinds(kindsRaw) {
+  if (kindsRaw === null) return COVERAGE_MATRIX_DEFAULT_KINDS;
+  if (!kindsRaw) return null;
+  const requested = kindsRaw.split(",");
+  if (requested.some((k) => !COVERAGE_MATRIX_SURFACE_KINDS.includes(k))) {
+    return null;
+  }
+  const seen = new Set(requested);
+  return COVERAGE_MATRIX_SURFACE_KINDS.filter((k) => seen.has(k));
+}
+
+// Returns true/false for the `health` query param, or null for an invalid
+// value. A null healthRaw means "not provided" → default true.
+function parseCoverageMatrixHealth(healthRaw) {
+  if (healthRaw === null) return true;
+  if (healthRaw === "true") return true;
+  if (healthRaw === "false") return false;
+  return null;
+}
+
+// Canonical edge-cache path for /api/v1/registry/coverage-matrix: normalises
+// kinds to enum order and omits default params to maximise cache-key sharing.
+function canonicalCoverageMatrixCachePath(url) {
+  if (validateQueryParams(url, ["kinds", "health"])) return null;
+  const kinds = parseCoverageMatrixKinds(url.searchParams.get("kinds"));
+  if (!kinds) return null;
+  const health = parseCoverageMatrixHealth(url.searchParams.get("health"));
+  if (health === null) return null;
+  const params = [];
+  const isDefault =
+    kinds.length === COVERAGE_MATRIX_DEFAULT_KINDS.length &&
+    kinds.every((k, i) => k === COVERAGE_MATRIX_DEFAULT_KINDS[i]);
+  if (!isDefault) {
+    params.push(`kinds=${kinds.join(",")}`);
+  }
+  if (!health) {
+    params.push("health=false");
+  }
+  return params.length > 0
+    ? `${url.pathname}?${params.join("&")}`
+    : url.pathname;
+}
+
 // Pure projection: fold the requested netuids + the resolved source rows into
 // the side-by-side compare shape, in REQUESTED order. A netuid absent from the
 // registry profiles is returned `found: false` with every requested dimension
@@ -2609,6 +2696,174 @@ async function handleCompare(request, env, url) {
         contract_version: contractVersion(env),
         generated_at: data.observed_at,
         source: "registry+economics+live-cron-prober",
+      },
+    },
+    "standard",
+  );
+  return hasD1FallbackRows(healthRows)
+    ? markD1FallbackResponse(response)
+    : response;
+}
+
+// Pure projection: fold the profile rows and resolved source tiers into the
+// kind × subnet matrix shape. No I/O — all reads happen in handleCoverageMatrix.
+// A subnet with count=0 for every requested kind still appears in the matrix
+// (all-null cells) so callers can see the coverage gap; the totals omit them.
+export function composeCoverageMatrix({
+  kinds,
+  includeHealth,
+  profileRows,
+  allSurfaces,
+  healthRows,
+  observedAt,
+}) {
+  // "netuid:kind" → count of registered surfaces of that kind.
+  const surfaceCountMap = new Map();
+  for (const surface of allSurfaces ?? []) {
+    if (!surface.netuid || !surface.kind) continue;
+    if (!kinds.includes(surface.kind)) continue;
+    const key = `${surface.netuid}:${surface.kind}`;
+    surfaceCountMap.set(key, (surfaceCountMap.get(key) ?? 0) + 1);
+  }
+
+  // "netuid:kind" → {ok_count, avg_latency_ms} from D1 surface_status.
+  const healthMap = new Map();
+  for (const row of healthRows ?? []) {
+    healthMap.set(`${row.netuid}:${row.kind}`, {
+      ok_count: Number(row.ok_count) || 0,
+      avg_latency_ms:
+        row.avg_latency_ms != null ? Number(row.avg_latency_ms) : null,
+    });
+  }
+
+  const matrix = (profileRows ?? []).map((profile) => {
+    const kindCells = {};
+    for (const kind of kinds) {
+      const count = surfaceCountMap.get(`${profile.netuid}:${kind}`) ?? 0;
+      if (count === 0) {
+        kindCells[kind] = null;
+        continue;
+      }
+      if (includeHealth) {
+        const health = healthMap.get(`${profile.netuid}:${kind}`) ?? null;
+        kindCells[kind] = {
+          count,
+          ok_count: health?.ok_count ?? null,
+          avg_latency_ms: health?.avg_latency_ms ?? null,
+        };
+      } else {
+        kindCells[kind] = { count, ok_count: null, avg_latency_ms: null };
+      }
+    }
+    return {
+      netuid: profile.netuid,
+      name: profile.name ?? null,
+      slug: profile.slug ?? null,
+      completeness_score: profile.completeness_score ?? null,
+      kinds: kindCells,
+    };
+  });
+
+  const totals = {};
+  for (const kind of kinds) {
+    const rowsWithKind = matrix.filter((r) => r.kinds[kind] !== null);
+    totals[kind] = {
+      subnets_with_kind: rowsWithKind.length,
+      surfaces_total: rowsWithKind.reduce(
+        (sum, r) => sum + (r.kinds[kind]?.count ?? 0),
+        0,
+      ),
+      surfaces_ok: includeHealth
+        ? rowsWithKind.reduce(
+            (sum, r) => sum + (r.kinds[kind]?.ok_count ?? 0),
+            0,
+          )
+        : null,
+    };
+  }
+
+  return {
+    schema_version: 1,
+    source: "registry+live-cron-prober",
+    observed_at: observedAt ?? null,
+    kinds,
+    matrix,
+    totals,
+  };
+}
+
+async function handleCoverageMatrix(request, env, url) {
+  const validationError = validateQueryParams(url, ["kinds", "health"]);
+  if (validationError) return analyticsQueryError(validationError);
+
+  const kindsRaw = url.searchParams.get("kinds");
+  const kinds = parseCoverageMatrixKinds(kindsRaw);
+  if (!kinds) {
+    const parts = kindsRaw.split(",");
+    const firstInvalid = parts.find(
+      (k) => !COVERAGE_MATRIX_SURFACE_KINDS.includes(k),
+    );
+    return errorResponse(
+      "invalid_query",
+      firstInvalid !== undefined && firstInvalid !== ""
+        ? `Unknown kind "${firstInvalid}". Valid kinds: ${COVERAGE_MATRIX_SURFACE_KINDS.join(", ")}.`
+        : `kinds must be a non-empty comma-separated list of valid surface kinds.`,
+      400,
+      { parameter: "kinds" },
+    );
+  }
+
+  const healthRaw = url.searchParams.get("health");
+  const includeHealth = parseCoverageMatrixHealth(healthRaw);
+  if (includeHealth === null) {
+    return errorResponse(
+      "invalid_query",
+      `Invalid value "${healthRaw}" for health. Use "true" or "false".`,
+      400,
+      { parameter: "health" },
+    );
+  }
+
+  const { mostComplete } = await leaderboardProfilesProjection(env);
+  const surfacesArtifact = await readArtifact(env, "/metagraph/surfaces.json");
+  const allSurfaces = surfacesArtifact.ok
+    ? (surfacesArtifact.data?.surfaces ?? [])
+    : [];
+
+  // D1 query is bounded to the requested kinds only (avoids a full table scan).
+  const healthRows = includeHealth
+    ? await d1All(
+        env,
+        `SELECT netuid, kind,
+              COUNT(*) AS surface_count,
+              SUM(CASE WHEN status = 'ok' THEN 1 ELSE 0 END) AS ok_count,
+              ROUND(AVG(latency_ms)) AS avg_latency_ms
+         FROM surface_status
+         WHERE kind IN (${kinds.map(() => "?").join(", ")})
+         GROUP BY netuid, kind`,
+        kinds,
+      )
+    : null;
+
+  const meta = await readHealthMetaKv(env);
+  const data = composeCoverageMatrix({
+    kinds,
+    includeHealth,
+    profileRows: mostComplete,
+    allSurfaces,
+    healthRows,
+    observedAt: meta?.last_run_at ?? null,
+  });
+  const response = await envelopeResponse(
+    request,
+    {
+      data,
+      meta: {
+        artifact_path: "/metagraph/registry/coverage-matrix.json",
+        cache: "standard",
+        contract_version: contractVersion(env),
+        generated_at: data.observed_at,
+        source: "registry+live-cron-prober",
       },
     },
     "standard",

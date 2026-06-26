@@ -8,6 +8,7 @@ const generatedOutputPath = path.join(
   "generated/metagraphed-api.d.ts",
 );
 const publicOutputPath = path.join(repoRoot, "public/metagraph/types.d.ts");
+// On Windows, npx is a .cmd shim and must be resolved through the shell.
 const result = spawnSync(
   "npx",
   ["openapi-typescript", "public/metagraph/openapi.json"],
@@ -15,6 +16,7 @@ const result = spawnSync(
     cwd: repoRoot,
     encoding: "utf8",
     stdio: "pipe",
+    shell: process.platform === "win32",
   },
 );
 

@@ -304,6 +304,15 @@ describe("multi-network routing prefix (Phase 1)", () => {
     const compare = await get(env, "/api/v1/testnet/compare?netuids=1");
     assert.equal(compare.res.status, 404);
     assert.equal(compare.body.meta.network, "testnet");
+
+    // Coverage matrix composes the mainnet surfaces list + live health, so it
+    // is mainnet-only too.
+    const coverageMatrix = await get(
+      env,
+      "/api/v1/testnet/registry/coverage-matrix",
+    );
+    assert.equal(coverageMatrix.res.status, 404);
+    assert.equal(coverageMatrix.body.meta.network, "testnet");
   });
 
   test("raw artifact: mainnet alias and testnet both serve their partitioned data", async () => {

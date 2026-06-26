@@ -1044,6 +1044,12 @@ export const PUBLIC_ARTIFACTS = [
     "CompareArtifact",
   ),
   artifact(
+    "registry-coverage-matrix",
+    "/metagraph/registry/coverage-matrix.json",
+    "Surface kind × subnet coverage matrix — which surface kinds each subnet has and their live health status, one row per subnet ordered by completeness_score descending. Composed live from the registry surfaces list and the D1 health tier at /api/v1/registry/coverage-matrix (no static file).",
+    "CoverageMatrixArtifact",
+  ),
+  artifact(
     "rpc-usage",
     "/metagraph/rpc/usage.json",
     "RPC reverse-proxy usage analytics (request volume, latency p50/p95, failover + error rate, cache-hit rate, per-endpoint distribution, and bounded time buckets) over a 7d/30d window, computed live from the rpc_proxy_events telemetry at /api/v1/rpc/usage (no static file).",
@@ -1939,6 +1945,20 @@ export const API_ROUTES = [
         },
       },
       { name: "dimensions", schema: { type: "string" } },
+    ],
+    [],
+  ),
+  route(
+    "registry-coverage-matrix",
+    "GET",
+    "/api/v1/registry/coverage-matrix",
+    "/metagraph/registry/coverage-matrix.json",
+    "Fetch the surface kind × subnet coverage matrix, composed live from the registry surfaces list and the D1 health tier. Returns one row per subnet showing which requested surface kinds it has and their live health. `kinds` (optional) selects which surface kinds appear as columns (default: openapi,subnet-api,sse,data-artifact,sdk); `health` (optional, default true) includes live ok_count and avg_latency_ms per cell. Rows ordered by completeness_score descending.",
+    "standard",
+    ["registry", "subnets", "analytics"],
+    [
+      { name: "kinds", schema: { type: "string" } },
+      { name: "health", schema: { type: "string", enum: ["true", "false"] } },
     ],
     [],
   ),

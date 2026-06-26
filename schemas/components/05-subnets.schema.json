@@ -5,6 +5,109 @@
   "type": "object",
   "components": {
     "schemas": {
+      "CoverageMatrixArtifact": {
+        "type": "object",
+        "description": "Surface kind × subnet coverage matrix, composed live from the registry surfaces list and the D1 health tier at GET /api/v1/registry/coverage-matrix (no static file). One row per subnet ordered by completeness_score descending; one column per requested surface kind.",
+        "required": [
+          "schema_version",
+          "source",
+          "observed_at",
+          "kinds",
+          "matrix",
+          "totals"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "schema_version": { "type": "integer" },
+          "source": { "type": "string" },
+          "observed_at": { "type": ["string", "null"] },
+          "kinds": {
+            "type": "array",
+            "description": "The surface kinds included as columns in this matrix, in canonical SurfaceKind enum order.",
+            "items": { "$ref": "#/components/schemas/SurfaceKind" },
+            "minItems": 1
+          },
+          "matrix": {
+            "type": "array",
+            "description": "One row per subnet (from the registry profiles projection), ordered by completeness_score descending.",
+            "items": { "$ref": "#/components/schemas/CoverageMatrixRow" }
+          },
+          "totals": {
+            "$ref": "#/components/schemas/CoverageMatrixTotals"
+          }
+        }
+      },
+      "CoverageMatrixRow": {
+        "type": "object",
+        "description": "One subnet's coverage across the requested surface kinds. A null cell means the subnet has no surface of that kind in the registry.",
+        "required": ["netuid", "name", "slug", "completeness_score", "kinds"],
+        "additionalProperties": false,
+        "properties": {
+          "netuid": { "type": "integer", "minimum": 0 },
+          "name": { "type": ["string", "null"] },
+          "slug": { "type": ["string", "null"] },
+          "completeness_score": { "type": ["number", "null"] },
+          "kinds": {
+            "type": "object",
+            "description": "Map from surface kind to cell data; null means this subnet has no surface of that kind.",
+            "additionalProperties": {
+              "oneOf": [
+                { "$ref": "#/components/schemas/CoverageMatrixKindCell" },
+                { "type": "null" }
+              ]
+            }
+          }
+        }
+      },
+      "CoverageMatrixKindCell": {
+        "type": "object",
+        "description": "Aggregated data for one (subnet, kind) pair. ok_count and avg_latency_ms are null when health data is not requested (health=false) or unavailable.",
+        "required": ["count"],
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Number of surfaces of this kind registered for this subnet."
+          },
+          "ok_count": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "description": "Number of surfaces of this kind currently reporting ok from the live prober; null when health is not requested."
+          },
+          "avg_latency_ms": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "description": "Average probe latency in milliseconds across surfaces of this kind for this subnet; null when no latency data or health not requested."
+          }
+        }
+      },
+      "CoverageMatrixTotals": {
+        "type": "object",
+        "description": "Per-kind aggregate totals across all subnets in the matrix. Keys are the requested surface kind strings.",
+        "additionalProperties": {
+          "type": "object",
+          "required": ["subnets_with_kind", "surfaces_total"],
+          "additionalProperties": false,
+          "properties": {
+            "subnets_with_kind": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of subnets that have at least one surface of this kind."
+            },
+            "surfaces_total": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Total number of surfaces of this kind across all subnets in the matrix."
+            },
+            "surfaces_ok": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "description": "Total number of surfaces of this kind currently reporting ok; null when health is not requested."
+            }
+          }
+        }
+      },
       "CompareArtifact": {
         "type": "object",
         "required": ["schema_version", "source", "subnets"],

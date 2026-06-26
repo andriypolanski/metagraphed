@@ -48,6 +48,7 @@ const COMPUTED_ARTIFACTS = new Set([
   "extrinsic-detail",
   "registry-leaderboards",
   "compare",
+  "registry-coverage-matrix",
   "rpc-usage",
   "global-incidents",
   // Live-only operational health (served from KV/D1, no static file on disk).
