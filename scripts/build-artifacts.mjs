@@ -2555,10 +2555,11 @@ const skillDirNames = (await fs.readdir(skillsDir, { withFileTypes: true }))
   .sort();
 const agentSkills = [];
 for (const skillDirName of skillDirNames) {
-  const skillBody = await fs.readFile(
-    path.join(skillsDir, skillDirName, "SKILL.md"),
-    "utf8",
-  );
+  // Normalise to LF before hashing and parsing so the digest and frontmatter
+  // are identical regardless of platform (git autocrlf adds \r on Windows).
+  const skillBody = (
+    await fs.readFile(path.join(skillsDir, skillDirName, "SKILL.md"), "utf8")
+  ).replace(/\r\n/g, "\n");
   const meta = parseSkillFrontmatter(skillBody);
   agentSkills.push({
     name: meta.name || skillDirName,

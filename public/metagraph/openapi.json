@@ -1986,28 +1986,6 @@
           "static"
         ]
       },
-      "CandidatesArtifact": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/ArtifactBase"
-          },
-          {
-            "additionalProperties": true,
-            "properties": {
-              "candidates": {
-                "items": {
-                  "$ref": "#/components/schemas/CandidateSurface"
-                },
-                "type": "array"
-              }
-            },
-            "required": [
-              "candidates"
-            ],
-            "type": "object"
-          }
-        ]
-      },
       "CandidateState": {
         "enum": [
           "schema-invalid",
@@ -2217,6 +2195,28 @@
           "public_safe"
         ],
         "type": "object"
+      },
+      "CandidatesArtifact": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ArtifactBase"
+          },
+          {
+            "additionalProperties": true,
+            "properties": {
+              "candidates": {
+                "items": {
+                  "$ref": "#/components/schemas/CandidateSurface"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "candidates"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "ChangelogArtifact": {
         "allOf": [
@@ -3702,32 +3702,6 @@
         ],
         "type": "object"
       },
-      "EndpointIncidentsArtifact": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/ArtifactBase"
-          },
-          {
-            "additionalProperties": true,
-            "properties": {
-              "incidents": {
-                "items": {
-                  "$ref": "#/components/schemas/EndpointIncident"
-                },
-                "type": "array"
-              },
-              "summary": {
-                "$ref": "#/components/schemas/EndpointIncidentSummary"
-              }
-            },
-            "required": [
-              "summary",
-              "incidents"
-            ],
-            "type": "object"
-          }
-        ]
-      },
       "EndpointIncidentSummary": {
         "additionalProperties": false,
         "properties": {
@@ -3760,6 +3734,32 @@
           "active_count"
         ],
         "type": "object"
+      },
+      "EndpointIncidentsArtifact": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ArtifactBase"
+          },
+          {
+            "additionalProperties": true,
+            "properties": {
+              "incidents": {
+                "items": {
+                  "$ref": "#/components/schemas/EndpointIncident"
+                },
+                "type": "array"
+              },
+              "summary": {
+                "$ref": "#/components/schemas/EndpointIncidentSummary"
+              }
+            },
+            "required": [
+              "summary",
+              "incidents"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "EndpointLayer": {
         "enum": [
@@ -4087,32 +4087,6 @@
         ],
         "type": "object"
       },
-      "EndpointsArtifact": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/ArtifactBase"
-          },
-          {
-            "additionalProperties": true,
-            "properties": {
-              "endpoints": {
-                "items": {
-                  "$ref": "#/components/schemas/EndpointResource"
-                },
-                "type": "array"
-              },
-              "summary": {
-                "$ref": "#/components/schemas/EndpointSummary"
-              }
-            },
-            "required": [
-              "summary",
-              "endpoints"
-            ],
-            "type": "object"
-          }
-        ]
-      },
       "EndpointScoreReason": {
         "additionalProperties": false,
         "properties": {
@@ -4166,6 +4140,32 @@
           "pool_eligible_count"
         ],
         "type": "object"
+      },
+      "EndpointsArtifact": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ArtifactBase"
+          },
+          {
+            "additionalProperties": true,
+            "properties": {
+              "endpoints": {
+                "items": {
+                  "$ref": "#/components/schemas/EndpointResource"
+                },
+                "type": "array"
+              },
+              "summary": {
+                "$ref": "#/components/schemas/EndpointSummary"
+              }
+            },
+            "required": [
+              "summary",
+              "endpoints"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "ErrorEnvelope": {
         "additionalProperties": false,
@@ -8263,6 +8263,14 @@
         ],
         "type": "object"
       },
+      "ReviewEnrichmentTargetType": {
+        "enum": [
+          "surface-candidate",
+          "adapter-review",
+          "maintainer-review",
+          "monitoring-followup"
+        ]
+      },
       "ReviewEnrichmentTargetsArtifact": {
         "allOf": [
           {
@@ -8349,14 +8357,6 @@
             ],
             "type": "object"
           }
-        ]
-      },
-      "ReviewEnrichmentTargetType": {
-        "enum": [
-          "surface-candidate",
-          "adapter-review",
-          "maintainer-review",
-          "monitoring-followup"
         ]
       },
       "ReviewEvidenceAction": {
@@ -11655,6 +11655,42 @@
         ],
         "type": "object"
       },
+      "SubnetProfileSurfaceSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "description": "Stable surface identity (#1005): hash of netuid|kind|url, invariant across renames.",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SurfaceKind"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "provider",
+          "url"
+        ],
+        "type": [
+          "object",
+          "null"
+        ]
+      },
       "SubnetProfilesArtifact": {
         "allOf": [
           {
@@ -11719,94 +11755,6 @@
             "required": [
               "profiles",
               "summary"
-            ],
-            "type": "object"
-          }
-        ]
-      },
-      "SubnetProfileSurfaceSummary": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "key": {
-            "description": "Stable surface identity (#1005): hash of netuid|kind|url, invariant across renames.",
-            "type": "string"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/SurfaceKind"
-          },
-          "name": {
-            "type": "string"
-          },
-          "provider": {
-            "type": "string"
-          },
-          "url": {
-            "format": "uri",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "kind",
-          "name",
-          "provider",
-          "url"
-        ],
-        "type": [
-          "object",
-          "null"
-        ]
-      },
-      "SubnetsArtifact": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/ArtifactBase"
-          },
-          {
-            "additionalProperties": true,
-            "properties": {
-              "network": {
-                "$ref": "#/components/schemas/BittensorNetwork"
-              },
-              "source": {
-                "additionalProperties": true,
-                "description": "Provenance of the native chain snapshot this index was built from.",
-                "properties": {
-                  "identity_storage": {
-                    "type": "string"
-                  },
-                  "kind": {
-                    "type": "string"
-                  },
-                  "method": {
-                    "type": "string"
-                  },
-                  "package": {
-                    "type": "string"
-                  },
-                  "rpc_family": {
-                    "type": "string"
-                  },
-                  "version": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              },
-              "subnets": {
-                "items": {
-                  "$ref": "#/components/schemas/SubnetIndexEntry"
-                },
-                "type": "array"
-              }
-            },
-            "required": [
-              "network",
-              "source",
-              "subnets"
             ],
             "type": "object"
           }
@@ -11970,6 +11918,58 @@
       },
       "SubnetVerificationArtifact": {
         "$ref": "#/components/schemas/VerificationArtifact"
+      },
+      "SubnetsArtifact": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ArtifactBase"
+          },
+          {
+            "additionalProperties": true,
+            "properties": {
+              "network": {
+                "$ref": "#/components/schemas/BittensorNetwork"
+              },
+              "source": {
+                "additionalProperties": true,
+                "description": "Provenance of the native chain snapshot this index was built from.",
+                "properties": {
+                  "identity_storage": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "package": {
+                    "type": "string"
+                  },
+                  "rpc_family": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "subnets": {
+                "items": {
+                  "$ref": "#/components/schemas/SubnetIndexEntry"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "network",
+              "source",
+              "subnets"
+            ],
+            "type": "object"
+          }
+        ]
       },
       "SuccessEnvelope": {
         "additionalProperties": false,

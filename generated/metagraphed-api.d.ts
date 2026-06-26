@@ -1916,11 +1916,6 @@ export interface components {
         };
         /** @enum {unknown} */
         CacheProfile: "short" | "standard" | "static";
-        CandidatesArtifact: components["schemas"]["ArtifactBase"] & ({
-            candidates: components["schemas"]["CandidateSurface"][];
-        } & {
-            [key: string]: unknown;
-        });
         /** @enum {unknown} */
         CandidateState: "schema-invalid" | "schema-valid" | "maintainer-review" | "verified" | "stale" | "rejected";
         CandidateSurface: {
@@ -1992,6 +1987,11 @@ export interface components {
             url: string;
             verification?: components["schemas"]["VerificationResult"] | null;
         };
+        CandidatesArtifact: components["schemas"]["ArtifactBase"] & ({
+            candidates: components["schemas"]["CandidateSurface"][];
+        } & {
+            [key: string]: unknown;
+        });
         ChangelogArtifact: components["schemas"]["ArtifactBase"] & ({
             artifacts: {
                 added: components["schemas"]["ArtifactDiffEntry"][];
@@ -2348,12 +2348,6 @@ export interface components {
             surface_key: string;
             user_reported: boolean;
         };
-        EndpointIncidentsArtifact: components["schemas"]["ArtifactBase"] & ({
-            incidents: components["schemas"]["EndpointIncident"][];
-            summary: components["schemas"]["EndpointIncidentSummary"];
-        } & {
-            [key: string]: unknown;
-        });
         EndpointIncidentSummary: {
             active_count: number;
             by_kind?: components["schemas"]["CountMap"];
@@ -2363,6 +2357,12 @@ export interface components {
             by_status?: components["schemas"]["CountMap"];
             incident_count: number;
         };
+        EndpointIncidentsArtifact: components["schemas"]["ArtifactBase"] & ({
+            incidents: components["schemas"]["EndpointIncident"][];
+            summary: components["schemas"]["EndpointIncidentSummary"];
+        } & {
+            [key: string]: unknown;
+        });
         /** @enum {unknown} */
         EndpointLayer: "bittensor-base" | "subnet-app" | "data-provider" | "docs-provider";
         EndpointMonitoringPolicy: {
@@ -2434,12 +2434,6 @@ export interface components {
             /** Format: uri */
             url: string;
         };
-        EndpointsArtifact: components["schemas"]["ArtifactBase"] & ({
-            endpoints: components["schemas"]["EndpointResource"][];
-            summary: components["schemas"]["EndpointSummary"];
-        } & {
-            [key: string]: unknown;
-        });
         EndpointScoreReason: {
             points: number;
             reason: string;
@@ -2454,6 +2448,12 @@ export interface components {
             monitored_count: number;
             pool_eligible_count: number;
         };
+        EndpointsArtifact: components["schemas"]["ArtifactBase"] & ({
+            endpoints: components["schemas"]["EndpointResource"][];
+            summary: components["schemas"]["EndpointSummary"];
+        } & {
+            [key: string]: unknown;
+        });
         ErrorEnvelope: {
             data: null;
             error: {
@@ -3467,6 +3467,8 @@ export interface components {
             surface_count: number;
             verified_candidate_count: number;
         };
+        /** @enum {unknown} */
+        ReviewEnrichmentTargetType: "surface-candidate" | "adapter-review" | "maintainer-review" | "monitoring-followup";
         ReviewEnrichmentTargetsArtifact: components["schemas"]["ArtifactBase"] & ({
             groups: components["schemas"]["ReviewEnrichmentTargetGroup"][];
             notes: string;
@@ -3486,8 +3488,6 @@ export interface components {
         } & {
             [key: string]: unknown;
         });
-        /** @enum {unknown} */
-        ReviewEnrichmentTargetType: "surface-candidate" | "adapter-review" | "maintainer-review" | "monitoring-followup";
         /** @enum {unknown} */
         ReviewEvidenceAction: "submit-new-evidence" | "verify-existing-evidence" | "replace-stale-evidence" | "review-existing-evidence" | "maintainer-review-existing-evidence" | "monitor";
         ReviewGapPrioritiesArtifact: components["schemas"]["ArtifactBase"] & ({
@@ -4275,6 +4275,16 @@ export interface components {
             reviewed_at: string | null;
             source_urls: string[];
         };
+        SubnetProfileSurfaceSummary: {
+            id: string;
+            /** @description Stable surface identity (#1005): hash of netuid|kind|url, invariant across renames. */
+            key?: string;
+            kind: components["schemas"]["SurfaceKind"];
+            name: string;
+            provider: string;
+            /** Format: uri */
+            url: string;
+        } | null;
         SubnetProfilesArtifact: components["schemas"]["ArtifactBase"] & ({
             profiles: components["schemas"]["SubnetProfile"][];
             summary: {
@@ -4287,33 +4297,6 @@ export interface components {
                 native_identity_unpromoted_count: number;
                 profile_count: number;
             };
-        } & {
-            [key: string]: unknown;
-        });
-        SubnetProfileSurfaceSummary: {
-            id: string;
-            /** @description Stable surface identity (#1005): hash of netuid|kind|url, invariant across renames. */
-            key?: string;
-            kind: components["schemas"]["SurfaceKind"];
-            name: string;
-            provider: string;
-            /** Format: uri */
-            url: string;
-        } | null;
-        SubnetsArtifact: components["schemas"]["ArtifactBase"] & ({
-            network: components["schemas"]["BittensorNetwork"];
-            /** @description Provenance of the native chain snapshot this index was built from. */
-            source: {
-                identity_storage?: string;
-                kind?: string;
-                method?: string;
-                package?: string;
-                rpc_family?: string;
-                version?: string;
-            } & {
-                [key: string]: unknown;
-            };
-            subnets: components["schemas"]["SubnetIndexEntry"][];
         } & {
             [key: string]: unknown;
         });
@@ -4360,6 +4343,23 @@ export interface components {
             [key: string]: unknown;
         };
         SubnetVerificationArtifact: components["schemas"]["VerificationArtifact"];
+        SubnetsArtifact: components["schemas"]["ArtifactBase"] & ({
+            network: components["schemas"]["BittensorNetwork"];
+            /** @description Provenance of the native chain snapshot this index was built from. */
+            source: {
+                identity_storage?: string;
+                kind?: string;
+                method?: string;
+                package?: string;
+                rpc_family?: string;
+                version?: string;
+            } & {
+                [key: string]: unknown;
+            };
+            subnets: components["schemas"]["SubnetIndexEntry"][];
+        } & {
+            [key: string]: unknown;
+        });
         SuccessEnvelope: {
             data: {
                 [key: string]: unknown;
