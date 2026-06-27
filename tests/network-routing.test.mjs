@@ -325,11 +325,7 @@ describe("multi-network routing prefix (Phase 1)", () => {
       const { res, body } = await get(env, path);
       assert.equal(res.status, 404, path);
       assert.equal(body.meta.network, "testnet", path);
-      assert.match(
-        body.error.message,
-        /only available on mainnet/i,
-        path,
-      );
+      assert.match(body.error.message, /only available on mainnet/i, path);
     }
     // Partitioned registry routes stay available under testnet.
     const subnets = await get(env, "/api/v1/testnet/subnets");
