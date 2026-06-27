@@ -85,14 +85,27 @@ async function feed(
   if (accept) headers.accept = accept;
   if (ifNoneMatch) headers["if-none-match"] = ifNoneMatch;
   const request = new Request(url, { method, headers });
-  const readArtifact =
-    deps ||
-    makeReadArtifact({
-      "/metagraph/changelog.json": CHANGELOG,
-      "/metagraph/incidents.json": INCIDENTS,
-      "/metagraph/health/incidents/7.json": INCIDENTS,
-    });
-  const res = await handleFeedRequest(request, {}, url, { readArtifact });
+  const defaultReadArtifact = makeReadArtifact({
+    "/metagraph/changelog.json": CHANGELOG,
+    "/metagraph/incidents.json": INCIDENTS,
+    "/metagraph/health/incidents/7.json": INCIDENTS,
+  });
+  let handlerDeps;
+  if (typeof deps === "function") {
+    handlerDeps = {
+      readArtifact: deps,
+      loadLiveIncidents: async (env) => {
+        const result = await deps(env, "/metagraph/incidents.json");
+        return result?.ok ? result.data : null;
+      },
+    };
+  } else {
+    handlerDeps = {
+      readArtifact: deps?.readArtifact ?? defaultReadArtifact,
+      loadLiveIncidents: deps?.loadLiveIncidents ?? (async () => INCIDENTS),
+    };
+  }
+  const res = await handleFeedRequest(request, {}, url, handlerDeps);
   return { res, text: await res.text() };
 }
 
@@ -380,14 +393,35 @@ describe("feeds — handleFeedRequest", () => {
   });
 
   test("a feed with no underlying data still serializes validly (empty)", async () => {
-    const empty = makeReadArtifact({});
     const { res, text } = await feed("/api/v1/feeds/incidents", {
-      deps: empty,
+      deps: {
+        readArtifact: makeReadArtifact({}),
+        loadLiveIncidents: async () => null,
+      },
     });
     assert.equal(res.status, 200);
     const parsed = JSON.parse(text);
     assert.equal(parsed.items.length, 0);
     assert.ok(parsed.title && parsed.feed_url);
+  });
+
+  test("incidents feed reads the live D1 ledger, not a static artifact", async () => {
+    let liveCalled = false;
+    const { res, text } = await feed("/api/v1/feeds/incidents", {
+      deps: {
+        readArtifact: makeReadArtifact({
+          "/metagraph/changelog.json": CHANGELOG,
+        }),
+        loadLiveIncidents: async () => {
+          liveCalled = true;
+          return INCIDENTS;
+        },
+      },
+    });
+    assert.ok(liveCalled);
+    assert.equal(res.status, 200);
+    const parsed = JSON.parse(text);
+    assert.equal(parsed.items.length, 2);
   });
 
   test("?tag= narrows the registry feed to matching items", async () => {
