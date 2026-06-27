@@ -491,8 +491,8 @@ export async function handleHealthIncidents(
         [netuid, since],
       ),
       // Gap-island grouping in SQL: collapse consecutive failures (gap <= the
-      // incident threshold) into one incident row, then cap the public payload so
-      // flapping endpoints cannot force unbounded result sets/responses.
+      // incident threshold) into one incident row, then cap per surface_key so
+      // one flappy endpoint cannot starve sibling surfaces in the same subnet.
       d1All(
         env,
         `WITH checks AS (
@@ -513,18 +513,37 @@ export async function handleHealthIncidents(
                 SUM(CASE WHEN ok = 1 OR gap IS NULL OR gap > ? THEN 1 ELSE 0 END)
                   OVER (PARTITION BY surface_key ORDER BY checked_at) AS grp
          FROM checks
+       ),
+       incidents AS (
+         SELECT MAX(surface_id) AS surface_id,
+                surface_key,
+                MIN(checked_at) AS started_at,
+                MAX(checked_at) AS ended_at,
+                COUNT(*) AS failed_samples
+         FROM grouped
+         WHERE ok = 0
+         GROUP BY surface_key, grp
+         HAVING COUNT(*) >= ?
        )
-       SELECT MAX(surface_id) AS surface_id,
+       SELECT surface_id,
               surface_key,
-              MIN(checked_at) AS started_at,
-              MAX(checked_at) AS ended_at,
-              COUNT(*) AS failed_samples
-       FROM grouped
-       WHERE ok = 0
-       GROUP BY surface_key, grp
-       HAVING COUNT(*) >= ?
-       ORDER BY surface_id, started_at
-       LIMIT ?`,
+              started_at,
+              ended_at,
+              failed_samples
+       FROM (
+         SELECT surface_id,
+                surface_key,
+                started_at,
+                ended_at,
+                failed_samples,
+                ROW_NUMBER() OVER (
+                  PARTITION BY surface_key
+                  ORDER BY started_at
+                ) AS rn
+         FROM incidents
+       ) ranked
+       WHERE rn <= ?
+       ORDER BY surface_id, started_at`,
         [
           netuid,
           since,

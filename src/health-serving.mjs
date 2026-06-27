@@ -586,8 +586,8 @@ export function formatRpcUsage({
 // SLA + downtime incidents per surface. `slaRows`: [{ surface_id, surface_key?,
 // total, ok_count }]. `incidentRows`: [{ surface_id, surface_key?, started_at, ended_at,
 // failed_samples }] — one row PER INCIDENT (gap-islands grouped in SQL).
-// `maxIncidents` is a defensive API cap so flapping endpoints cannot force the
-// formatter to materialize unbounded incident arrays.
+// `maxIncidents` is a per-surface defensive API cap so one flapping endpoint
+// cannot monopolize the budget and starve sibling surfaces on the same subnet.
 export function formatIncidents({
   netuid,
   window,
@@ -600,12 +600,14 @@ export function formatIncidents({
     ? Math.max(0, maxIncidents)
     : Infinity;
   const incidentsBySurface = new Map();
-  let acceptedIncidents = 0;
+  const acceptedBySurface = new Map();
   for (const row of incidentRows || []) {
-    if (acceptedIncidents >= incidentLimit) {
-      break;
-    }
     const key = surfaceLookupKey(row);
+    if (!key) continue;
+    const accepted = acceptedBySurface.get(key) || 0;
+    if (accepted >= incidentLimit) {
+      continue;
+    }
     const list = incidentsBySurface.get(key) || [];
     const startedAt = Number(row.started_at);
     const endedAt = Number(row.ended_at);
@@ -615,7 +617,7 @@ export function formatIncidents({
       duration_ms: endedAt - startedAt,
       failed_samples: Number(row.failed_samples) || 0,
     });
-    acceptedIncidents += 1;
+    acceptedBySurface.set(key, accepted + 1);
     incidentsBySurface.set(key, list);
   }
 
