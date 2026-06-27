@@ -440,7 +440,9 @@ describe("feeds — handleFeedRequest", () => {
   test("incidents feed falls back to static artifact when loadLiveIncidents is absent", async () => {
     const url = new URL("https://api.metagraph.sh/api/v1/feeds/incidents");
     const res = await handleFeedRequest(new Request(url), {}, url, {
-      readArtifact: makeReadArtifact({ "/metagraph/incidents.json": INCIDENTS }),
+      readArtifact: makeReadArtifact({
+        "/metagraph/incidents.json": INCIDENTS,
+      }),
     });
     assert.equal(res.status, 200);
     assert.equal(JSON.parse(await res.text()).items.length, 2);
