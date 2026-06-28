@@ -113,6 +113,10 @@ import {
   weightedPickEndpoint,
 } from "./request-handlers/rpc-proxy.mjs";
 import {
+  handleSurfaceDetail,
+  SUBNET_SURFACE_DETAIL_PATH_PATTERN,
+} from "./request-handlers/surface-detail.mjs";
+import {
   buildChangeEvent,
   deliveryStoragePrefix,
   generateSecret,
@@ -1128,6 +1132,19 @@ export async function handleRequest(request, env = {}, ctx = {}) {
     );
   }
 
+  const surfaceDetailMatch = SUBNET_SURFACE_DETAIL_PATH_PATTERN.exec(
+    url.pathname,
+  );
+  if (surfaceDetailMatch) {
+    return handleSurfaceDetail(
+      request,
+      env,
+      Number(surfaceDetailMatch[1]),
+      decodeURIComponent(surfaceDetailMatch[2]),
+      { resolveLiveHealth, readHealthKv },
+    );
+  }
+
   // RPC reverse-proxy usage analytics (D1 telemetry; fileless-D1 pattern, B3).
   if (url.pathname === "/api/v1/rpc/usage") {
     return handleRpcUsage(request, env, url);
@@ -1538,6 +1555,7 @@ function isMainnetOnlyApiPath(pathname) {
     pathname === "/api/v1/search/semantic" ||
     pathname === "/api/v1/registry/leaderboards" ||
     pathname === "/api/v1/compare" ||
+    SUBNET_SURFACE_DETAIL_PATH_PATTERN.test(pathname) ||
     pathname === "/api/v1/health" ||
     pathname === "/api/v1/incidents" ||
     pathname === "/api/v1/rpc/usage" ||

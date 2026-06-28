@@ -709,6 +709,12 @@ export const PUBLIC_ARTIFACTS = [
     "SubnetSurfacesArtifact",
   ),
   artifact(
+    "surface-detail-subnet",
+    "/metagraph/surfaces/{netuid}/{surface_id}.json",
+    "One curated surface for a subnet with a live health overlay — the full registry Surface record plus the current cron probe reading, composed live at /api/v1/subnets/{netuid}/surfaces/{surface_id} (no static file).",
+    "SurfaceDetailArtifact",
+  ),
+  artifact(
     "endpoints",
     "/metagraph/endpoints.json",
     "Generalized endpoint/resource registry derived from curated surfaces and probe observations.",
@@ -1365,6 +1371,26 @@ export const API_ROUTES = [
     ["surfaces", "subnets"],
     listQuery("curated-surfaces", { exclude: ["netuid"] }),
     [{ name: "netuid", schema: { type: "integer", minimum: 0 } }],
+  ),
+  route(
+    "surface-detail-subnet",
+    "GET",
+    "/api/v1/subnets/{netuid}/surfaces/{surface_id}",
+    "/metagraph/surfaces/{netuid}/{surface_id}.json",
+    "Fetch one curated surface for a subnet with a live health overlay — the full registry Surface record plus the current cron probe reading. Resolve by surface id, stable key, or deprecated alias. Composed live (no static file); for deeplinks and detail views without fetching the whole subnet list. Integration snippets are available from agent-catalog, not this route.",
+    "short",
+    ["surfaces", "subnets"],
+    [],
+    [
+      { name: "netuid", schema: { type: "integer", minimum: 0 } },
+      {
+        name: "surface_id",
+        schema: {
+          type: "string",
+          pattern: "^[a-z0-9][a-z0-9:._-]*$",
+        },
+      },
+    ],
   ),
   route(
     "endpoints",

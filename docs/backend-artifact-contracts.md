@@ -36,6 +36,7 @@ Metagraphed v1 is backend-first. The public contract is static JSON under `https
 - `/metagraph/profiles/{netuid}.json`: per-subnet public-safe profile detail. R2-backed.
 - `/metagraph/surfaces.json`: curated public surfaces only.
 - `/metagraph/surfaces/{netuid}.json`: curated public surfaces for one subnet. R2-backed.
+- `/metagraph/surfaces/{netuid}/{surface_id}.json`: schema for one curated surface with a live health overlay — composed live at `GET /api/v1/subnets/{netuid}/surfaces/{surface_id}` (no static file).
 - `/metagraph/surface-aliases.json`: publish-time deprecated `surface_id` alias map for renamed surfaces. The deterministic build emits an empty placeholder; Cloudflare publish fills it from the previous R2 `surfaces.json` + prior alias map before upload.
 - `/metagraph/endpoints.json`: generalized endpoint/resource registry derived from curated surfaces and probe observations. Endpoint `id` values derive from stable `surface_key` values; `surface_id` remains the human-readable surface alias.
 - `/metagraph/endpoints/{netuid}.json`: generalized endpoint/resource registry for one subnet. R2-backed. Endpoint `id` values derive from stable `surface_key` values; `surface_id` remains the human-readable surface alias.
@@ -186,6 +187,7 @@ Metagraphed v1 is backend-first. The public contract is static JSON under `https
 - `/api/v1/rpc/usage`: fetch RPC reverse-proxy usage analytics (request volume, latency p50/p95, failover + error rate, cache-hit rate, per-endpoint distribution, and bounded time buckets) over a 7d/30d window (live from the `rpc_proxy_events` D1 telemetry). `7d` uses 1-hour buckets; `30d` uses 6-hour buckets.
 - `/api/v1/surfaces`: list curated public surfaces.
 - `/api/v1/subnets/{netuid}/surfaces`: list curated public surfaces for one subnet.
+- `/api/v1/subnets/{netuid}/surfaces/{surface_id}`: fetch one curated surface with a live health overlay — full registry Surface record plus the current cron probe reading. Resolve by id, stable key, or deprecated alias. Composed live (no static file); integration snippets remain on agent-catalog.
 - `/api/v1/endpoints`: list generalized endpoint resources and monitored public surfaces.
 - `/api/v1/subnets/{netuid}/endpoints`: list generalized endpoint resources for one subnet.
 - `/api/v1/candidates`: list unpromoted candidate surfaces.

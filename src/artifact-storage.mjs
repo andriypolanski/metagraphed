@@ -102,6 +102,9 @@ export const R2_ONLY_PATTERNS = [
   // like its sibling live routes so the contract maps a schema to the route
   // without the build expecting a committed/staged artifact.
   /^compare\.json$/,
+  // One curated surface + live health overlay, composed live at
+  // /api/v1/subnets/{netuid}/surfaces/{surface_id} — never a file.
+  /^surfaces\/(?:\d+|\{netuid\})\/[a-z0-9][a-z0-9:._-]+\.json$/,
   // RPC reverse-proxy usage analytics (B3), computed live from D1 telemetry at
   // /api/v1/rpc/usage — never written as a file.
   /^rpc\/usage\.json$/,

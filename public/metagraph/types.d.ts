@@ -1517,6 +1517,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/subnets/{netuid}/surfaces/{surface_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch one curated surface for a subnet with a live health overlay — the full registry Surface record plus the current cron probe reading. Resolve by surface id, stable key, or deprecated alias. Composed live (no static file); for deeplinks and detail views without fetching the whole subnet list. Integration snippets are available from agent-catalog, not this route. */
+        get: operations["surfaceDetailSubnet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/subnets/{netuid}/trajectory": {
         parameters: {
             query?: never;
@@ -4992,6 +5009,15 @@ export interface components {
         } & {
             [key: string]: unknown;
         });
+        /** @description One curated surface for a subnet with a live health overlay, composed at GET /api/v1/subnets/{netuid}/surfaces/{surface_id} (no static file). Integration snippets are intentionally omitted — use agent-catalog or MCP for copy-paste call examples. */
+        SurfaceDetailArtifact: {
+            live_health: components["schemas"]["SurfaceLiveHealth"];
+            observed_at: string | null;
+            /** @constant */
+            schema_version: 1;
+            source: string;
+            surface: components["schemas"]["Surface"];
+        };
         /** @description Bounded reference to a captured, sanitized live request/response sample for one surface (#748). The request + response shape are inline; fetch the full sanitized body at artifact_path (GET /metagraph/fixtures/{surface_id}.json, or the get_fixture MCP tool). */
         SurfaceFixtureReference: {
             /** @description Public artifact path of the full sanitized fixture. */
@@ -5012,6 +5038,15 @@ export interface components {
         };
         /** @enum {unknown} */
         SurfaceKind: "archive" | "subtensor-rpc" | "subtensor-wss" | "subnet-api" | "openapi" | "sse" | "sdk" | "example" | "website" | "source-repo" | "dashboard" | "repo-registry" | "docs" | "data-artifact";
+        /** @description Live cron probe overlay for one curated surface at GET /api/v1/subnets/{netuid}/surfaces/{surface_id}. Distinct from registry snapshot fields on Surface — the current operational reading only. */
+        SurfaceLiveHealth: {
+            classification?: components["schemas"]["Classification"] | null;
+            last_checked_at?: string | null;
+            latency_ms?: number | null;
+            /** @enum {string} */
+            observed_by: "live-cron-prober" | "unavailable";
+            status: components["schemas"]["HealthStatus"];
+        };
         SurfacesArtifact: components["schemas"]["ArtifactBase"] & ({
             surfaces: components["schemas"]["Surface"][];
         } & {
@@ -17485,6 +17520,160 @@ export interface operations {
                      */
                     "application/json": components["schemas"]["SuccessEnvelope"] & {
                         data?: components["schemas"]["SubnetSurfacesArtifact"];
+                    };
+                };
+            };
+            /** @description ETag matched and the cached response is still valid. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Query parameters were malformed or unsupported. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Artifact or API route was not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description HTTP method is not supported. */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unexpected backend error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    surfaceDetailSubnet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                netuid: number;
+                surface_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Canonical artifact wrapped in the Metagraphed API envelope. */
+            200: {
+                headers: {
+                    "cache-control": components["headers"]["CacheControl"];
+                    etag: components["headers"]["ETag"];
+                    "x-metagraph-contract-version": components["headers"]["ContractVersion"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "live_health": {
+                     *           "classification": "live",
+                     *           "last_checked_at": "2026-06-01T00:00:00.000Z",
+                     *           "latency_ms": 120,
+                     *           "observed_by": "live-cron-prober",
+                     *           "status": "ok"
+                     *         },
+                     *         "observed_at": "2026-06-01T00:00:00.000Z",
+                     *         "schema_version": 1,
+                     *         "source": "live-cron-prober",
+                     *         "surface": {
+                     *           "auth": {
+                     *             "scheme": "none"
+                     *           },
+                     *           "auth_required": true,
+                     *           "authority": "official",
+                     *           "classification": "live",
+                     *           "curation_level": "native",
+                     *           "id": "example",
+                     *           "key": "example",
+                     *           "kind": "archive",
+                     *           "last_verified_at": "2026-06-01T00:00:00.000Z",
+                     *           "name": "Example Subnet",
+                     *           "netuid": 7,
+                     *           "notes": "Example description.",
+                     *           "probe": {
+                     *             "enabled": true,
+                     *             "expect": "json",
+                     *             "method": "GET"
+                     *           },
+                     *           "provider": "example-provider",
+                     *           "public_safe": true,
+                     *           "quality_signals": {},
+                     *           "rate_limit": {
+                     *             "requests": 1,
+                     *             "window": "30d"
+                     *           },
+                     *           "rate_limit_notes": "example",
+                     *           "review": {
+                     *             "state": "community-submitted"
+                     *           },
+                     *           "schema_status": "machine-readable",
+                     *           "schema_url": "https://api.metagraph.sh/example",
+                     *           "source_urls": [
+                     *             "https://api.metagraph.sh/example"
+                     *           ],
+                     *           "stale": false,
+                     *           "status": "ok",
+                     *           "subnet_name": "Example Subnet",
+                     *           "subnet_slug": "example-subnet",
+                     *           "url": "https://api.metagraph.sh/example",
+                     *           "verification": {}
+                     *         }
+                     *       },
+                     *       "meta": {
+                     *         "artifact_path": "example",
+                     *         "cache": "short",
+                     *         "contract_version": "2026-06-06.1",
+                     *         "generated_at": "2026-06-01T00:00:00.000Z",
+                     *         "pagination": {
+                     *           "collection": "example",
+                     *           "cursor": 1,
+                     *           "limit": 1,
+                     *           "next_cursor": 1,
+                     *           "order": "asc",
+                     *           "returned": 1,
+                     *           "sort": "example",
+                     *           "total": 1
+                     *         },
+                     *         "published_at": "2026-06-01T00:00:00.000Z",
+                     *         "source": "live-cron-prober",
+                     *         "stale_contract": {
+                     *           "built_under": "example",
+                     *           "live": "example"
+                     *         }
+                     *       },
+                     *       "ok": true,
+                     *       "schema_version": 1
+                     *     }
+                     */
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["SurfaceDetailArtifact"];
                     };
                 };
             };

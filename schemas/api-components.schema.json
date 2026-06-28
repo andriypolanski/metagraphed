@@ -13641,6 +13641,39 @@
           }
         ]
       },
+      "SurfaceDetailArtifact": {
+        "additionalProperties": false,
+        "description": "One curated surface for a subnet with a live health overlay, composed at GET /api/v1/subnets/{netuid}/surfaces/{surface_id} (no static file). Integration snippets are intentionally omitted — use agent-catalog or MCP for copy-paste call examples.",
+        "properties": {
+          "live_health": {
+            "$ref": "#/components/schemas/SurfaceLiveHealth"
+          },
+          "observed_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "schema_version": {
+            "const": 1,
+            "type": "integer"
+          },
+          "source": {
+            "type": "string"
+          },
+          "surface": {
+            "$ref": "#/components/schemas/Surface"
+          }
+        },
+        "required": [
+          "schema_version",
+          "source",
+          "observed_at",
+          "surface",
+          "live_health"
+        ],
+        "type": "object"
+      },
       "SurfaceFixtureReference": {
         "additionalProperties": false,
         "description": "Bounded reference to a captured, sanitized live request/response sample for one surface (#748). The request + response shape are inline; fetch the full sanitized body at artifact_path (GET /metagraph/fixtures/{surface_id}.json, or the get_fixture MCP tool).",
@@ -13722,6 +13755,50 @@
           "docs",
           "data-artifact"
         ]
+      },
+      "SurfaceLiveHealth": {
+        "additionalProperties": false,
+        "description": "Live cron probe overlay for one curated surface at GET /api/v1/subnets/{netuid}/surfaces/{surface_id}. Distinct from registry snapshot fields on Surface — the current operational reading only.",
+        "properties": {
+          "classification": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Classification"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_checked_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "latency_ms": {
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "observed_by": {
+            "enum": [
+              "live-cron-prober",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/HealthStatus"
+          }
+        },
+        "required": [
+          "status",
+          "observed_by"
+        ],
+        "type": "object"
       },
       "SurfacesArtifact": {
         "allOf": [

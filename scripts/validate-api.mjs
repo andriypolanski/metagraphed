@@ -59,6 +59,30 @@ assert.ok(
   "validate:api requires a local health/history/YYYY-MM-DD.json artifact; run `npm run build` before validating the API",
 );
 
+async function sampleSurfaceIdForNetuid(netuid) {
+  const response = await handleRequest(
+    new Request(
+      `https://metagraph.sh/api/v1/subnets/${netuid}/surfaces?limit=1`,
+    ),
+    env,
+    {},
+  );
+  assert.equal(
+    response.status,
+    200,
+    "bootstrap surfaces list for validate:api",
+  );
+  const body = await response.json();
+  const surfaceId = body.data?.surfaces?.[0]?.id;
+  assert.ok(
+    surfaceId,
+    `validate:api requires at least one curated surface on netuid ${netuid}`,
+  );
+  return surfaceId;
+}
+
+const sampleSurfaceId = await sampleSurfaceIdForNetuid(7);
+
 const checks = [
   ["/api/v1", (body) => assert.equal(Array.isArray(body.data.routes), true)],
   [
@@ -434,6 +458,15 @@ const checks = [
         ),
         true,
       ),
+  ],
+  [
+    `/api/v1/subnets/7/surfaces/${encodeURIComponent(sampleSurfaceId)}`,
+    (body) => {
+      assert.equal(body.data.surface.id, sampleSurfaceId);
+      assert.equal(body.data.surface.netuid, 7);
+      assert.equal(typeof body.data.live_health.status, "string");
+      assert.equal(typeof body.data.live_health.observed_by, "string");
+    },
   ],
   [
     "/api/v1/endpoints?layer=bittensor-base&limit=2",
