@@ -1136,11 +1136,20 @@ export async function handleRequest(request, env = {}, ctx = {}) {
     url.pathname,
   );
   if (surfaceDetailMatch) {
+    const surfaceId = decodeSlugPathSegment(surfaceDetailMatch[2]);
+    if (surfaceId === null) {
+      return errorResponse(
+        "invalid_surface_id",
+        "surface_id must be a catalog-safe identifier (no slashes or spaces).",
+        400,
+        { surface_id: surfaceDetailMatch[2] },
+      );
+    }
     return handleSurfaceDetail(
       request,
       env,
       Number(surfaceDetailMatch[1]),
-      decodeURIComponent(surfaceDetailMatch[2]),
+      surfaceId,
       { resolveLiveHealth, readHealthKv },
     );
   }

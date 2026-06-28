@@ -190,6 +190,12 @@ describe("GET /api/v1/subnets/{netuid}/surfaces/{surface_id}", () => {
     assert.equal(body.error?.code, "invalid_surface_id");
   });
 
+  test("400 for malformed surface_id percent-encoding", async () => {
+    const { status, body } = await get("/api/v1/subnets/7/surfaces/%E0%A4%A");
+    assert.equal(status, 400);
+    assert.equal(body.error?.code, "invalid_surface_id");
+  });
+
   test("404 artifact_unavailable when subnet has no surfaces file", async () => {
     const { status, body } = await get(
       "/api/v1/subnets/999999/surfaces/no-such-surface",
