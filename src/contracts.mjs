@@ -18,6 +18,12 @@ export const CACHE_SECONDS = {
   static: 600,
 };
 
+// Live-composed routes that can return 503 when a required artifact read fails
+// transiently (distinct from 404 when the artifact is absent).
+export const ROUTE_IDS_WITH_SERVICE_UNAVAILABLE = new Set([
+  "surface-detail-subnet",
+]);
+
 export const QUERY_ENUMS = {
   candidateState: [
     "schema-invalid",
@@ -2591,6 +2597,19 @@ export function buildOpenApiArtifact(generatedAt, componentSchemas) {
               },
             },
           },
+          ...(ROUTE_IDS_WITH_SERVICE_UNAVAILABLE.has(entry.id)
+            ? {
+                503: {
+                  description:
+                    "Required artifact or dependency is temporarily unavailable.",
+                  content: {
+                    "application/json": {
+                      schema: { $ref: "#/components/schemas/ErrorEnvelope" },
+                    },
+                  },
+                },
+              }
+            : {}),
         },
       },
     };

@@ -265,4 +265,17 @@ describe("handleSurfaceDetail", () => {
     const body = await res.json();
     assert.equal(body.error?.code, "artifact_unavailable");
   });
+
+  test("OpenAPI declares 503 for transient artifact read failures", async () => {
+    const openapi = buildOpenApiArtifact(
+      "2026-06-26T12:00:00.000Z",
+      await loadOpenApiComponentSchemas("2026-06-26T12:00:00.000Z"),
+    );
+    const responses =
+      openapi.paths["/api/v1/subnets/{netuid}/surfaces/{surface_id}"]?.get
+        ?.responses;
+    assert.ok(responses?.["503"], "503 must be declared on the surface detail route");
+    assert.ok(responses?.["404"]);
+    assert.ok(responses?.["400"]);
+  });
 });

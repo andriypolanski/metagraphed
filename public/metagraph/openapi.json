@@ -33122,6 +33122,16 @@
               }
             },
             "description": "Unexpected backend error."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Required artifact or dependency is temporarily unavailable."
           }
         },
         "summary": "Fetch one curated surface for a subnet with a live health overlay — the full registry Surface record plus the current cron probe reading. Resolve by surface id, stable key, or deprecated alias. Composed live (no static file); for deeplinks and detail views without fetching the whole subnet list. Integration snippets are available from agent-catalog, not this route.",
