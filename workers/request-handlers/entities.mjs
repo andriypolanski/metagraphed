@@ -341,7 +341,16 @@ export function canonicalSubnetConcentrationHistoryCachePath(url) {
 // parseHistoryWindow). Distinct from canonicalSubnetConcentrationHistoryCachePath
 // which uses a different parse function (parseConcentrationHistoryWindow).
 export function canonicalSubnetTurnoverCachePath(url) {
-  return canonicalWindowedCachePath(url, parseHistoryWindow);
+  const validationError = validateQueryParams(url, ["window", "changes"]);
+  if (validationError) return `${url.pathname}${url.search}`;
+  const { label, error } = parseHistoryWindow(url.searchParams.get("window"));
+  if (error) return `${url.pathname}${url.search}`;
+  const changes = url.searchParams.get("changes");
+  if (changes != null && changes !== "true") {
+    return `${url.pathname}${url.search}`;
+  }
+  const suffix = changes === "true" ? "&changes=true" : "";
+  return `${url.pathname}?window=${encodeURIComponent(label)}${suffix}`;
 }
 
 // Canonical edge-cache key for the subnet-metagraph route. Only
@@ -401,21 +410,28 @@ export async function handleSubnetConcentrationHistory(
 }
 
 // GET /api/v1/subnets/{netuid}/turnover?window=7d|30d|90d|1y|all: validator-set &
-// registration churn between the window's start and end neuron_daily snapshots —
-// validators entered/exited + Jaccard retention, UID deregistrations, and a 0–100
-// stability score. Reads only the two boundary snapshot_dates (a MIN/MAX bounds
-// query then their rows). Cold/absent store or a single snapshot → 200 with
-// comparable:false + zeroed metrics (schema-stable, never 404).
+// registration churn between the window's start and end neuron_daily snapshots.
+// Add ?changes=true for validator hotkeys entered/exited and UID slots reassigned
+// between the same boundary snapshots. Cold/absent store or a single snapshot →
+// 200 with comparable:false + zeroed metrics (schema-stable, never 404).
 export async function handleSubnetTurnover(request, env, netuid, url) {
-  const validationError = validateQueryParams(url, ["window"]);
+  const validationError = validateQueryParams(url, ["window", "changes"]);
   if (validationError) return analyticsQueryError(validationError);
   const { label, days, error } = parseHistoryWindow(
     url.searchParams.get("window"),
   );
   if (error) return analyticsQueryError(error);
+  const changes = url.searchParams.get("changes");
+  if (changes != null && changes !== "true") {
+    return analyticsQueryError({
+      parameter: "changes",
+      message: `"${changes}" is not a valid changes flag. Supported: true.`,
+    });
+  }
   const data = await loadSubnetTurnover(d1Runner(env), netuid, {
     windowLabel: label,
     windowDays: days,
+    includeChanges: changes === "true",
   });
   return envelopeResponse(
     request,
@@ -1426,12 +1442,15 @@ export async function handleExtrinsics(request, env, url) {
     params.push(val);
   };
   const hasBlockFilter = numericFilters.block != null;
+  const hasSignerFilter = Boolean(sp.get("signer"));
+  const hasCallModuleFilter = Boolean(sp.get("call_module"));
+  const hasCallFunctionFilter = Boolean(sp.get("call_function"));
   const hasEqualityFilter =
-    sp.get("signer") || sp.get("call_module") || sp.get("call_function");
+    hasSignerFilter || hasCallModuleFilter || hasCallFunctionFilter;
   if (hasBlockFilter) eq("block_number", numericFilters.block);
-  if (sp.get("signer")) eq("signer", sp.get("signer"));
-  if (sp.get("call_module")) eq("call_module", sp.get("call_module"));
-  if (sp.get("call_function")) eq("call_function", sp.get("call_function"));
+  if (hasSignerFilter) eq("signer", sp.get("signer"));
+  if (hasCallModuleFilter) eq("call_module", sp.get("call_module"));
+  if (hasCallFunctionFilter) eq("call_function", sp.get("call_function"));
   // success is stored 1/0/NULL; bind the literal so success=false never leaks
   // NULL (undeterminable) rows. Any non-true/false value is ignored.
   const successRaw = sp.get("success");
@@ -1482,9 +1501,19 @@ export async function handleExtrinsics(request, env, url) {
     !hasSuccessFilter &&
     !hasBlockRangeFilter &&
     !useCursor;
+  // For module-scoped feed scans, force the composite module index so SQLite/D1
+  // seeks on the equality predicate instead of a PK-desc walk.
+  const forceModuleIndex =
+    hasCallModuleFilter &&
+    !forceObservedOrderIndex &&
+    !hasBlockFilter &&
+    !hasBlockRangeFilter &&
+    !hasSignerFilter &&
+    !useCursor;
   let sql = `SELECT ${EXTRINSIC_READ_COLUMNS} FROM extrinsics`;
   if (forceObservedOrderIndex)
     sql += " INDEXED BY idx_extrinsics_observed_order";
+  else if (forceModuleIndex) sql += " INDEXED BY idx_extrinsics_module_block";
   if (conds.length) sql += ` WHERE ${conds.join(" AND ")}`;
   sql += " ORDER BY block_number DESC, extrinsic_index DESC LIMIT ?";
   params.push(limit);

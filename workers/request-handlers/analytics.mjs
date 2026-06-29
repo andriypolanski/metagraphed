@@ -61,8 +61,8 @@ import {
   buildChainActivity,
   buildChainCalls,
   buildChainFees,
-  buildChainSigners,
 } from "../../src/chain-analytics.mjs";
+import { loadChainSigners } from "../../src/chain-query-loaders.mjs";
 
 // Injected once from api.mjs (see configureAnalytics). The in-isolate memoized
 // snapshot-meta read lives in api.mjs because the deferred handler clusters and a
@@ -886,37 +886,23 @@ export async function handleChainSigners(request, env, url, ctx = {}) {
     maxLimit: 100,
   });
   if (limitError) return analyticsQueryError(limitError);
-  // Optional pallet scope, backed by idx_extrinsics_call_module_order.
+  // Optional pallet scope, backed by idx_extrinsics_module_block.
   const callModule = url.searchParams.get("call_module");
   const callModuleError = validateMaxLength(url, "call_module", 100);
   if (callModuleError) return analyticsQueryError(callModuleError);
-  const moduleClause = callModule ? " AND call_module = ?" : "";
   return withEdgeCache(
     request,
     ctx,
     env,
     "chain-signers",
     async () => {
-      const cutoff = Date.now() - days * DAY_MS;
-      const rows = await d1All(
-        env,
-        `SELECT signer,
-              COUNT(*) AS tx_count,
-              SUM(COALESCE(fee_tao, 0)) AS total_fee_tao,
-              SUM(COALESCE(tip_tao, 0)) AS total_tip_tao,
-              MAX(block_number) AS last_tx_block
-       FROM extrinsics
-       WHERE observed_at >= ? AND signer IS NOT NULL${moduleClause}
-       GROUP BY signer
-       ORDER BY tx_count DESC
-       LIMIT ?`,
-        callModule ? [cutoff, callModule, limit] : [cutoff, limit],
-      );
       const meta = await readHealthMetaKv(env);
-      const data = buildChainSigners({
-        window: label,
+      const { data, rows } = await loadChainSigners(d1Runner(env), {
+        windowLabel: label,
+        windowDays: days,
         observedAt: meta?.last_run_at || null,
-        rows,
+        limit,
+        callModule,
       });
       const response = await envelopeResponse(
         request,
@@ -950,7 +936,7 @@ export async function handleChainFees(request, env, url, ctx = {}) {
   });
   if (limitError) return analyticsQueryError(limitError);
   // Optional pallet scope (applies to both the daily series and the payer list),
-  // backed by idx_extrinsics_call_module_order.
+  // backed by idx_extrinsics_module_block.
   const callModule = url.searchParams.get("call_module");
   const callModuleError = validateMaxLength(url, "call_module", 100);
   if (callModuleError) return analyticsQueryError(callModuleError);
