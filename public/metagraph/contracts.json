@@ -160,7 +160,7 @@
       "id": "surface-detail-subnet",
       "path": "/metagraph/surfaces/{netuid}/{surface_id}.json",
       "schema_ref": "#/components/schemas/SurfaceDetailArtifact",
-      "storage_tier": "git"
+      "storage_tier": "r2"
     },
     {
       "content_type": "application/json",

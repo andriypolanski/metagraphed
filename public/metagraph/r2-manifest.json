@@ -1,14 +1,14 @@
 {
   "artifact_count": 6,
-  "artifact_size_bytes": 2122245,
+  "artifact_size_bytes": 2122243,
   "artifacts": [
     {
       "content_type": "application/json",
       "key": "runs/2026-06-18T00-00-00-000Z/api-index.json",
       "latest_key": "latest/api-index.json",
       "path": "/metagraph/api-index.json",
-      "sha256": "bb53f20c21b17ea0e670c118d64e5c69794df6e8d728fc32b35463bca47e91ac",
-      "size_bytes": 171971,
+      "sha256": "1d9f8a67b1bf0b6e810a1be00d9bf5c6344fe43d3939cfbf38e4582f210e5337",
+      "size_bytes": 171970,
       "storage_tier": "dual"
     },
     {
@@ -16,8 +16,8 @@
       "key": "runs/2026-06-18T00-00-00-000Z/contracts.json",
       "latest_key": "latest/contracts.json",
       "path": "/metagraph/contracts.json",
-      "sha256": "56366edd03435a01ccb75e3756403bb9afe3013b3101e6f5d8f1fc7a8936641e",
-      "size_bytes": 46737,
+      "sha256": "aa9119fdaa47c437e130a5c5d3e60d99f228e2fb1ce894f65325bbcbeb689407",
+      "size_bytes": 46736,
       "storage_tier": "dual"
     },
     {
@@ -61,7 +61,7 @@
   "bucket_name": "metagraphed-artifacts",
   "contract_version": "2026-06-06.1",
   "full_artifact_count": 2261,
-  "full_artifact_size_bytes": 40203971,
+  "full_artifact_size_bytes": 40204241,
   "full_manifest_key": "latest/r2-manifest.json",
   "full_manifest_run_key": "runs/2026-06-18T00-00-00-000Z/r2-manifest.json",
   "generated_at": "2026-06-18T00:00:00.000Z",
@@ -83,7 +83,7 @@
     "r2": 2255
   },
   "storage_tier_size_bytes": {
-    "dual": 2122245,
-    "r2": 38081726
+    "dual": 2122243,
+    "r2": 38081998
   }
 }
