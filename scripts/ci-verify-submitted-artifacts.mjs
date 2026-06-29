@@ -185,6 +185,7 @@ function normalizeForComparison(value) {
 function gitShow(ref) {
   return execFileSync("git", ["show", ref], {
     encoding: "utf8",
+    maxBuffer: 50 * 1024 * 1024,
     stdio: ["ignore", "pipe", "pipe"],
   });
 }
