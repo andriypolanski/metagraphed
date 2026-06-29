@@ -1630,6 +1630,101 @@ describe("MCP get_chain_activity (DATA_API binding)", () => {
   });
 });
 
+describe("MCP get_chain_signers", () => {
+  test("returns signers ranked by tx_count from D1", async () => {
+    const env = {
+      METAGRAPH_HEALTH_DB: {
+        prepare(sql) {
+          return {
+            bind(...params) {
+              return {
+                async all() {
+                  assert.match(sql, /FROM extrinsics/);
+                  assert.ok(params.includes(50));
+                  return {
+                    results: [
+                      {
+                        signer:
+                          "5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5",
+                        tx_count: 12,
+                        total_fee_tao: 1.5,
+                        total_tip_tao: 0.25,
+                        last_tx_block: 4200000,
+                      },
+                    ],
+                  };
+                },
+              };
+            },
+          };
+        },
+      },
+    };
+    const res = await callTool(
+      "get_chain_signers",
+      { window: "7d", limit: 50 },
+      { env },
+    );
+    const out = res.body.result.structuredContent;
+    assert.equal(out.window, "7d");
+    assert.equal(out.signer_count, 1);
+    assert.equal(out.signers[0].tx_count, 12);
+    assert.equal(out.signers[0].total_fee_tao, 1.5);
+  });
+
+  test("rejects an invalid window", async () => {
+    const res = await callTool("get_chain_signers", { window: "99d" }, {});
+    assert.equal(res.body.result.isError, true);
+    assert.match(res.body.result.content[0].text, /window/i);
+  });
+
+  test("rejects an over-long call_module", async () => {
+    const res = await callTool(
+      "get_chain_signers",
+      { call_module: "x".repeat(101) },
+      {},
+    );
+    assert.equal(res.body.result.isError, true);
+    assert.match(res.body.result.content[0].text, /call_module/i);
+  });
+
+  test("scopes the leaderboard by call_module", async () => {
+    let boundModule;
+    const env = {
+      METAGRAPH_HEALTH_DB: {
+        prepare(sql) {
+          return {
+            bind(...params) {
+              boundModule = params[1];
+              return {
+                async all() {
+                  assert.match(sql, /call_module = \?/);
+                  return { results: [] };
+                },
+              };
+            },
+          };
+        },
+      },
+    };
+    const res = await callTool(
+      "get_chain_signers",
+      { window: "30d", call_module: "Balances", limit: 10 },
+      { env },
+    );
+    const out = res.body.result.structuredContent;
+    assert.equal(out.window, "30d");
+    assert.equal(boundModule, "Balances");
+  });
+
+  test("returns an empty leaderboard on a cold D1 store", async () => {
+    const res = await callTool("get_chain_signers", {}, {});
+    const out = res.body.result.structuredContent;
+    assert.equal(out.signer_count, 0);
+    assert.deepEqual(out.signers, []);
+  });
+});
+
 // keyword-search.test.mjs covers the scoring matrix; here we only prove both
 // tools are wired to it — substring noise is gone and the precise target wins.
 describe("MCP keyword discovery relevance", () => {
@@ -3773,6 +3868,14 @@ describe("MCP economics + metagraph data tools", () => {
     assert.deepEqual(out.surfaces, []);
   });
 
+  test("get_subnet_health_trends returns schema-stable empty windows on cold D1", async () => {
+    const res = await callTool("get_subnet_health_trends", { netuid: 7 });
+    const out = res.body.result.structuredContent;
+    assert.equal(out.netuid, 7);
+    assert.deepEqual(out.windows["7d"].surfaces, []);
+    assert.deepEqual(out.windows["30d"].surfaces, []);
+  });
+
   test("get_registry_leaderboards returns boards from committed profiles", async () => {
     const res = await callTool(
       "get_registry_leaderboards",
@@ -3866,6 +3969,38 @@ describe("MCP economics + metagraph data tools", () => {
     assert.equal(out.observed_at, FRESH_RUN);
     assert.equal(out.surfaces.length, 1);
     assert.equal(out.surfaces[0].samples, 100);
+  });
+
+  test("get_subnet_health_trends aggregates ranked-CTE rows into both windows", async () => {
+    const env = {
+      METAGRAPH_HEALTH_DB: metagraphD1({
+        incidentRows: [
+          {
+            surface_id: "api-root",
+            surface_key: "api-root",
+            total: 100,
+            ok_count: 95,
+            latency_samples: 95,
+            avg_latency_ms: 90,
+            p50: 80,
+            p95: 110,
+            p99: 130,
+          },
+        ],
+      }),
+    };
+    const deps = makeDeps({}, { "health:meta": { last_run_at: FRESH_RUN } });
+    const res = await callTool(
+      "get_subnet_health_trends",
+      { netuid: 7 },
+      { deps, env },
+    );
+    const out = res.body.result.structuredContent;
+    assert.equal(out.observed_at, FRESH_RUN);
+    for (const label of ["7d", "30d"]) {
+      assert.equal(out.windows[label].surfaces[0].surface_id, "api-root");
+      assert.equal(out.windows[label].surfaces[0].uptime_ratio, 0.95);
+    }
   });
 
   test("get_registry_leaderboards can filter to one board", async () => {

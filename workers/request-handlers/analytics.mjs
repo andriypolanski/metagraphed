@@ -53,16 +53,16 @@ import {
   formatGlobalIncidents,
   formatIncidents,
   formatPercentiles,
-  formatTrends,
   INCIDENT_GAP_MS,
   MIN_INCIDENT_SAMPLES,
 } from "../../src/health-serving.mjs";
+import { loadSubnetHealthTrends } from "../../src/analytics-live.mjs";
 import {
   buildChainActivity,
   buildChainCalls,
   buildChainFees,
-  buildChainSigners,
 } from "../../src/chain-analytics.mjs";
+import { loadChainSigners } from "../../src/chain-query-loaders.mjs";
 
 // Injected once from api.mjs (see configureAnalytics). The in-isolate memoized
 // snapshot-meta read lives in api.mjs because the deferred handler clusters and a
@@ -413,7 +413,9 @@ export async function handleBulkHealthTrends(
 
 // D1-backed 7d/30d uptime + latency trends for one subnet's operational
 // surfaces. Returns a schema-stable empty payload when D1 is unbound/cold so it
-// never errors (mirrors the live-overlay fall-back philosophy).
+// never errors (mirrors the live-overlay fall-back philosophy). The query +
+// formatting live in loadSubnetHealthTrends (src/analytics-live.mjs) so the
+// get_subnet_health_trends MCP tool shares this exact read path (#2335).
 export async function handleHealthTrends(request, env, netuid, url, ctx = {}) {
   // Reject unsupported query params (400) like every sibling analytics route
   // (percentiles/incidents/uptime/trajectory and the bulk trends route); this
@@ -421,39 +423,20 @@ export async function handleHealthTrends(request, env, netuid, url, ctx = {}) {
   const validationError = validateQueryParams(url, []);
   if (validationError) return analyticsQueryError(validationError);
   return withEdgeCache(request, ctx, env, "trends", async () => {
-    const nowMs = Date.now();
-    const windows = {};
-    // The per-window aggregations are independent — run them in parallel (one D1
-    // round-trip each) like handleHealthPercentiles/handleLeaderboards, rather than
-    // serializing the two with an await-in-loop. Read through the shared d1All so a
-    // failure is logged + marked as a D1 fallback (the dark-serve log contract) —
-    // the inline bare catch this replaced swallowed errors silently, the exact
-    // failure mode the [d1All] logging exists to prevent.
-    const windowRows = await Promise.all(
-      Object.entries(HEALTH_TREND_WINDOWS).map(async ([label, days]) => {
-        const rows = await d1All(
-          env,
-          `${rankedChecksCte("netuid = ? AND checked_at >= ?")}
-             SELECT MAX(surface_id) AS surface_id,
-                    surface_key,
-                    COUNT(*) AS total,
-                    SUM(ok) AS ok_count,
-                    ${latencyStatColumns({ includeMinMax: false })}
-             FROM ranked
-             GROUP BY surface_key`,
-          [netuid, nowMs - days * DAY_MS],
-        );
-        return [label, rows];
-      }),
-    );
-    for (const [label, rows] of windowRows) {
-      windows[label] = rows;
-    }
+    // Read through the shared d1All (rather than handing the loader the bare
+    // db) so a failure is still logged + marked as a D1 fallback (the
+    // dark-serve log contract) — usedFallback tracks it across the loader's
+    // parallel per-window reads since the formatted result no longer exposes
+    // the raw row arrays hasD1FallbackRows used to check.
+    let usedFallback = false;
+    const d1 = async (sql, params) => {
+      const rows = await d1All(env, sql, params);
+      if (hasD1FallbackRows(rows)) usedFallback = true;
+      return rows;
+    };
     const meta = await readHealthMetaKv(env);
-    const data = formatTrends({
-      netuid,
+    const data = await loadSubnetHealthTrends(d1, netuid, {
       observedAt: meta?.last_run_at || null,
-      windows,
     });
     const response = await envelopeResponse(
       request,
@@ -470,9 +453,7 @@ export async function handleHealthTrends(request, env, netuid, url, ctx = {}) {
       },
       "short",
     );
-    return hasD1FallbackRows(...Object.values(windows))
-      ? markD1FallbackResponse(response)
-      : response;
+    return usedFallback ? markD1FallbackResponse(response) : response;
   });
 }
 
@@ -905,37 +886,23 @@ export async function handleChainSigners(request, env, url, ctx = {}) {
     maxLimit: 100,
   });
   if (limitError) return analyticsQueryError(limitError);
-  // Optional pallet scope, backed by idx_extrinsics_call_module_order.
+  // Optional pallet scope, backed by idx_extrinsics_module_block.
   const callModule = url.searchParams.get("call_module");
   const callModuleError = validateMaxLength(url, "call_module", 100);
   if (callModuleError) return analyticsQueryError(callModuleError);
-  const moduleClause = callModule ? " AND call_module = ?" : "";
   return withEdgeCache(
     request,
     ctx,
     env,
     "chain-signers",
     async () => {
-      const cutoff = Date.now() - days * DAY_MS;
-      const rows = await d1All(
-        env,
-        `SELECT signer,
-              COUNT(*) AS tx_count,
-              SUM(COALESCE(fee_tao, 0)) AS total_fee_tao,
-              SUM(COALESCE(tip_tao, 0)) AS total_tip_tao,
-              MAX(block_number) AS last_tx_block
-       FROM extrinsics
-       WHERE observed_at >= ? AND signer IS NOT NULL${moduleClause}
-       GROUP BY signer
-       ORDER BY tx_count DESC
-       LIMIT ?`,
-        callModule ? [cutoff, callModule, limit] : [cutoff, limit],
-      );
       const meta = await readHealthMetaKv(env);
-      const data = buildChainSigners({
-        window: label,
+      const { data, rows } = await loadChainSigners(d1Runner(env), {
+        windowLabel: label,
+        windowDays: days,
         observedAt: meta?.last_run_at || null,
-        rows,
+        limit,
+        callModule,
       });
       const response = await envelopeResponse(
         request,
@@ -969,7 +936,7 @@ export async function handleChainFees(request, env, url, ctx = {}) {
   });
   if (limitError) return analyticsQueryError(limitError);
   // Optional pallet scope (applies to both the daily series and the payer list),
-  // backed by idx_extrinsics_call_module_order.
+  // backed by idx_extrinsics_module_block.
   const callModule = url.searchParams.get("call_module");
   const callModuleError = validateMaxLength(url, "call_module", 100);
   if (callModuleError) return analyticsQueryError(callModuleError);
