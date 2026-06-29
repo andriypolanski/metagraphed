@@ -21,11 +21,6 @@ const result = spawnSync(
     stdio: "pipe",
   },
 );
-const result = spawnSync(process.execPath, [openapiTypescriptCli, "public/metagraph/openapi.json"], {
-  cwd: repoRoot,
-  encoding: "utf8",
-  stdio: "pipe",
-});
 
 if (result.status !== 0) {
   process.stdout.write(result.stdout || "");
