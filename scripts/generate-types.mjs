@@ -15,6 +15,7 @@ const result = spawnSync(
     cwd: repoRoot,
     encoding: "utf8",
     stdio: "pipe",
+    shell: true,
   },
 );
 
