@@ -125,27 +125,13 @@ export function composeProviderReport({
     totalOk += row.ok_count ?? 0;
   }
 
-  return {
+  const report = {
     schema_version: 1,
     source: "registry+economics+live-cron-prober",
     observed_at: observedAt ?? null,
     provider: providerSlug,
     dimensions,
     found: provider !== null,
-    identity:
-      includeIdentity && provider
-        ? {
-            id: provider.id,
-            name: provider.name ?? null,
-            kind: provider.kind ?? null,
-            website_url: provider.website_url ?? null,
-            authority: provider.authority ?? null,
-            subnet_count: provider.subnet_count ?? netuids.length,
-            surface_count: provider.surface_count ?? totalSurfaces,
-            endpoint_count: provider.endpoint_count ?? 0,
-            netuids,
-          }
-        : null,
     subnets,
     totals: {
       subnet_count: netuids.length,
@@ -156,4 +142,20 @@ export function composeProviderReport({
           : null,
     },
   };
+  if (includeIdentity) {
+    report.identity = provider
+      ? {
+          id: provider.id,
+          name: provider.name ?? null,
+          kind: provider.kind ?? null,
+          website_url: provider.website_url ?? null,
+          authority: provider.authority ?? null,
+          subnet_count: provider.subnet_count ?? netuids.length,
+          surface_count: provider.surface_count ?? totalSurfaces,
+          endpoint_count: provider.endpoint_count ?? 0,
+          netuids,
+        }
+      : null;
+  }
+  return report;
 }

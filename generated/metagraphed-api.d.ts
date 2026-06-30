@@ -3515,6 +3515,7 @@ export interface components {
         ProviderReportArtifact: {
             dimensions: ("identity" | "surfaces" | "health" | "economics")[];
             found: boolean;
+            /** @description Present only when the identity dimension is requested; null when the provider detail artifact is missing. */
             identity?: {
                 authority?: string | null;
                 endpoint_count?: number;

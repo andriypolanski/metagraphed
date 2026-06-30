@@ -254,7 +254,7 @@ describe("provider-report composition", () => {
       observedAt: OBSERVED_AT,
     });
     assert.equal(data.found, false);
-    assert.equal(data.identity, null);
+    assert.equal("identity" in data, false);
     assert.equal(data.subnets[0].surfaces, null);
     assert.equal(data.subnets[0].health, null);
     assert.equal(data.totals.health_ok_ratio, null);
@@ -299,6 +299,30 @@ describe("provider-report composition", () => {
     assert.equal(data.subnets[0].economics.total_stake_tao, 1000);
     assert.equal(data.subnets[0].health.avg_latency_ms, 12);
     assert.equal(data.subnets[0].surfaces.kinds.openapi.count, 1);
+  });
+
+  test("composeProviderReport omits identity when the dimension is not requested", () => {
+    const data = composeProviderReport({
+      providerSlug: "datura",
+      provider: sampleProvider,
+      dimensions: ["surfaces"],
+      netuids: [1],
+      subnetMeta: new Map([[1, { name: "Apex", slug: "apex" }]]),
+      economicsRows: [],
+      healthRows: [],
+      surfaceKindRows: [
+        {
+          netuid: 1,
+          kind: "openapi",
+          count: 1,
+          ok_count: 1,
+          avg_latency_ms: 10,
+        },
+      ],
+      observedAt: OBSERVED_AT,
+    });
+    assert.equal("identity" in data, false);
+    assert.equal(data.subnets[0].surfaces.count, 1);
   });
 
   test("composeProviderReport validates against ProviderReportArtifact", async () => {
@@ -473,6 +497,7 @@ describe("handleProviderReport", () => {
     assert.equal(body.data.subnets.length, 1);
     assert.equal(body.data.subnets[0].surfaces.count, 1);
     assert.equal(body.data.subnets[0].health.ok_count, 1);
+    assert.equal("identity" in body.data, false);
   });
 
   test("health-only dimension skips surface kind D1 query", async () => {

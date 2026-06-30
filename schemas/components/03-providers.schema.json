@@ -219,6 +219,7 @@
           "found": { "type": "boolean" },
           "identity": {
             "type": ["object", "null"],
+            "description": "Present only when the identity dimension is requested; null when the provider detail artifact is missing.",
             "additionalProperties": false,
             "properties": {
               "id": { "type": "string" },
