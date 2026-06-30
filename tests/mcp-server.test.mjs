@@ -4199,6 +4199,87 @@ describe("MCP account tools (get_account + events + subnets)", () => {
     assert.equal(out.recent_events[0].event_kind, "StakeAdded");
   });
 
+  test("get_account_balance returns balance_tao from finney RPC", async () => {
+    const orig = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: true,
+      json: async () => ({
+        jsonrpc: "2.0",
+        id: 1,
+        result: { data: { free: 2_000_000_000, reserved: 500_000_000 } },
+      }),
+    });
+    try {
+      const res = await callTool("get_account_balance", { ss58: SS58 }, {});
+      const out = res.body.result.structuredContent;
+      assert.equal(out.ss58, SS58);
+      assert.equal(out.balance_tao, 2.5);
+      assert.ok(out.queried_at);
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
+
+  test("get_account_balance rejects a non-finney ss58 prefix", async () => {
+    const res = await callTool(
+      "get_account_balance",
+      { ss58: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXc6TYeyZ1km1" },
+      {},
+    );
+    assert.equal(res.body.result.isError, true);
+    assert.match(res.body.result.content[0].text, /finney/i);
+  });
+
+  test("get_account_balance returns balance_tao:null on RPC failure", async () => {
+    const orig = globalThis.fetch;
+    globalThis.fetch = async () => {
+      throw new Error("rpc down");
+    };
+    try {
+      const res = await callTool("get_account_balance", { ss58: SS58 }, {});
+      const out = res.body.result.structuredContent;
+      assert.equal(out.balance_tao, null);
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
+
+  test("get_account_balance applies the RPC rate limiter before finney fetch", async () => {
+    let limiterKey;
+    let fetchCalled = false;
+    const orig = globalThis.fetch;
+    globalThis.fetch = async () => {
+      fetchCalled = true;
+      throw new Error("should not fetch");
+    };
+    const env = {
+      MCP_RATE_LIMITER: {
+        async limit() {
+          return { success: true };
+        },
+      },
+      RPC_RATE_LIMITER: {
+        async limit({ key }) {
+          limiterKey = key;
+          return { success: false };
+        },
+      },
+    };
+    try {
+      const res = await callTool(
+        "get_account_balance",
+        { ss58: SS58 },
+        { env },
+      );
+      assert.equal(res.body.result.isError, true);
+      assert.match(res.body.result.content[0].text, /rate_limited/);
+      assert.equal(limiterKey, "balance:mcp:anonymous");
+      assert.equal(fetchCalled, false);
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
+
   test("get_account_events filters by kind and echoes the limit", async () => {
     const capture = [];
     const env = accountD1(
