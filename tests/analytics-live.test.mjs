@@ -553,7 +553,7 @@ describe("loadChainFees", () => {
     const calls = [];
     const run = async (sql, params) => {
       calls.push({ sql, params });
-      if (sql.includes("strftime") && sql.includes("GROUP BY day")) {
+      if (sql.includes("strftime") && sql.includes("SUM(COALESCE(fee_tao")) {
         return [
           {
             day: "2026-06-01",
@@ -600,7 +600,7 @@ describe("loadChainFees", () => {
       "SubtensorModule",
       10,
     ]);
-    assert.match(calls[2].sql, /COALESCE\(fee_tao, 0\) AS fee_tao/);
+    assert.match(calls[2].sql, /GROUP BY day, fee_tao, tip_tao/);
     assert.deepEqual(calls[2].params, [
       now - 7 * 24 * 60 * 60 * 1000,
       "SubtensorModule",

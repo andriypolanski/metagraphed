@@ -806,7 +806,7 @@ export async function handleChainSigners(request, env, url, ctx = {}) {
 // Fee/tip market analytics (#1988): a per-UTC-day fee series (totals, averages,
 // and exact per-extrinsic medians) plus a windowed top-fee-payer list. COALESCE
 // keeps NULL fees/tips out of the SUMs; medians are computed in the pure builder
-// from a per-extrinsic sample read (D1 has no native percentile).
+// from SQL-side (day, fee_tao, tip_tao) histogram buckets (D1 has no native percentile).
 export async function handleChainFees(request, env, url, ctx = {}) {
   const { label, error } = analyticsWindow(url, ["limit", "call_module"]);
   if (error) return analyticsQueryError(error);
@@ -827,15 +827,13 @@ export async function handleChainFees(request, env, url, ctx = {}) {
     "chain-fees",
     async () => {
       const meta = await readHealthMetaKv(env);
-      const { data, dailyRows, payerRows, feeSampleRows } = await loadChainFees(
-        d1Runner(env),
-        {
+      const { data, dailyRows, payerRows, feeHistogramRows } =
+        await loadChainFees(d1Runner(env), {
           window: label,
           limit,
           callModule,
           observedAt: meta?.last_run_at || null,
-        },
-      );
+        });
       const response = await envelopeResponse(
         request,
         {
@@ -848,7 +846,7 @@ export async function handleChainFees(request, env, url, ctx = {}) {
         },
         "short",
       );
-      return hasD1FallbackRows(dailyRows, payerRows, feeSampleRows)
+      return hasD1FallbackRows(dailyRows, payerRows, feeHistogramRows)
         ? markD1FallbackResponse(response)
         : response;
     },

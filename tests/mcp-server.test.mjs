@@ -1748,7 +1748,13 @@ describe("MCP get_chain_fees", () => {
             bind(...params) {
               return {
                 async all() {
-                  if (sql.includes("strftime")) {
+                  if (/GROUP BY day, fee_tao, tip_tao/.test(sql)) {
+                    return { results: [] };
+                  }
+                  if (
+                    sql.includes("strftime") &&
+                    sql.includes("SUM(COALESCE(fee_tao")
+                  ) {
                     return {
                       results: [
                         {

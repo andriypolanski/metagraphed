@@ -552,7 +552,7 @@ export async function loadChainFees(
   const payerParams = callModuleFilter
     ? [cutoff, callModuleFilter, limit]
     : [cutoff, limit];
-  const [dailyRows, payerRows, feeSampleRows] = await Promise.all([
+  const [dailyRows, payerRows, feeHistogramRows] = await Promise.all([
     d1(
       `SELECT strftime('%Y-%m-%d', observed_at / 1000, 'unixepoch') AS day,
               COUNT(*) AS extrinsic_count,
@@ -578,9 +578,11 @@ export async function loadChainFees(
     d1(
       `SELECT strftime('%Y-%m-%d', observed_at / 1000, 'unixepoch') AS day,
               COALESCE(fee_tao, 0) AS fee_tao,
-              COALESCE(tip_tao, 0) AS tip_tao
+              COALESCE(tip_tao, 0) AS tip_tao,
+              COUNT(*) AS extrinsic_count
        FROM extrinsics
-       WHERE observed_at >= ?${moduleClause}`,
+       WHERE observed_at >= ?${moduleClause}
+       GROUP BY day, fee_tao, tip_tao`,
       dailyParams,
     ),
   ]);
@@ -589,9 +591,9 @@ export async function loadChainFees(
     observedAt,
     dailyRows,
     payerRows,
-    feeSampleRows,
+    feeHistogramRows,
   });
-  return { data, dailyRows, payerRows, feeSampleRows };
+  return { data, dailyRows, payerRows, feeHistogramRows };
 }
 
 export function parseAnalyticsWindow(window) {

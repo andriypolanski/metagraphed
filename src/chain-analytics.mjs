@@ -169,47 +169,82 @@ export function buildChainSigners({ window, observedAt = null, rows = [] }) {
   };
 }
 
-// Exact median of per-extrinsic TAO values for one UTC day (even-length uses the
-// mean of the two middle values), rounded to rao precision via toTao.
-function medianTao(values) {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  const raw =
-    sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-  return toTao(raw);
+// Exact median from a value→count histogram (even-length uses the mean of the two
+// middle values), rounded to rao precision via toTao.
+function medianFromHistogram(buckets) {
+  if (!Array.isArray(buckets) || buckets.length === 0) return null;
+  const total = buckets.reduce((sum, bucket) => sum + bucket.count, 0);
+  if (total === 0) return null;
+  if (total % 2 === 1) {
+    const target = Math.floor(total / 2);
+    let cumulative = 0;
+    for (const bucket of buckets) {
+      cumulative += bucket.count;
+      if (cumulative > target) return toTao(bucket.value);
+    }
+    return null;
+  }
+  const lowerTarget = total / 2 - 1;
+  const upperTarget = total / 2;
+  let cumulative = 0;
+  let lower = null;
+  let upper = null;
+  for (const bucket of buckets) {
+    cumulative += bucket.count;
+    if (lower === null && cumulative > lowerTarget) lower = bucket.value;
+    if (upper === null && cumulative > upperTarget) {
+      upper = bucket.value;
+      break;
+    }
+  }
+  return lower === null || upper === null ? null : toTao((lower + upper) / 2);
 }
 
-function feeSamplesByDay(feeSampleRows) {
-  const byDay = new Map();
-  for (const row of Array.isArray(feeSampleRows) ? feeSampleRows : []) {
+function histogramsByDay(histogramRows) {
+  const fees = new Map();
+  const tips = new Map();
+  for (const row of Array.isArray(histogramRows) ? histogramRows : []) {
     if (!row || typeof row.day !== "string") continue;
-    const bucket = byDay.get(row.day) || { fees: [], tips: [] };
-    bucket.fees.push(toTao(row.fee_tao));
-    bucket.tips.push(toTao(row.tip_tao));
-    byDay.set(row.day, bucket);
+    const count = toCount(row.extrinsic_count);
+    if (count === 0) continue;
+    const fee = toTao(row.fee_tao);
+    const tip = toTao(row.tip_tao);
+    const feeBucket = fees.get(row.day) || new Map();
+    feeBucket.set(fee, (feeBucket.get(fee) || 0) + count);
+    fees.set(row.day, feeBucket);
+    const tipBucket = tips.get(row.day) || new Map();
+    tipBucket.set(tip, (tipBucket.get(tip) || 0) + count);
+    tips.set(row.day, tipBucket);
   }
-  return byDay;
+  return { fees, tips };
+}
+
+function sortedHistogramBuckets(bucketMap) {
+  if (!bucketMap) return null;
+  return [...bucketMap.entries()]
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => a.value - b.value);
 }
 
 // Fee/tip market analytics (#1988): a per-UTC-day fee series (totals, averages,
 // and exact per-extrinsic medians) plus a windowed top-fee-payer list. avg_*_tao
-// and median_*_tao guard the zero-extrinsic day (null, never NaN).
+// and median_*_tao guard the zero-extrinsic day (null, never NaN). Medians are
+// derived from SQL-side (day, fee_tao, tip_tao) histogram buckets, not a raw
+// per-extrinsic sample read.
 export function buildChainFees({
   window,
   observedAt = null,
   dailyRows = [],
   payerRows = [],
-  feeSampleRows = [],
+  feeHistogramRows = [],
 }) {
-  const samplesByDay = feeSamplesByDay(feeSampleRows);
+  const { fees, tips } = histogramsByDay(feeHistogramRows);
   const daily = (Array.isArray(dailyRows) ? dailyRows : [])
     .filter((r) => r && typeof r.day === "string")
     .map((r) => {
       const extrinsicCount = toCount(r.extrinsic_count);
       const totalFee = toTao(r.total_fee_tao);
       const totalTip = toTao(r.total_tip_tao);
-      const samples = samplesByDay.get(r.day);
       return {
         day: r.day,
         extrinsic_count: extrinsicCount,
@@ -217,12 +252,16 @@ export function buildChainFees({
         avg_fee_tao:
           extrinsicCount > 0 ? toTao(totalFee / extrinsicCount) : null,
         median_fee_tao:
-          extrinsicCount > 0 && samples ? medianTao(samples.fees) : null,
+          extrinsicCount > 0
+            ? medianFromHistogram(sortedHistogramBuckets(fees.get(r.day)))
+            : null,
         total_tip_tao: totalTip,
         avg_tip_tao:
           extrinsicCount > 0 ? toTao(totalTip / extrinsicCount) : null,
         median_tip_tao:
-          extrinsicCount > 0 && samples ? medianTao(samples.tips) : null,
+          extrinsicCount > 0
+            ? medianFromHistogram(sortedHistogramBuckets(tips.get(r.day)))
+            : null,
       };
     })
     .sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : 0));
