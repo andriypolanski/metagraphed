@@ -61,6 +61,7 @@ import {
   formatAccountEvent,
   loadAccountSummary,
   loadAccountEvents,
+  loadAccountExtrinsics,
   loadAccountSubnets,
 } from "../../src/account-events.mjs";
 import {
@@ -76,7 +77,6 @@ import {
 import {
   EXTRINSIC_READ_COLUMNS,
   EXTRINSIC_RETENTION_MS,
-  buildAccountExtrinsics,
   buildBlockExtrinsics,
   buildExtrinsic,
   buildExtrinsicFeed,
@@ -630,18 +630,33 @@ export async function handleAccountHistory(request, env, ss58, url) {
 // GET /api/v1/accounts/{ss58}/extrinsics: the extrinsics this account SIGNED
 // (newest first), from the extrinsics D1 tier (#1844). Matched by the extrinsic
 // signer only — NOT the hotkey or coldkey union the account_events routes use,
-// since `extrinsics` carries a single `signer` column. ?limit (<=1000) / ?offset.
-// Cold/absent store → schema-stable zero (never 404).
+// since `extrinsics` carries a single `signer` column. ?block_start/?block_end
+// constrain block height; ?limit (<=1000) / ?offset. Cold/absent store →
+// schema-stable zero (never 404).
 export async function handleAccountExtrinsics(request, env, ss58, url) {
-  const validationError = validateQueryParams(url, ["limit", "offset"]);
+  const validationError = validateQueryParams(url, [
+    "block_start",
+    "block_end",
+    "limit",
+    "offset",
+  ]);
   if (validationError) return analyticsQueryError(validationError);
-  const { limit, offset } = parsePagination(url, FEED_PAGINATION);
-  const rows = await d1All(
-    env,
-    `SELECT ${EXTRINSIC_READ_COLUMNS} FROM extrinsics WHERE signer = ? ORDER BY block_number DESC, extrinsic_index DESC LIMIT ? OFFSET ?`,
-    [ss58, limit, offset],
+  const blockStart = parseNonNegativeIntParam(
+    url.searchParams.get("block_start"),
+    "block_start",
   );
-  const data = buildAccountExtrinsics(rows, ss58, { limit, offset });
+  if (blockStart.error) return analyticsQueryError(blockStart.error);
+  const blockEnd = parseNonNegativeIntParam(
+    url.searchParams.get("block_end"),
+    "block_end",
+  );
+  if (blockEnd.error) return analyticsQueryError(blockEnd.error);
+  const data = await loadAccountExtrinsics(d1Runner(env), ss58, {
+    limit: url.searchParams.get("limit"),
+    offset: url.searchParams.get("offset"),
+    blockStart: blockStart.value,
+    blockEnd: blockEnd.value,
+  });
   return envelopeResponse(
     request,
     {

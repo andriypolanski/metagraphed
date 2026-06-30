@@ -96,7 +96,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Fetch the extrinsics this account signed (matched by signer), newest first, computed live from the extrinsics D1 tier. ?limit (<=1000) / ?offset. */
+        /** Fetch the extrinsics this account signed (matched by signer), newest first, computed live from the extrinsics D1 tier. Optional ?block_start/?block_end (block-height range); ?limit (<=1000) / ?offset. */
         get: operations["accountExtrinsics"];
         put?: never;
         post?: never;
@@ -5830,6 +5830,8 @@ export interface operations {
     accountExtrinsics: {
         parameters: {
             query?: {
+                block_start?: number;
+                block_end?: number;
                 limit?: number;
                 offset?: number;
             };

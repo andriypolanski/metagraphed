@@ -616,13 +616,26 @@ export async function loadAccountHistory(
 // Extrinsics signed by this account, newest first. Matched by the extrinsic
 // SIGNER only (not hotkey/coldkey union) — `extrinsics` carries a single
 // `signer` column. Clamps limit to 1-1000 (default 100); clamps offset.
-export async function loadAccountExtrinsics(d1, ss58, { limit, offset } = {}) {
+export async function loadAccountExtrinsics(
+  d1,
+  ss58,
+  { limit, offset, blockStart, blockEnd } = {},
+) {
   const lim = clampLimit(limit, FEED_PAGINATION);
   const off = clampOffset(offset);
-  const rows = await d1(
-    `SELECT ${EXTRINSIC_READ_COLUMNS} FROM extrinsics WHERE signer = ? ORDER BY block_number DESC, extrinsic_index DESC LIMIT ? OFFSET ?`,
-    [ss58, lim, off],
-  );
+  const params = [ss58];
+  let sql = `SELECT ${EXTRINSIC_READ_COLUMNS} FROM extrinsics WHERE signer = ?`;
+  if (blockStart != null) {
+    sql += " AND block_number >= ?";
+    params.push(blockStart);
+  }
+  if (blockEnd != null) {
+    sql += " AND block_number <= ?";
+    params.push(blockEnd);
+  }
+  sql += " ORDER BY block_number DESC, extrinsic_index DESC LIMIT ? OFFSET ?";
+  params.push(lim, off);
+  const rows = await d1(sql, params);
   return buildAccountExtrinsics(rows, ss58, { limit: lim, offset: off });
 }
 

@@ -1572,6 +1572,28 @@ describe("handleAccountExtrinsics", () => {
     assert.deepEqual(body.data.extrinsics, []);
   });
 
+  test("rejects a non-integer block_start with 400", async () => {
+    const res = await handleAccountExtrinsics(
+      req(`/api/v1/accounts/${SS58}/extrinsics`),
+      emptyEnv(),
+      SS58,
+      url(`/api/v1/accounts/${SS58}/extrinsics?block_start=abc`),
+    );
+    const body = await errorJson(res);
+    assert.equal(body.meta.parameter, "block_start");
+  });
+
+  test("rejects a non-integer block_end with 400", async () => {
+    const res = await handleAccountExtrinsics(
+      req(`/api/v1/accounts/${SS58}/extrinsics`),
+      emptyEnv(),
+      SS58,
+      url(`/api/v1/accounts/${SS58}/extrinsics?block_end=oops`),
+    );
+    const body = await errorJson(res);
+    assert.equal(body.meta.parameter, "block_end");
+  });
+
   test("happy path returns signer-matched extrinsics", async () => {
     const { env } = dbWith({ extrinsics: [extrinsicRow()] });
     const body = await json(
@@ -1585,6 +1607,22 @@ describe("handleAccountExtrinsics", () => {
     assert.equal(body.data.extrinsic_count, 1);
     assert.equal(body.data.extrinsics[0].signer, SS58);
     assert.equal(body.data.extrinsics[0].success, true);
+  });
+
+  test("block_start/block_end range filter is applied and bound", async () => {
+    const { env, captures } = dbWith({ extrinsics: [extrinsicRow()] });
+    await handleAccountExtrinsics(
+      req(`/api/v1/accounts/${SS58}/extrinsics`),
+      env,
+      SS58,
+      url(`/api/v1/accounts/${SS58}/extrinsics?block_start=100&block_end=900`),
+    );
+    const idx = captures.sql.findIndex((s) => /FROM extrinsics/.test(s));
+    assert.ok(idx !== -1);
+    const sql = captures.sql[idx];
+    assert.ok(/AND block_number >= \?/.test(sql));
+    assert.ok(/AND block_number <= \?/.test(sql));
+    assert.deepEqual(captures.params[idx], [SS58, 100, 900, 100, 0]);
   });
 });
 

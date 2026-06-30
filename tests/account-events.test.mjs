@@ -14,6 +14,7 @@ import {
   loadAccountSummary,
   loadAccountEvents,
   loadAccountHistory,
+  loadAccountExtrinsics,
   loadAccountSubnets,
   ACCOUNT_ACTIVITY_RECENT_LIMIT,
   eventInsertStatements,
@@ -523,6 +524,21 @@ test("loadAccountTransfers applies the block_start/block_end range to both sides
     100,
     0,
   ]);
+});
+
+test("loadAccountExtrinsics applies the block_start/block_end range as bound params", async () => {
+  let captured;
+  await loadAccountExtrinsics(
+    async (sql, params) => {
+      captured = { sql, params };
+      return [];
+    },
+    "5Hk",
+    { blockStart: 100, blockEnd: 900 },
+  );
+  assert.ok(/AND block_number >= \?/.test(captured.sql));
+  assert.ok(/AND block_number <= \?/.test(captured.sql));
+  assert.deepEqual(captured.params, ["5Hk", 100, 900, 100, 0]);
 });
 
 test("formatRegistration defaults every sparse field to null/false (null-safe)", () => {
