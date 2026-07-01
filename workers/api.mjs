@@ -40,6 +40,7 @@ import {
 import {
   configureAnalytics,
   d1All,
+  d1Runner,
   handleBulkHealthTrends,
   handleChainActivity,
   handleChainCalls,
@@ -66,6 +67,7 @@ import {
   handleSubnetEvents,
   handleNeuronHistory,
   handleSubnetHistory,
+  handleSubnetIdentityHistory,
   handleSubnetConcentration,
   handleSubnetConcentrationHistory,
   canonicalSubnetHistoryCachePath,
@@ -166,6 +168,11 @@ import {
   resolveLiveHealth,
 } from "../src/health-serving.mjs";
 import {
+  loadPreviouslyKnownAs,
+  loadPreviouslyKnownAsForNetuids,
+  overlayPreviouslyKnownAs,
+} from "../src/subnet-identity-history.mjs";
+import {
   rollupNeuronDaily,
   archiveNeuronDaily,
   archivePrunableNeuronDaily,
@@ -242,6 +249,7 @@ import {
   RETIRED_CURRENT_HEALTH_ARTIFACT_PATTERN,
   resolveClientIp,
   SUBNET_HISTORY_PATH_PATTERN,
+  SUBNET_IDENTITY_HISTORY_PATH_PATTERN,
   SUBNET_METAGRAPH_PATH_PATTERN,
   SUBNET_NEURON_HISTORY_PATH_PATTERN,
   SUBNET_NEURON_PATH_PATTERN,
@@ -1395,6 +1403,16 @@ export async function handleRequest(request, env = {}, ctx = {}) {
         canonicalSubnetHistoryCachePath(resolved.url),
       );
     }
+    const subnetIdentityHistoryMatch =
+      SUBNET_IDENTITY_HISTORY_PATH_PATTERN.exec(resolved.url.pathname);
+    if (subnetIdentityHistoryMatch) {
+      return handleSubnetIdentityHistory(
+        request,
+        env,
+        Number(subnetIdentityHistoryMatch[1]),
+        resolved.url,
+      );
+    }
     const metagraphMatch = SUBNET_METAGRAPH_PATH_PATTERN.exec(
       resolved.url.pathname,
     );
@@ -1674,6 +1692,7 @@ function isMainnetOnlyApiPath(pathname) {
     SUBNET_VALIDATORS_PATH_PATTERN.test(pathname) ||
     SUBNET_EVENTS_PATH_PATTERN.test(pathname) ||
     SUBNET_HISTORY_PATH_PATTERN.test(pathname) ||
+    SUBNET_IDENTITY_HISTORY_PATH_PATTERN.test(pathname) ||
     ACCOUNT_PATH_PATTERN.test(pathname) ||
     ACCOUNT_EVENTS_PATH_PATTERN.test(pathname) ||
     ACCOUNT_HISTORY_PATH_PATTERN.test(pathname) ||
@@ -2407,6 +2426,12 @@ async function handleApiRequest(
       liveEconomics?.data,
       Number(matched.params.netuid),
     );
+    const aliasNames = await loadPreviouslyKnownAs(
+      d1Runner(env),
+      Number(matched.params.netuid),
+      baseData.native_name ?? baseData.name,
+    );
+    baseData = overlayPreviouslyKnownAs(baseData, aliasNames);
   }
   const baseSource = live
     ? live.source || baseData?.health_source || "live-cron-prober"
@@ -3267,10 +3292,30 @@ async function liveHealthOverlay(env, matched, staticData) {
         await getLive(),
         Number(matched.params.netuid),
       );
+      if (data) {
+        const aliasNames = await loadPreviouslyKnownAs(
+          d1Runner(env),
+          Number(matched.params.netuid),
+          data.name,
+        );
+        data = overlayPreviouslyKnownAs(data, aliasNames);
+      }
       break;
     }
     case "agent-catalog": {
       data = overlayCatalogIndex(staticData, await getLive());
+      if (data?.subnets?.length) {
+        const aliasMap = await loadPreviouslyKnownAsForNetuids(
+          d1Runner(env),
+          data.subnets,
+        );
+        data = {
+          ...data,
+          subnets: data.subnets.map((entry) =>
+            overlayPreviouslyKnownAs(entry, aliasMap.get(entry.netuid) || []),
+          ),
+        };
+      }
       break;
     }
     default:
