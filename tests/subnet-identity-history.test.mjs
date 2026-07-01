@@ -470,7 +470,7 @@ describe("recordSubnetIdentityChanges", () => {
   test("batches large inserts in chunks of 100", async () => {
     let batches = 0;
     const db = {
-      prepare(sql) {
+      prepare(_sql) {
         return {
           bind() {
             return this;

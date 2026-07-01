@@ -114,6 +114,44 @@ test("GET /subnets/{netuid} overlays previously_known_as on the subnet detail", 
   assert.deepEqual(body.data.subnet?.previously_known_as, ["Old Allways"]);
 });
 
+test("GET /subnets/{netuid} overlays previously_known_as on flat subnet detail", async () => {
+  const env = createLocalArtifactEnv({
+    ...identityHistoryEnv([
+      { netuid: 7, subnet_name: "Old Allways", observed_at: 2 },
+    ]),
+    METAGRAPH_ARCHIVE: {
+      async get(key) {
+        if (!String(key).includes("subnets/7.json")) return null;
+        return {
+          async json() {
+            return {
+              schema_version: 1,
+              generated_at: "2026-06-12T21:00:00.000Z",
+              netuid: 7,
+              name: "Allways",
+              endpoints: [],
+            };
+          },
+          async text() {
+            return JSON.stringify({
+              schema_version: 1,
+              generated_at: "2026-06-12T21:00:00.000Z",
+              netuid: 7,
+              name: "Allways",
+              endpoints: [],
+            });
+          },
+        };
+      },
+    },
+  });
+  const res = await handleRequest(req("/api/v1/subnets/7"), env, {});
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.deepEqual(body.data.previously_known_as, ["Old Allways"]);
+  assert.equal(body.data.subnet, undefined);
+});
+
 test("GET /agent-catalog overlays previously_known_as on index entries", async () => {
   const env = createLocalArtifactEnv({
     ...identityHistoryEnv([
