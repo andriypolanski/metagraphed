@@ -4564,6 +4564,56 @@ describe("MCP economics + metagraph data tools", () => {
     assert.equal(out.validator_retention, 1);
   });
 
+  test("get_subnet_yield returns schema-stable empty on cold D1", async () => {
+    const res = await callTool("get_subnet_yield", { netuid: 7 });
+    const out = res.body.result.structuredContent;
+    assert.equal(out.netuid, 7);
+    assert.equal(out.neuron_count, 0);
+    assert.equal(out.subnet_yield, null);
+    assert.deepEqual(out.neurons, []);
+  });
+
+  test("get_subnet_yield ranks UIDs by emission-per-stake return", async () => {
+    const res = await callTool(
+      "get_subnet_yield",
+      { netuid: 7 },
+      {
+        env: {
+          METAGRAPH_HEALTH_DB: metagraphD1({
+            neurons: [
+              {
+                uid: 0,
+                hotkey: "5Hk0",
+                validator_permit: 1,
+                stake_tao: 10,
+                emission_tao: 1,
+                captured_at: 1750000000000,
+                block_number: 5000,
+              },
+              {
+                uid: 1,
+                hotkey: "5Hk1",
+                validator_permit: 0,
+                stake_tao: 10,
+                emission_tao: 3,
+                captured_at: 1750000000000,
+                block_number: 5000,
+              },
+            ],
+          }),
+        },
+      },
+    );
+    const out = res.body.result.structuredContent;
+    assert.equal(out.neuron_count, 2);
+    assert.equal(out.validator_count, 1);
+    assert.equal(out.subnet_yield, 0.2);
+    assert.equal(out.neurons[0].uid, 1);
+    assert.equal(out.neurons[0].yield, 0.3);
+    assert.equal(out.neurons[1].uid, 0);
+    assert.equal(out.neurons[1].yield, 0.1);
+  });
+
   test("the D1-backed tools degrade to schema-stable empty payloads when D1 is cold", async () => {
     const meta = await callTool("get_subnet_metagraph", { netuid: 7 });
     assert.equal(meta.body.result.isError, false);
@@ -5470,6 +5520,72 @@ describe("MCP account tools (get_account + events + subnets)", () => {
     assert.ok(/AND \(block_number, event_index\) < \(\?, \?\)/.test(q.sql));
     assert.ok(!/OFFSET/.test(q.sql));
     assert.ok(q.params.includes(200) && q.params.includes(1));
+  });
+
+  test("get_account_events applies block_start/block_end and cursor pagination", async () => {
+    const capture = [];
+    const env = accountD1(
+      {
+        events: [
+          {
+            block_number: 150,
+            event_index: 4,
+            event_kind: "StakeAdded",
+            hotkey: SS58,
+            coldkey: null,
+            netuid: 7,
+            uid: 3,
+            amount_tao: 1.5,
+            observed_at: 1750009000000,
+          },
+        ],
+      },
+      capture,
+    );
+    const res = await callTool(
+      "get_account_events",
+      {
+        ss58: SS58,
+        block_start: 100,
+        block_end: 900,
+        cursor: "200.2",
+        limit: 1,
+        offset: 99,
+      },
+      { env },
+    );
+    const out = res.body.result.structuredContent;
+    assert.equal(out.event_count, 1);
+    assert.equal(out.next_cursor, "150.4");
+    const q = capture.find((c) => /FROM account_events/.test(c.sql));
+    assert.ok(/block_number >= \?/.test(q.sql));
+    assert.ok(/block_number <= \?/.test(q.sql));
+    assert.ok(/\(block_number, event_index\) < \(\?, \?\)/.test(q.sql));
+    assert.ok(!/OFFSET/.test(q.sql));
+    assert.deepEqual(q.params, [
+      SS58,
+      100,
+      900,
+      200,
+      2,
+      SS58,
+      SS58,
+      100,
+      900,
+      200,
+      2,
+      1,
+    ]);
+  });
+
+  test("get_account_events rejects a non-integer block_start", async () => {
+    const res = await callTool(
+      "get_account_events",
+      { ss58: SS58, block_start: "bad" },
+      {},
+    );
+    assert.equal(res.body.result.isError, true);
+    assert.match(res.body.result.content[0].text, /block_start/i);
   });
 
   test("get_account_events emits next_cursor for a full page", async () => {

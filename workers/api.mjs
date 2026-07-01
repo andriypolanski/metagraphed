@@ -117,6 +117,7 @@ import {
   handleRpcProxyRequest,
   handleRpcUsage,
   handleSurfaceVerify,
+  isPrivateOrLocalHostname,
   isRpcEndpointEjected,
   orderSafeRpcEndpoints,
   proxyWithFailover,
@@ -359,6 +360,7 @@ export {
 // module (their public test surface is api.mjs, not the new file).
 export {
   classifyUpstreamAttempt,
+  isPrivateOrLocalHostname,
   isRpcEndpointEjected,
   orderSafeRpcEndpoints,
   proxyWithFailover,
@@ -1707,6 +1709,11 @@ function isMainnetOnlyApiPath(pathname) {
     SUBNET_EVENTS_PATH_PATTERN.test(pathname) ||
     SUBNET_HISTORY_PATH_PATTERN.test(pathname) ||
     SUBNET_IDENTITY_HISTORY_PATH_PATTERN.test(pathname) ||
+    SUBNET_CONCENTRATION_PATH_PATTERN.test(pathname) ||
+    SUBNET_CONCENTRATION_HISTORY_PATH_PATTERN.test(pathname) ||
+    SUBNET_TURNOVER_PATH_PATTERN.test(pathname) ||
+    SUBNET_STAKE_FLOW_PATH_PATTERN.test(pathname) ||
+    SUBNET_YIELD_PATH_PATTERN.test(pathname) ||
     ACCOUNT_PATH_PATTERN.test(pathname) ||
     ACCOUNT_EVENTS_PATH_PATTERN.test(pathname) ||
     ACCOUNT_HISTORY_PATH_PATTERN.test(pathname) ||
@@ -1714,6 +1721,7 @@ function isMainnetOnlyApiPath(pathname) {
     ACCOUNT_EXTRINSICS_PATH_PATTERN.test(pathname) ||
     ACCOUNT_TRANSFERS_PATH_PATTERN.test(pathname) ||
     ACCOUNT_COUNTERPARTIES_PATH_PATTERN.test(pathname) ||
+    ACCOUNT_STAKE_FLOW_PATH_PATTERN.test(pathname) ||
     ACCOUNT_BALANCE_PATH_PATTERN.test(pathname) ||
     BLOCKS_FEED_PATH_PATTERN.test(pathname) ||
     BLOCK_DETAIL_PATH_PATTERN.test(pathname) ||

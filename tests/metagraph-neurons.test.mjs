@@ -400,6 +400,38 @@ describe("metagraph-neurons builders", () => {
     );
   });
 
+  test("buildGlobalValidators reports a null block_number as null, not a fabricated 0", () => {
+    // block_number is a nullable INTEGER column and the /validators query does not
+    // filter it, so a validator's newest capture can carry block_number: null.
+    // Number(null) === 0 must NOT surface as the real chain height 0 (block 0 is
+    // the genesis block, a height the neuron was never captured at).
+    const data = buildGlobalValidators(
+      [
+        {
+          ...ROW,
+          netuid: 1,
+          uid: 0,
+          hotkey: "hk-null-block",
+          block_number: null,
+          captured_at: 2000,
+        },
+        {
+          ...ROW,
+          netuid: 2,
+          uid: 1,
+          hotkey: "hk-null-block",
+          block_number: 99,
+          captured_at: 1000,
+        },
+      ],
+      { sort: "subnet_count", limit: 10 },
+    );
+    // Newest capture (captured_at 2000) has no block height → both the per-validator
+    // and top-level block numbers must be null.
+    assert.equal(data.block_number, null);
+    assert.equal(data.validators[0].latest_block_number, null);
+  });
+
   test("builders drop malformed rows and count only real neurons", () => {
     // A null/non-object row can't be a Neuron, so it must not leak into the
     // array — and the count tracks the array (neuron_count === neurons.length),
