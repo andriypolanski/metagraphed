@@ -143,6 +143,16 @@ describe("formatIdentityHistoryEntry", () => {
   test("returns null for invalid rows", () => {
     assert.equal(formatIdentityHistoryEntry(null), null);
     assert.equal(formatIdentityHistoryEntry(undefined), null);
+    assert.equal(formatIdentityHistoryEntry("nope"), null);
+  });
+
+  test("defaults identity_hash to null when absent", () => {
+    const out = formatIdentityHistoryEntry({
+      block_number: 1,
+      observed_at: 1_700_000_000_000,
+      subnet_name: "MIAO",
+    });
+    assert.equal(out.identity_hash, null);
   });
 
   test("nulls invalid block numbers and observed_at values", () => {
@@ -181,6 +191,10 @@ describe("derivePreviouslyKnownAs", () => {
       [],
     );
   });
+
+  test("treats null rows as empty", () => {
+    assert.deepEqual(derivePreviouslyKnownAs(null, "Current"), []);
+  });
 });
 
 describe("buildSubnetIdentityHistory", () => {
@@ -208,6 +222,18 @@ describe("buildSubnetIdentityHistory", () => {
     assert.equal(out.entry_count, 1);
     assert.equal(out.next_cursor, "2.1");
     assert.equal(out.entries[0].subnet_name, "B");
+  });
+
+  test("defaults limit and offset to null and drops invalid rows", () => {
+    const out = buildSubnetIdentityHistory([null, identityHistoryRow()], 86);
+    assert.equal(out.limit, null);
+    assert.equal(out.offset, null);
+    assert.equal(out.entry_count, 1);
+  });
+
+  test("treats null rows input as empty", () => {
+    const out = buildSubnetIdentityHistory(null, 86);
+    assert.equal(out.entry_count, 0);
   });
 });
 
@@ -515,6 +541,28 @@ describe("recordSubnetIdentityChanges", () => {
     );
     assert.equal(result.rows, 0);
   });
+
+  test("reads latest hashes when D1 returns no results array", async () => {
+    const db = {
+      prepare() {
+        return {
+          bind() {
+            return this;
+          },
+          all: async () => ({}),
+        };
+      },
+      batch: async () => {},
+    };
+    const result = await recordSubnetIdentityChanges(
+      {},
+      {
+        profiles: [{ netuid: 7, native_identity: { subnet_name: "First" } }],
+        db,
+      },
+    );
+    assert.equal(result.rows, 1);
+  });
 });
 
 describe("loadSubnetIdentityHistory", () => {
@@ -579,6 +627,11 @@ describe("loadPreviouslyKnownAsForNetuids", () => {
     assert.equal(map.size, 0);
   });
 
+  test("returns an empty map when entries are null", async () => {
+    const map = await loadPreviouslyKnownAsForNetuids(async () => [], null);
+    assert.equal(map.size, 0);
+  });
+
   test("groups aliases per netuid", async () => {
     const d1 = async () => [
       { netuid: 86, subnet_name: "MIAO", observed_at: 2 },
@@ -592,11 +645,46 @@ describe("loadPreviouslyKnownAsForNetuids", () => {
     assert.deepEqual(map.get(7), ["Old7"]);
   });
 
+  test("merges multiple rows for the same netuid", async () => {
+    const map = await loadPreviouslyKnownAsForNetuids(
+      async () => [
+        { netuid: 86, subnet_name: "MIAO", observed_at: 2 },
+        { netuid: 86, subnet_name: "Arena", observed_at: 1 },
+      ],
+      [{ netuid: 86, name: "⚒" }],
+    );
+    assert.deepEqual(map.get(86), ["MIAO", "Arena"]);
+  });
+
   test("uses native_name when name is absent and skips empty alias sets", async () => {
     const map = await loadPreviouslyKnownAsForNetuids(
       async () => [{ netuid: 7, subnet_name: "Allways", observed_at: 1 }],
       [{ netuid: 7, native_name: "Allways" }],
     );
     assert.equal(map.size, 0);
+  });
+
+  test("prefers name over native_name for the current label", async () => {
+    const map = await loadPreviouslyKnownAsForNetuids(
+      async () => [{ netuid: 7, subnet_name: "Old Allways", observed_at: 1 }],
+      [{ netuid: 7, name: "Allways", native_name: "Legacy" }],
+    );
+    assert.deepEqual(map.get(7), ["Old Allways"]);
+  });
+
+  test("treats null D1 rows as empty", async () => {
+    const map = await loadPreviouslyKnownAsForNetuids(
+      async () => null,
+      [{ netuid: 7, name: "Allways" }],
+    );
+    assert.equal(map.size, 0);
+  });
+
+  test("treats entries without a current label as null", async () => {
+    const map = await loadPreviouslyKnownAsForNetuids(
+      async () => [{ netuid: 7, subnet_name: "Old Allways", observed_at: 1 }],
+      [{ netuid: 7 }],
+    );
+    assert.deepEqual(map.get(7), ["Old Allways"]);
   });
 });

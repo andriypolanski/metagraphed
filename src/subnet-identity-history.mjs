@@ -123,7 +123,6 @@ export function overlayPreviouslyKnownAs(detail, names) {
 }
 
 async function runStatementBatches(db, statements) {
-  if (!statements.length) return;
   for (let i = 0; i < statements.length; i += D1_STATEMENTS_PER_BATCH) {
     await db.batch(statements.slice(i, i + D1_STATEMENTS_PER_BATCH));
   }
@@ -189,7 +188,6 @@ export async function recordSubnetIdentityChanges(
     const snapshot = identitySnapshotFromProfile(profile);
     if (!snapshot) continue;
     const hash = await identityHash(snapshot);
-    if (!hash) continue;
     if (latestByNetuid.get(profile.netuid) === hash) continue;
     statements.push(
       stmt.bind(
@@ -266,7 +264,8 @@ export async function loadPreviouslyKnownAs(d1, netuid, currentName) {
 }
 
 export async function loadPreviouslyKnownAsForNetuids(d1, entries) {
-  const netuids = (entries || [])
+  const items = entries || [];
+  const netuids = items
     .map((entry) => entry?.netuid)
     .filter((netuid) => Number.isInteger(netuid));
   if (!netuids.length) return new Map();
@@ -281,7 +280,7 @@ export async function loadPreviouslyKnownAsForNetuids(d1, entries) {
     netuids,
   );
   const currentByNetuid = new Map(
-    (entries || [])
+    items
       .filter((entry) => Number.isInteger(entry?.netuid))
       .map((entry) => [entry.netuid, entry.name ?? entry.native_name ?? null]),
   );
