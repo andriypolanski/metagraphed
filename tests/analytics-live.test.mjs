@@ -409,7 +409,10 @@ describe("analytics-live loaders", () => {
     const healthSql = surfaceStatusSql.find((sql) =>
       /SUM\(CASE WHEN status = 'ok'/.test(sql),
     );
-    assert.ok(healthSql, "expected leaderboards healthRows surface_status query");
+    assert.ok(
+      healthSql,
+      "expected leaderboards healthRows surface_status query",
+    );
     assert.match(healthSql, /status = 'ok'/);
     assert.match(healthSql, /AVG\(CASE WHEN/);
     assert.doesNotMatch(healthSql, /AVG\(latency_ms\)/);
@@ -421,7 +424,9 @@ describe("analytics-live loaders", () => {
       async (sql) => {
         if (/FROM surface_status/.test(sql)) {
           healthSql = sql;
-          return [{ netuid: 1, surface_count: 2, ok_count: 1, avg_latency_ms: 100 }];
+          return [
+            { netuid: 1, surface_count: 2, ok_count: 1, avg_latency_ms: 100 },
+          ];
         }
         return [];
       },
