@@ -5,10 +5,12 @@ import {
   renderBadge,
   scoreColor,
   gradeColor,
+  healthStatusColor,
   parseBadgePath,
   parseBadgeOptions,
   formatUptimePercent,
 } from "../src/badge.mjs";
+import { KV_HEALTH_CURRENT } from "../src/health-prober.mjs";
 import { handleRequest } from "../workers/api.mjs";
 import { createLocalArtifactEnv } from "../scripts/lib.mjs";
 
@@ -74,7 +76,58 @@ const SURFACES = {
   // netuid 9 has no surfaces artifact → n/a
 };
 
-async function badge(pathname, { method = "GET", fixtures = {} } = {}) {
+const HEALTH_BADGES = {
+  "/metagraph/health/badges/7.json": {
+    netuid: 7,
+    status: "degraded",
+    ok_count: 2,
+    surface_count: 3,
+    failed_count: 1,
+    unknown_count: 0,
+    color: "yellow",
+  },
+  "/metagraph/health/badges/12.json": {
+    netuid: 12,
+    status: "ok",
+    ok_count: 1,
+    surface_count: 1,
+    failed_count: 0,
+    unknown_count: 0,
+    color: "brightgreen",
+  },
+};
+
+const LIVE_HEALTH = {
+  subnets: [
+    {
+      netuid: 7,
+      status: "ok",
+      ok_count: 4,
+      surface_count: 5,
+      degraded_count: 1,
+      failed_count: 0,
+      unknown_count: 0,
+    },
+    {
+      netuid: 12,
+      status: "failed",
+      ok_count: 0,
+      surface_count: 1,
+      degraded_count: 0,
+      failed_count: 1,
+      unknown_count: 0,
+    },
+  ],
+};
+
+function makeReadHealthKv(snapshot) {
+  return async (_env, key) => (key === KV_HEALTH_CURRENT ? snapshot : null);
+}
+
+async function badge(
+  pathname,
+  { method = "GET", fixtures = {}, liveHealth = null, readHealthKv } = {},
+) {
   const url = new URL(`https://api.metagraph.sh${pathname}`);
   const res = await handleBadgeRequest(new Request(url, { method }), {}, url, {
     readArtifact: makeReadArtifact({
@@ -82,9 +135,13 @@ async function badge(pathname, { method = "GET", fixtures = {} } = {}) {
       "/metagraph/providers.json": PROVIDERS,
       "/metagraph/profiles.json": PROFILES,
       ...SURFACES,
+      ...HEALTH_BADGES,
       ...fixtures,
     }),
     loadReliability: makeLoadReliability(RELIABILITY),
+    readHealthKv:
+      readHealthKv ??
+      (liveHealth != null ? makeReadHealthKv(liveHealth) : async () => null),
   });
   return { res, text: await res.text() };
 }
@@ -269,6 +326,14 @@ describe("badge — rendering", () => {
     assert.equal(gradeColor("Z"), "#9f9f9f");
   });
 
+  test("healthStatusColor maps operational status to probe bands", () => {
+    assert.equal(healthStatusColor("ok"), "#4c1");
+    assert.equal(healthStatusColor("degraded"), "#dfb317");
+    assert.equal(healthStatusColor("failed"), "#e05d44");
+    assert.equal(healthStatusColor("unknown"), "#9f9f9f");
+    assert.equal(healthStatusColor("weird"), "#9f9f9f");
+  });
+
   test("parseBadgeOptions allow-lists metric/style + sanitizes label", () => {
     const sp = (q) => new URL(`https://x/?${q}`).searchParams;
     // metric: readiness default; uptime + reliability both map to reliability.
@@ -288,6 +353,7 @@ describe("badge — rendering", () => {
       parseBadgeOptions(sp("metric=coverage")).metric,
       "completeness",
     );
+    assert.equal(parseBadgeOptions(sp("metric=HEALTH")).metric, "health");
     assert.equal(parseBadgeOptions(sp("metric=bogus")).metric, "readiness");
     // style: flat default; flat-square allowed; anything else → flat.
     assert.equal(parseBadgeOptions(sp("")).style, "flat");
@@ -467,6 +533,168 @@ describe("badge — grade metric", () => {
     assert.equal(res.status, 200);
     assert.match(text, /n\/a/);
     assert.match(text, /#9f9f9f/);
+  });
+});
+
+describe("badge — health metric", () => {
+  test("subnet health renders live ok/total from the KV snapshot", async () => {
+    const { text } = await badge("/api/v1/subnets/7/badge.svg?metric=health", {
+      liveHealth: LIVE_HEALTH,
+    });
+    assert.match(text, /aria-label="metagraphed: 4\/5"/);
+    assert.match(text, /#4c1/); // status ok → brightgreen
+  });
+
+  test("provider health sums live ok/total across its subnets", async () => {
+    const { text } = await badge(
+      "/api/v1/providers/datura/badge.svg?metric=health",
+      { liveHealth: LIVE_HEALTH },
+    );
+    assert.match(text, /aria-label="metagraphed: 4\/6"/);
+    assert.match(text, /#dfb317/); // mixed ok + failed → degraded
+  });
+
+  test("provider health merges live counts with artifact fallback per netuid", async () => {
+    const { text } = await badge(
+      "/api/v1/providers/datura/badge.svg?metric=health",
+      {
+        liveHealth: {
+          subnets: [LIVE_HEALTH.subnets[0]],
+        },
+      },
+    );
+    // netuid 7 live (4/5) + netuid 12 artifact (1/1) → 5/6, not live-only 4/5
+    assert.match(text, /aria-label="metagraphed: 5\/6"/);
+    assert.match(text, /#dfb317/);
+  });
+
+  test("subnet health falls back to the static badge artifact when KV is cold", async () => {
+    const { text } = await badge("/api/v1/subnets/7/badge.svg?metric=health");
+    assert.match(text, /aria-label="metagraphed: 2\/3"/);
+    assert.match(text, /#dfb317/); // artifact status degraded
+  });
+
+  test("provider health falls back to summed static badge artifacts", async () => {
+    const { text } = await badge(
+      "/api/v1/providers/datura/badge.svg?metric=health",
+    );
+    assert.match(text, /aria-label="metagraphed: 3\/4"/);
+    assert.match(text, /#dfb317/); // 2 ok + 1 failed across 7 + 12
+  });
+
+  test("unknown subnet health degrades to n/a (gray, still 200)", async () => {
+    const { res, text } = await badge(
+      "/api/v1/subnets/999/badge.svg?metric=health",
+    );
+    assert.equal(res.status, 200);
+    assert.match(text, /n\/a/);
+    assert.match(text, /#9f9f9f/);
+  });
+
+  test("provider with no health data is n/a", async () => {
+    const { text } = await badge(
+      "/api/v1/providers/byid/badge.svg?metric=health",
+    );
+    assert.match(text, /n\/a/);
+  });
+
+  test("label override applies to the health variant too", async () => {
+    const { text } = await badge(
+      "/api/v1/subnets/7/badge.svg?metric=health&label=health",
+      { liveHealth: LIVE_HEALTH },
+    );
+    assert.match(text, /aria-label="health: 4\/5"/);
+  });
+
+  test("live entry with zero surface_count falls back to artifact or n/a", async () => {
+    const { res, text } = await badge(
+      "/api/v1/subnets/999/badge.svg?metric=health",
+      {
+        liveHealth: {
+          subnets: [
+            {
+              netuid: 999,
+              status: "unknown",
+              ok_count: 0,
+              surface_count: 0,
+            },
+          ],
+        },
+      },
+    );
+    assert.equal(res.status, 200);
+    assert.match(text, /n\/a/);
+    assert.match(text, /#9f9f9f/);
+  });
+
+  test("artifact health uses message-only fallback when counts are absent", async () => {
+    const { text } = await badge("/api/v1/subnets/9/badge.svg?metric=health", {
+      fixtures: {
+        "/metagraph/health/badges/9.json": {
+          message: "failed",
+          color: "red",
+        },
+      },
+    });
+    assert.match(text, /aria-label="metagraphed: failed"/);
+    assert.match(text, /#e05d44/);
+  });
+
+  test("artifact health maps shields color names when status is absent", async () => {
+    const { text } = await badge("/api/v1/subnets/9/badge.svg?metric=health", {
+      fixtures: {
+        "/metagraph/health/badges/9.json": {
+          message: "degraded",
+          color: "yellow",
+        },
+      },
+    });
+    assert.match(text, /aria-label="metagraphed: degraded"/);
+    assert.match(text, /#dfb317/);
+  });
+
+  test("subnet health renders failed status in red", async () => {
+    const { text } = await badge("/api/v1/subnets/7/badge.svg?metric=health", {
+      liveHealth: {
+        subnets: [
+          {
+            netuid: 7,
+            status: "failed",
+            ok_count: 0,
+            surface_count: 2,
+            degraded_count: 0,
+            failed_count: 2,
+            unknown_count: 0,
+          },
+        ],
+      },
+    });
+    assert.match(text, /aria-label="metagraphed: 0\/2"/);
+    assert.match(text, /#e05d44/);
+  });
+
+  test("provider live rollup is n/a when every subnet reports zero surfaces", async () => {
+    const { text } = await badge(
+      "/api/v1/providers/solo/badge.svg?metric=health",
+      {
+        liveHealth: {
+          subnets: [
+            {
+              netuid: 99,
+              status: "unknown",
+              ok_count: 0,
+              surface_count: 0,
+            },
+          ],
+        },
+        fixtures: {
+          "/metagraph/providers.json": {
+            providers: [{ slug: "solo", netuids: [99] }],
+          },
+        },
+      },
+    );
+    assert.match(text, /n\/a/);
   });
 });
 

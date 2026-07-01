@@ -196,8 +196,9 @@ jobs:
           # artifacts are NOT gated: they re-drift on every registry/data edit and would
           # red-line build-less community surface PRs (the single-file model makes adding
           # a surface a one-file data PR). Those are handled out-of-band: public/datasets/
-          # + the llms.txt catalogs are gitignored (rebuilt + served via ASSETS on
-          # deploy); r2-manifest.json is the publish lockfile; schemas/index.json is a
+          # + the llms.txt catalogs are DATA-derived (rebuilt + served via ASSETS on
+          # deploy; excluded below like datasets so registry-only PRs stay green);
+          # r2-manifest.json is the publish lockfile; schemas/index.json is a
           # network-capture cache the build reconciles in place (a new openapi surface
           # legitimately adds a not-captured placeholder); and operational-surfaces.json
           # is CONTENT-derived — the prober's input list regenerates whenever a
@@ -212,6 +213,9 @@ jobs:
             ':(exclude)public/metagraph/schemas/index.json'
             ':(exclude)public/metagraph/operational-surfaces.json'
             ':(exclude)public/datasets'
+            ':(exclude)public/llms.txt'
+            ':(exclude)public/llms-full.txt'
+            ':(exclude)public/.well-known/llms.txt'
           )
           status=$(git status --porcelain --untracked-files=all -- public/ "${excludes[@]}")
           if [ -n "$status" ]; then
@@ -266,8 +270,8 @@ jobs:
       # PRs that legitimately change a subnet's catalog row. README freshness is
       # owned out-of-band by .github/workflows/readme-catalog-refresh.yml, which
       # accumulates drift into a single chore/readme-catalog PR on every
-      # registry/subnets push. (Same rationale as the gitignored llms.txt
-      # catalogs + public/datasets — DATA artifacts are not PR-gated.)
+      # registry/subnets push. (Same rationale as the llms.txt catalogs +
+      # public/datasets — DATA artifacts are not PR-gated.)
 
       - name: Validate intake templates
         run: npm run validate:intake

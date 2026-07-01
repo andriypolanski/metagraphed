@@ -1055,7 +1055,8 @@ export async function handleRequest(request, env = {}, ctx = {}) {
   // Embeddable SVG badges at /api/v1/{subnets/{netuid}|providers/{slug}}/
   // badge.svg. Worker-computed image, caught before the generic entity routing so
   // `badge.svg` isn't resolved as an entity sub-resource. `?metric=uptime` reads
-  // the live reliability rollup (health DB); `?metric=completeness` reads profiles.
+  // the live reliability rollup (health DB); `?metric=health` reads the live
+  // probe snapshot (KV); `?metric=completeness` reads profiles.
   if (
     /^\/api\/v1\/(?:subnets|providers)\/[^/]+\/badge\.svg$/.test(url.pathname)
   ) {

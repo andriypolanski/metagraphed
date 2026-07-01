@@ -153,17 +153,10 @@ public/metagraph/review/maintainer-decisions.json
 # them can't turn CI red. (Contract artifacts stay committed + gated.)
 public/datasets/
 
-# AI-discovery catalogs (llms.txt family) — DATA-derived from the registry (they
-# list every subnet + surface), regenerated + served as static assets on every
-# build/deploy via ASSETS. Same rationale as public/datasets/: never commit. A
-# single community surface PR re-drifts them, which would red-line the
-# fresh-artifacts gate for build-less contributors (the whole point of the
-# single-file model is that adding a surface is one small data PR). The deploy
-# rebuilds them; only the CONTRACT artifacts (openapi/types/contracts/api-index/
-# operational-surfaces) stay committed + gated.
-public/llms.txt
-public/llms-full.txt
-public/.well-known/llms.txt
+# AI-discovery catalogs (llms.txt family): committed when llmsHeader contract
+# text changes (builder + README stay in sync). Subnet/route listings remain
+# DATA-derived; excluded from the fresh-artifacts gate in validate.yml (same
+# rationale as public/datasets/) so build-less surface PRs stay green.
 
 # Local/private automation implementation details
 private/

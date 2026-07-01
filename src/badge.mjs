@@ -15,13 +15,23 @@
 //                      blue, gray for 0; for a provider, the sum across its subnets
 //   metric=completeness  coverage completeness 0–100 from profiles.json
 //                        (alias: coverage); provider = mean across its subnets
+//   metric=health        live probe health as ok/total surfaces (e.g. 12/15),
+//                        colored by the operational status band (ok/degraded/
+//                        failed/unknown); reads the cron KV snapshot with a
+//                        static health/badges artifact fallback
 //   style=flat-square  square corners, no gradient (default: flat)
 //   style=for-the-badge  taller (28px), uppercase bold, letter-spaced, matte
 //   label=…            override the left "metagraphed" segment text
 //
 // Worker-computed image/svg+xml, read-only, edge-cached, CORS-open. Unknown
 // entities or missing data render an "n/a" badge (200) so an <img> never breaks.
-import { loadReliabilityAggregate } from "./health-serving.mjs";
+import {
+  loadReliabilityAggregate,
+  subnetBadgeStatus,
+} from "./health-serving.mjs";
+import { rollupSubnetStatus } from "./health-probe-core.mjs";
+import { KV_HEALTH_CURRENT } from "./health-prober.mjs";
+import { readHealthKv as defaultReadHealthKv } from "../workers/storage.mjs";
 
 const BADGE_CACHE_SECONDS = 3600;
 const BADGE_LABEL = "metagraphed";
@@ -40,6 +50,7 @@ const BADGE_METRICS = {
   apis: "apis",
   completeness: "completeness",
   coverage: "completeness",
+  health: "health",
 };
 // Allow-listed render styles; an unknown value falls back to "flat".
 const BADGE_STYLES = new Set(["flat", "flat-square", "for-the-badge"]);
@@ -63,6 +74,25 @@ const GRADE_COLOR = {
   C: "#a4a61d",
   D: "#dfb317",
   F: "#e05d44",
+};
+// Operational probe status → hex (aligned with the legacy health badge route).
+const HEALTH_STATUS_COLOR = {
+  ok: "#4c1",
+  degraded: "#dfb317",
+  failed: "#e05d44",
+  unknown: "#9f9f9f",
+};
+// shields.io color names stored on the static badge artifact → hex.
+const SHIELDS_COLOR_HEX = {
+  brightgreen: "#4c1",
+  green: "#97ca00",
+  yellowgreen: "#a4a61d",
+  yellow: "#dfb317",
+  orange: "#fe7d37",
+  red: "#e05d44",
+  blue: "#007ec6",
+  lightgrey: "#9f9f9f",
+  grey: "#555",
 };
 
 function escapeXml(value) {
@@ -147,6 +177,101 @@ export function scoreColor(score) {
 // Reliability grade (A–F) → color band; gray when unknown / no data.
 export function gradeColor(grade) {
   return GRADE_COLOR[grade] || UNKNOWN_COLOR;
+}
+
+// Operational probe status (ok/degraded/failed/unknown) → color band.
+export function healthStatusColor(status) {
+  return HEALTH_STATUS_COLOR[status] || UNKNOWN_COLOR;
+}
+
+function healthRatioMessage(okCount, surfaceCount) {
+  if (
+    typeof okCount === "number" &&
+    typeof surfaceCount === "number" &&
+    surfaceCount > 0
+  ) {
+    return `${okCount}/${surfaceCount}`;
+  }
+  return null;
+}
+
+function healthContentFromCounts({
+  ok = 0,
+  degraded = 0,
+  failed = 0,
+  unknown = 0,
+  total = 0,
+}) {
+  const message = healthRatioMessage(ok, total);
+  if (!message) return NA_CONTENT;
+  return {
+    message,
+    color: healthStatusColor(
+      rollupSubnetStatus({ ok, degraded, failed, unknown, total }),
+    ),
+  };
+}
+
+function healthContentFromLiveEntry(entry) {
+  if (!entry) return null;
+  const message = healthRatioMessage(entry.ok_count, entry.surface_count);
+  if (!message) return null;
+  return {
+    message,
+    color: healthStatusColor(entry.status),
+  };
+}
+
+function healthCountsFromLiveEntry(entry) {
+  if (
+    !entry ||
+    typeof entry.surface_count !== "number" ||
+    entry.surface_count <= 0
+  ) {
+    return null;
+  }
+  return {
+    ok: entry.ok_count ?? 0,
+    degraded: entry.degraded_count ?? 0,
+    failed: entry.failed_count ?? 0,
+    unknown: entry.unknown_count ?? 0,
+    total: entry.surface_count,
+  };
+}
+
+function healthCountsFromArtifact(data) {
+  if (
+    !data ||
+    typeof data.surface_count !== "number" ||
+    data.surface_count <= 0
+  ) {
+    return null;
+  }
+  return {
+    ok: data.ok_count ?? 0,
+    degraded: data.degraded_count ?? 0,
+    failed: data.failed_count ?? 0,
+    unknown: data.unknown_count ?? 0,
+    total: data.surface_count,
+  };
+}
+
+async function healthBadgeArtifact(readArtifact, env, netuid) {
+  const data = await readData(
+    readArtifact,
+    env,
+    `/metagraph/health/badges/${netuid}.json`,
+  );
+  if (!data) return null;
+  const message =
+    healthRatioMessage(data.ok_count, data.surface_count) ||
+    (typeof data.message === "string" ? data.message : null);
+  if (!message) return null;
+  const color =
+    typeof data.status === "string"
+      ? healthStatusColor(data.status)
+      : SHIELDS_COLOR_HEX[data.color] || UNKNOWN_COLOR;
+  return { message, color };
 }
 
 // Render a two-segment badge: gray label + colored message. `style` is "flat"
@@ -446,6 +571,69 @@ async function apisContent({ target, readArtifact, env }) {
   };
 }
 
+// Health: live probe ok/total ratio for one subnet or summed across a provider's
+// subnets. Prefers the cron KV snapshot; falls back to static badge artifacts.
+async function healthContent({
+  target,
+  readArtifact,
+  env,
+  readHealthKv = defaultReadHealthKv,
+}) {
+  const liveCurrent =
+    typeof readHealthKv === "function"
+      ? await readHealthKv(env, KV_HEALTH_CURRENT)
+      : null;
+
+  if (target.kind === "subnet") {
+    const live = healthContentFromLiveEntry(
+      subnetBadgeStatus(liveCurrent, target.netuid),
+    );
+    if (live) return live;
+    return (
+      (await healthBadgeArtifact(readArtifact, env, target.netuid)) ??
+      NA_CONTENT
+    );
+  }
+
+  const providers = await readData(
+    readArtifact,
+    env,
+    "/metagraph/providers.json",
+  );
+  const netuids = findProvider(providers, target.slug)?.netuids || [];
+  if (!netuids.length) return NA_CONTENT;
+
+  let ok = 0;
+  let degraded = 0;
+  let failed = 0;
+  let unknown = 0;
+  let total = 0;
+  let sawAny = false;
+  for (const netuid of netuids) {
+    const liveCounts = healthCountsFromLiveEntry(
+      subnetBadgeStatus(liveCurrent, netuid),
+    );
+    const counts =
+      liveCounts ??
+      healthCountsFromArtifact(
+        await readData(
+          readArtifact,
+          env,
+          `/metagraph/health/badges/${netuid}.json`,
+        ),
+      );
+    if (!counts) continue;
+    sawAny = true;
+    ok += counts.ok;
+    degraded += counts.degraded;
+    failed += counts.failed;
+    unknown += counts.unknown;
+    total += counts.total;
+  }
+  if (!sawAny) return NA_CONTENT;
+  return healthContentFromCounts({ ok, degraded, failed, unknown, total });
+}
+
 function badgeHeaders() {
   return {
     "content-type": "image/svg+xml; charset=utf-8",
@@ -466,6 +654,7 @@ export async function handleBadgeRequest(request, env, url, deps = {}) {
     env,
     db: deps.db ?? env?.METAGRAPH_HEALTH_DB,
     loadReliability: deps.loadReliability || loadReliabilityAggregate,
+    readHealthKv: deps.readHealthKv ?? defaultReadHealthKv,
   };
 
   let content = NA_CONTENT;
@@ -476,6 +665,8 @@ export async function handleBadgeRequest(request, env, url, deps = {}) {
       content = await reliabilityContent({ ...ctx, metric });
     } else if (metric === "completeness") {
       content = await completenessContent(ctx);
+    } else if (metric === "health") {
+      content = await healthContent(ctx);
     } else {
       content = await readinessContent(ctx);
     }
