@@ -29,7 +29,6 @@ import {
   ANALYTICS_WINDOW_PARAM,
   ANALYTICS_WINDOWS,
   DEFAULT_ANALYTICS_WINDOW,
-  DAY_MS,
 } from "../workers/config.mjs";
 
 configureAnalytics({
