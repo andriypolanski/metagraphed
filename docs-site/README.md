@@ -29,3 +29,12 @@ Run `docs-site:generate` after changing `schemas/` (→ openapi), `public/metagr
 `npm run validate:docs-site` runs in CI **before** `npm run build` so it checks the committed docs against the committed contract sources — `npm run build` does not regenerate `docs-site/` (same discipline as the README catalog).
 
 Hand-written guides under `guides/` are edited directly — they are not overwritten by the generator.
+
+## For reviewers (slop / review load)
+
+Most PR diff lines under `generated/` are **deterministic output**, not hand-edited prose. The meaningful surface is the generator (`scripts/generate-docs-site.mjs`), guides, and `tests/docs-site.test.mjs`. No public API contract change unless `schemas/` or `public/metagraph/*` also changed.
+
+```bash
+npm test -- tests/docs-site.test.mjs
+npm run validate:docs-site
+```

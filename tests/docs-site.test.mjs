@@ -1,19 +1,26 @@
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   DOCS_SITE_OUTPUTS,
+  buildMeta,
   buildResourceApiRoutes,
   exampleRouteUrl,
   generateDocsSiteContent,
   loadSubnetOverlays,
+  renderApiReferenceMarkdown,
   renderCatalogMarkdown,
+  renderResourcesMarkdown,
   routeGroup,
+  sampleQueryParams,
   substituteRoutePlaceholders,
 } from "../scripts/generate-docs-site.mjs";
 import { apiRouteUrl } from "../scripts/smoke-live-api.mjs";
+import { listToolDefinitions } from "../src/mcp-server.mjs";
 
 const DOCS_ROOT = path.join(process.cwd(), "docs-site");
+const OPENAPI_PATH = path.join(process.cwd(), "public/metagraph/openapi.json");
 const API_INDEX_PATH = path.join(
   process.cwd(),
   "public/metagraph/api-index.json",
@@ -24,6 +31,12 @@ function publicRoutes() {
   return JSON.parse(readFileSync(API_INDEX_PATH, "utf8")).routes.filter(
     (route) => route.public !== false,
   );
+}
+
+function loadContractArtifacts() {
+  const openapi = JSON.parse(readFileSync(OPENAPI_PATH, "utf8"));
+  const apiIndex = JSON.parse(readFileSync(API_INDEX_PATH, "utf8"));
+  return { openapi, apiIndex };
 }
 
 function urlPathAndQuery(url) {
@@ -63,6 +76,54 @@ describe("generate-docs-site", () => {
     expect(markdown).toContain("generated: true");
     expect(markdown).toContain("SN" + overlays[0].netuid);
     expect(markdown).toContain("metagraph.sh/subnets/");
+  });
+
+  it("sampleQueryParams matches smoke-live-api list and compare routes", () => {
+    expect(sampleQueryParams("/api/v1/subnets")).toEqual({
+      limit: "3",
+      sort: "netuid",
+    });
+    expect(sampleQueryParams("/api/v1/compare")).toEqual({ netuids: "7,8" });
+    expect(sampleQueryParams("/api/v1/search")).toEqual({ limit: "3" });
+    expect(sampleQueryParams("/api/v1/blocks/{ref}")).toEqual({});
+  });
+
+  it("renderApiReferenceMarkdown includes every public route", () => {
+    const { openapi, apiIndex } = loadContractArtifacts();
+    const markdown = renderApiReferenceMarkdown(apiIndex, openapi);
+    for (const route of publicRoutes()) {
+      expect(markdown).toContain(`\`${route.method} ${route.path}\``);
+    }
+  });
+
+  it("renderResourcesMarkdown API table rows match buildResourceApiRoutes", () => {
+    const routes = publicRoutes();
+    const tools = listToolDefinitions();
+    const markdown = renderResourcesMarkdown(tools, routes);
+    const rows = buildResourceApiRoutes(routes);
+    for (const row of rows) {
+      expect(markdown).toContain(`| \`${row.path}\` | ${row.method} |`);
+    }
+    expect(markdown.match(/^\| `\/api\/v1\//gm)?.length).toBe(rows.length);
+  });
+
+  it("buildMeta records contract sources and route stats", () => {
+    const { openapi, apiIndex } = loadContractArtifacts();
+    const overlays = loadSubnetOverlays();
+    const meta = buildMeta(apiIndex, openapi, overlays);
+    expect(meta.sources.api_index).toBe("public/metagraph/api-index.json");
+    expect(meta.stats.route_count).toBe(publicRoutes().length);
+    expect(meta.stats.mcp_tool_count).toBe(listToolDefinitions().length);
+  });
+
+  it("validate:docs-site --check passes on committed outputs", () => {
+    const result = spawnSync(
+      process.execPath,
+      ["scripts/generate-docs-site.mjs", "--check"],
+      { cwd: process.cwd(), encoding: "utf8" },
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Docs site up to date");
   });
 
   it("builds resource API rows only from api-index routes", () => {
