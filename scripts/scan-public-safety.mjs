@@ -41,8 +41,11 @@ const patterns = [
   },
   {
     name: "token-like assignment",
+    // Optional multi-segment prefix (client_, db_, google_oauth_client_) before the
+    // keyword group: a leading \b has no boundary after an underscore inside
+    // client_secret, so bare secret/password miss the most common credential names.
     regex:
-      /\b(?:api[_-]?key|access[_-]?token|auth[_-]?token|secret|password)\s*[:=]\s*["']?[A-Za-z0-9_./+=-]{16,}/i,
+      /\b(?:[a-z0-9]+(?:[_-][a-z0-9]+)*_)?(?:api[_-]?key|access[_-]?token|auth[_-]?token|secret|password)\s*[:=]\s*["']?[A-Za-z0-9_./+=-]{16,}/i,
   },
   // `soft` patterns are terminology heuristics (not actual secrets). They are
   // skipped for mirrored third-party OpenAPI specs, where wording like "seed

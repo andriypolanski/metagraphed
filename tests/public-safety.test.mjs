@@ -177,6 +177,25 @@ describe("captured-fixture body scan", () => {
     }
   });
 
+  test("flags secrets assigned to compound credential names", async () => {
+    const leaks = [
+      "client_secret=abcdefghijklmnop1234",
+      "db_password=abcdefghijklmnop1234",
+      "google_oauth_client_secret=abcdefghijklmnop1234",
+      "secret=abcdefghijklmnop1234",
+    ];
+    await fs.writeFile(TEST_PUBLIC_PATH, `${leaks.join("\n")}\n`, "utf8");
+    const output = runScanOutput();
+    for (const [index] of leaks.entries()) {
+      assert.ok(
+        output.includes(
+          `${TEST_PUBLIC_FILE}:${index + 1}: token-like assignment`,
+        ),
+        `secret on line ${index + 1} must be flagged; got:\n${output}`,
+      );
+    }
+  });
+
   test("flags a link-local cloud-metadata URL as a private/loopback leak", async () => {
     // 169.254.169.254 is the AWS/GCP metadata endpoint — the canonical SSRF /
     // credential-theft target and unsafe per lib.mjs isUnsafeUrl, so a leaked URL
