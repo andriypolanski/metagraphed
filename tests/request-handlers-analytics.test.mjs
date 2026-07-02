@@ -46,6 +46,12 @@ const NETUID = 7;
 const LAST_RUN_AT = "2026-06-18T00:00:00.000Z";
 const ctx = { waitUntil: (promise) => promise };
 
+function recentUtcDay(daysAgo) {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - daysAgo);
+  return d.toISOString().slice(0, 10);
+}
+
 function req(path, init = {}) {
   return new Request(`https://api.metagraph.sh${path}`, init);
 }
@@ -110,15 +116,13 @@ function rowsForSql(sql) {
     ];
   }
   if (sql.includes("FROM surface_uptime_daily")) {
-    const recentDay = new Date(Date.now() - DAY_MS).toISOString().slice(0, 10);
-    const olderDay = new Date(Date.now() - 20 * DAY_MS)
-      .toISOString()
-      .slice(0, 10);
+    const recent = recentUtcDay(1);
+    const older = recentUtcDay(20);
     return [
       {
         netuid: NETUID,
-        day: recentDay,
-        date: recentDay,
+        day: recent,
+        date: recent,
         total: 100,
         ok_count: 98,
         latency_samples: 96,
@@ -127,8 +131,8 @@ function rowsForSql(sql) {
       },
       {
         netuid: NETUID,
-        day: olderDay,
-        date: olderDay,
+        day: older,
+        date: older,
         total: 50,
         ok_count: 45,
         latency_samples: 48,
