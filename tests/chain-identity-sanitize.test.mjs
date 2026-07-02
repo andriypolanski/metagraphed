@@ -11,7 +11,10 @@ import {
 
 describe("isPlaceholderIdentityUrl", () => {
   test("flags known on-chain junk stubs", () => {
-    assert.equal(isPlaceholderIdentityUrl("https://deprecated.png/logo.png"), true);
+    assert.equal(
+      isPlaceholderIdentityUrl("https://deprecated.png/logo.png"),
+      true,
+    );
     assert.equal(isPlaceholderIdentityUrl("github.com/username/repo"), true);
     assert.equal(isPlaceholderIdentityUrl("https://example.com/"), true);
     assert.equal(isPlaceholderIdentityUrl("https://miao.example/"), false);
@@ -73,10 +76,7 @@ describe("nativeContactHandle", () => {
 
   test("rejects junk, prose, and overlong values", () => {
     assert.equal(nativeContactHandle("deprecated"), null);
-    assert.equal(
-      nativeContactHandle("https://example.com/discord"),
-      null,
-    );
+    assert.equal(nativeContactHandle("https://example.com/discord"), null);
     assert.equal(nativeContactHandle("~"), null);
     assert.equal(nativeContactHandle("x".repeat(201)), null);
     assert.equal(nativeContactHandle(null), null);
