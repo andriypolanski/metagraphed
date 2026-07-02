@@ -85,7 +85,7 @@ source: registry/subnets/
 - **[Investing](https://metagraph.sh/subnets/88)** `SN88` — `data-artifact` `finance` · [site](https://investing88.ai/) · [repo](https://github.com/mobiusfund/investing)
 - **[InfiniteHash](https://metagraph.sh/subnets/89)** `SN89` · [site](https://infinitehash.xyz/) · [docs](https://github.com/backend-developers-ltd/InfiniteHash/blob/master/docs/subnet_auction_incentive_system.md) · [repo](https://github.com/backend-developers-ltd/InfiniteHash)
 - **[DegenBrain](https://metagraph.sh/subnets/90)** `SN90` — `prediction-markets` `verification` · [site](https://subnet90.com/)
-- **[Bitstarter #1](https://metagraph.sh/subnets/91)** `SN91` · [site](https://bitstarter.ai/) · [repo](https://github.com/AlphaCoreBittensor/alphacore)
+- **[Bitstarter \#1](https://metagraph.sh/subnets/91)** `SN91` · [site](https://bitstarter.ai/) · [repo](https://github.com/AlphaCoreBittensor/alphacore)
 - **[Tensorclaw](https://metagraph.sh/subnets/92)** `SN92` — `inference` `stale-source-restored` · [site](https://www.tensorclaw.ai/) · [repo](https://github.com/tensorclaw/tensorclaw)
 - **[Bitcast](https://metagraph.sh/subnets/93)** `SN93` · [site](https://stats.bitcast.network/) · [repo](https://github.com/bitcast-network/bitcast)
 - **[Bitsota](https://metagraph.sh/subnets/94)** `SN94`
@@ -96,7 +96,7 @@ source: registry/subnets/
 - **[eni](https://metagraph.sh/subnets/101)** `SN101` · [site](http://tag101.ai/) · [repo](https://github.com/tag101-ai/tag101)
 - **[ConnitoAI](https://metagraph.sh/subnets/102)** `SN102` · [site](https://connito.ai/) · [repo](https://github.com/Connito-AI/Connito)
 - **[Djinn](https://metagraph.sh/subnets/103)** `SN103` · [site](https://www.djinn.gg/) · [repo](https://github.com/Djinn-Inc/djinn)
-- **[for sale (burn to uid1)](https://metagraph.sh/subnets/104)** `SN104` — `no-public-project-surface`
+- **[for sale \(burn to uid1\)](https://metagraph.sh/subnets/104)** `SN104` — `no-public-project-surface`
 - **[Nodexo](https://metagraph.sh/subnets/106)** `SN106` — `compute` `gpu` · [site](https://nodexo.ai/) · [docs](https://docs.nodexo.ai/)
 - **[Minos](https://metagraph.sh/subnets/107)** `SN107`
 - **[Academia](https://metagraph.sh/subnets/109)** `SN109` — `data-artifact` · [repo](https://github.com/fx-integral/academia)
@@ -109,7 +109,7 @@ source: registry/subnets/
 - **[BrainPlay](https://metagraph.sh/subnets/117)** `SN117` · [site](https://play.shiftlayer.ai/) · [repo](https://github.com/shiftlayer-llc/brainplay-subnet)
 - **[Ditto](https://metagraph.sh/subnets/118)** `SN118` — `agent-memory` · [site](https://heyditto.ai/) · [docs](https://heyditto.ai/docs/) · [repo](https://github.com/ditto-assistant/dittobench-starter-kit)
 - **[Satori](https://metagraph.sh/subnets/119)** `SN119` — `virtual-world` · [repo](https://github.com/Satori119/Satori)
-- **[sundae_bar](https://metagraph.sh/subnets/121)** `SN121` · [site](https://www.sundaebar.ai/) · [repo](https://github.com/sundae-bar/bittensor-subnet)
+- **[sundae\_bar](https://metagraph.sh/subnets/121)** `SN121` · [site](https://www.sundaebar.ai/) · [repo](https://github.com/sundae-bar/bittensor-subnet)
 - **[Bitrecs](https://metagraph.sh/subnets/122)** `SN122` — `recommendations` · [site](https://www.bitrecs.ai/) · [docs](https://bitrecs.gitbook.io/bitrecs-docs/) · [repo](https://github.com/bitrecs/bitrecs-subnet)
 - **[MANTIS](https://metagraph.sh/subnets/123)** `SN123` — `sdk` · [repo](https://github.com/Barbariandev/MANTIS)
 - **[8 Ball](https://metagraph.sh/subnets/125)** `SN125` — `prediction-market` · [site](https://8ball125.com/) · [docs](https://github.com/Barbariandev/8Ball_miner#readme) · [repo](https://github.com/Barbariandev/8Ball_miner)

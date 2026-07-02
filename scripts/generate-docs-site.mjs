@@ -11,10 +11,20 @@
 //   node scripts/generate-docs-site.mjs --check   # verify up-to-date (CI gate)
 
 import { createHash } from "node:crypto";
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { listToolDefinitions } from "../src/mcp-server.mjs";
+import {
+  escapeMarkdownCodeSpan,
+  markdownLink,
+} from "./lib/markdown-escape.mjs";
+import {
+  DOCS_SAMPLE_DATE,
+  buildSampleRouteUrl,
+  sampleQueryParams,
+  substituteRoutePlaceholders,
+} from "./lib/route-samples.mjs";
 import { repoRoot } from "./lib.mjs";
 
 const API_BASE = "https://api.metagraph.sh";
@@ -45,57 +55,31 @@ const OUTPUTS = [
 
 export { OUTPUTS as DOCS_SITE_OUTPUTS };
 
-// Sample ids for try-it URLs — mirrors scripts/smoke-live-api.mjs (#1682).
-const DOCS_EXAMPLE_SS58 = "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM";
-const DOCS_EXAMPLE_HASH = `0x${"0".repeat(64)}`;
-const DOCS_EXAMPLE_DATE = "2026-06-01";
-
-export function substituteRoutePlaceholders(routePath) {
-  const route = routePath
-    .replaceAll("{netuid}", "7")
-    .replaceAll("{slug}", "allways")
-    .replaceAll("{date}", DOCS_EXAMPLE_DATE)
-    .replaceAll("{uid}", "0")
-    .replaceAll("{hash}", DOCS_EXAMPLE_HASH)
-    .replaceAll("{ref}", "0")
-    .replaceAll("{ss58}", DOCS_EXAMPLE_SS58)
-    .replaceAll("{surface_id}", "sn-7-allways-subnet-api");
-  if (route.includes("{")) {
-    throw new Error(`unsubstituted placeholder in route ${routePath}`);
-  }
-  return route;
+export function expectedGeneratedFilenames() {
+  return OUTPUTS.filter((relativePath) =>
+    relativePath.startsWith("generated/"),
+  ).map((relativePath) => relativePath.slice("generated/".length));
 }
 
-// Sample query params for try-it URLs — keep aligned with
-// scripts/smoke-live-api.mjs apiRouteUrl() (#1682).
-export function sampleQueryParams(routePath) {
-  if (routePath === "/api/v1/subnets") {
-    return { limit: "3", sort: "netuid" };
+export function listUnexpectedGeneratedFiles(
+  generatedDir = GENERATED_DIR,
+) {
+  if (!existsSync(generatedDir)) {
+    return [];
   }
-  if (routePath === "/api/v1/compare") {
-    return { netuids: "7,8" };
-  }
-  if (
-    [
-      "/api/v1/surfaces",
-      "/api/v1/endpoints",
-      "/api/v1/candidates",
-      "/api/v1/search",
-    ].includes(routePath)
-  ) {
-    return { limit: "3" };
-  }
-  return {};
+  const expected = new Set(expectedGeneratedFilenames());
+  return readdirSync(generatedDir).filter((name) => !expected.has(name));
 }
+
+export {
+  sampleQueryParams,
+  substituteRoutePlaceholders,
+} from "./lib/route-samples.mjs";
 
 export function exampleRouteUrl(routeOrPath, base = API_BASE) {
   const routePath =
     typeof routeOrPath === "string" ? routeOrPath : routeOrPath.path;
-  const url = new URL(substituteRoutePlaceholders(routePath), base);
-  for (const [key, value] of Object.entries(sampleQueryParams(routePath))) {
-    url.searchParams.set(key, value);
-  }
-  return url.toString();
+  return buildSampleRouteUrl(routePath, base, { date: DOCS_SAMPLE_DATE });
 }
 
 export function routeGroup(routePath) {
@@ -127,9 +111,9 @@ function focusTags(overlay) {
 
 function subnetLinks(overlay) {
   const out = [];
-  if (overlay.website_url) out.push(`[site](${overlay.website_url})`);
-  if (overlay.docs_url) out.push(`[docs](${overlay.docs_url})`);
-  if (overlay.source_repo) out.push(`[repo](${overlay.source_repo})`);
+  if (overlay.website_url) out.push(markdownLink("site", overlay.website_url));
+  if (overlay.docs_url) out.push(markdownLink("docs", overlay.docs_url));
+  if (overlay.source_repo) out.push(markdownLink("repo", overlay.source_repo));
   return out.join(" · ") || "—";
 }
 
@@ -143,7 +127,7 @@ export function renderCatalogMarkdown(overlays) {
   const topFocus = [...focusCounts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, 12)
-    .map(([tag, count]) => `\`${tag}\` ${count}`)
+    .map(([tag, count]) => `\`${escapeMarkdownCodeSpan(tag)}\` ${count}`)
     .join(" · ");
 
   const withSite = overlays.filter((o) => o.website_url).length;
@@ -153,11 +137,11 @@ export function renderCatalogMarkdown(overlays) {
   const items = overlays.map((overlay) => {
     const name = overlay.name || `Subnet ${overlay.netuid}`;
     const focus = focusTags(overlay)
-      .map((tag) => `\`${tag}\``)
+      .map((tag) => `\`${escapeMarkdownCodeSpan(tag)}\``)
       .join(" ");
     const linkStr = subnetLinks(overlay);
     return (
-      `- **[${name}](${SITE}/subnets/${overlay.netuid})** \`SN${overlay.netuid}\`` +
+      `- **${markdownLink(name, `${SITE}/subnets/${overlay.netuid}`)}** \`SN${overlay.netuid}\`` +
       (focus ? ` — ${focus}` : "") +
       (linkStr !== "—" ? ` · ${linkStr}` : "")
     );
@@ -526,6 +510,13 @@ function main() {
   const next = generateDocsSiteContent();
 
   if (check) {
+    const unexpected = listUnexpectedGeneratedFiles();
+    if (unexpected.length) {
+      console.error(
+        `Unexpected files in docs-site/generated/: ${unexpected.join(", ")}. Remove them or add them to DOCS_SITE_OUTPUTS.`,
+      );
+      process.exit(1);
+    }
     const current = readCurrentOutputs();
     if (!current) {
       console.error(

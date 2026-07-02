@@ -8,6 +8,7 @@ import {
   buildResourceApiRoutes,
   exampleRouteUrl,
   generateDocsSiteContent,
+  listUnexpectedGeneratedFiles,
   loadSubnetOverlays,
   renderApiReferenceMarkdown,
   renderCatalogMarkdown,
@@ -16,16 +17,17 @@ import {
   sampleQueryParams,
   substituteRoutePlaceholders,
 } from "../scripts/generate-docs-site.mjs";
+import { DOCS_SAMPLE_DATE } from "../scripts/lib/route-samples.mjs";
 import { apiRouteUrl } from "../scripts/smoke-live-api.mjs";
 import { listToolDefinitions } from "../src/mcp-server.mjs";
 
 const DOCS_ROOT = path.join(process.cwd(), "docs-site");
+const GENERATED_DIR = path.join(DOCS_ROOT, "generated");
 const OPENAPI_PATH = path.join(process.cwd(), "public/metagraph/openapi.json");
 const API_INDEX_PATH = path.join(
   process.cwd(),
   "public/metagraph/api-index.json",
 );
-const DOCS_EXAMPLE_DATE = "2026-06-01";
 
 function publicRoutes() {
   return JSON.parse(readFileSync(API_INDEX_PATH, "utf8")).routes.filter(
@@ -76,6 +78,24 @@ describe("generate-docs-site", () => {
     expect(markdown).toContain("generated: true");
     expect(markdown).toContain("SN" + overlays[0].netuid);
     expect(markdown).toContain("metagraph.sh/subnets/");
+  });
+
+  it("escapes registry-derived catalog markdown", () => {
+    const markdown = renderCatalogMarkdown([
+      {
+        netuid: 99,
+        name: "Evil [link](http://bad/)",
+        categories: ["tag]break"],
+        website_url: "https://example.com/path(with)parens",
+      },
+    ]);
+    expect(markdown).toContain("Evil \\[link\\]");
+    expect(markdown).toContain("tag\\]break");
+    expect(markdown).toContain("path(with%29parens");
+  });
+
+  it("docs-site/generated contains only expected committed outputs", () => {
+    expect(listUnexpectedGeneratedFiles(GENERATED_DIR)).toEqual([]);
   });
 
   it("sampleQueryParams matches smoke-live-api list and compare routes", () => {
@@ -168,7 +188,7 @@ describe("generate-docs-site", () => {
       if (route.path.includes("{date}")) continue;
       if (route.method !== "GET") continue;
       expect(urlPathAndQuery(exampleRouteUrl(route))).toBe(
-        urlPathAndQuery(apiRouteUrl(route.path, DOCS_EXAMPLE_DATE)),
+        urlPathAndQuery(apiRouteUrl(route.path, DOCS_SAMPLE_DATE)),
       );
     }
   });
