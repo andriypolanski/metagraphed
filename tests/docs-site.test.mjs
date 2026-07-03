@@ -9,9 +9,11 @@ import {
   buildMeta,
   buildResourceApiRoutes,
   exampleRouteUrl,
+  expectedGeneratedFilenames,
   generateDocsSiteContent,
   listUnexpectedGeneratedFiles,
   loadSubnetOverlays,
+  manifestMatches,
   renderApiReferenceMarkdown,
   renderCatalogMarkdown,
   renderResourcesMarkdown,
@@ -195,8 +197,33 @@ describe("generate-docs-site", () => {
     ]) {
       expect(manifest.artifacts[relativePath].sha256).toHaveLength(64);
       expect(manifest.artifacts[relativePath].bytes).toBeGreaterThan(1000);
+      expect(manifest.artifacts[relativePath].bytes).toBe(
+        Buffer.byteLength(content[relativePath], "utf8"),
+      );
     }
     expect(JSON.parse(content["generated/manifest.json"])).toEqual(manifest);
+  });
+
+  it("manifestMatches validates sha256 and byte counts", () => {
+    const content = generateDocsSiteContent();
+    const manifest = buildManifest(content);
+    expect(manifestMatches(content, JSON.stringify(manifest))).toBeNull();
+
+    const staleBytes = structuredClone(manifest);
+    staleBytes.artifacts["generated/catalog.md"].bytes = 1;
+    expect(manifestMatches(content, JSON.stringify(staleBytes))).toBe(
+      "generated/catalog.md",
+    );
+  });
+
+  it("expectedGeneratedFilenames lists the generated allowlist", () => {
+    expect(expectedGeneratedFilenames()).toEqual([
+      "catalog.md",
+      "resources.md",
+      "manifest.json",
+      "api-reference.md",
+      "api-playground.json",
+    ]);
   });
 
   it("try-it URLs stay aligned with smoke-live-api sample ids and query params", () => {

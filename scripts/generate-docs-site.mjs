@@ -547,12 +547,17 @@ function readCommittedOutputs() {
   return current;
 }
 
-function manifestMatches(contentByRelativePath, manifestText) {
+export function manifestMatches(contentByRelativePath, manifestText) {
   const manifest = JSON.parse(manifestText);
   for (const relativePath of ARTIFACT_PATHS) {
     const expected = manifest.artifacts?.[relativePath];
     const content = contentByRelativePath[relativePath];
-    if (!expected || expected.sha256 !== sha256(content)) {
+    const bytes = Buffer.byteLength(content, "utf8");
+    if (
+      !expected ||
+      expected.sha256 !== sha256(content) ||
+      expected.bytes !== bytes
+    ) {
       return relativePath;
     }
   }
@@ -567,7 +572,7 @@ function main() {
     const unexpected = listUnexpectedGeneratedFiles();
     if (unexpected.length) {
       console.error(
-        `Unexpected files in docs-site/generated/: ${unexpected.join(", ")}. Remove them or add them to DOCS_SITE_OUTPUTS.`,
+        `Unexpected files in docs-site/generated/: ${unexpected.join(", ")}. Allowed files: ${expectedGeneratedFilenames().join(", ")}.`,
       );
       process.exit(1);
     }
