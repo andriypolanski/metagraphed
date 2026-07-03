@@ -28,6 +28,10 @@ import {
   sampleQueryParams,
   substituteRoutePlaceholders,
 } from "./lib/route-samples.mjs";
+import {
+  buildPostCurl,
+  samplePostBody,
+} from "./lib/post-sample-bodies.mjs";
 import { repoRoot } from "./lib.mjs";
 
 const API_BASE = "https://api.metagraph.sh";
@@ -197,16 +201,23 @@ function formatQueryParam(param) {
   return `- \`${param.name}\` (${type})${param.description ? ` — ${param.description}` : ""}`;
 }
 
-function playgroundEntry(route) {
+export function playgroundEntry(route, openapi) {
   const samplePath = substituteRoutePlaceholders(route.path);
   const sampleQuery = sampleQueryParams(route.path);
   const tryUrl = route.method === "GET" ? exampleRouteUrl(route) : null;
+  const sampleBody =
+    route.method === "POST" ? samplePostBody(route, openapi) : null;
+  const postCurl =
+    route.method === "POST"
+      ? buildPostCurl(route, openapi, API_BASE, samplePath)
+      : null;
   return {
     id: route.id,
     method: route.method,
     path: route.path,
     sample_path: samplePath,
     sample_query: sampleQuery,
+    sample_body: sampleBody,
     description: route.description || null,
     public: route.public !== false,
     query_parameters: (route.query_parameters || []).map((param) => ({
@@ -219,7 +230,7 @@ function playgroundEntry(route) {
       route.method === "GET"
         ? `curl -s '${tryUrl}'`
         : route.method === "POST"
-          ? `curl -s -X POST '${API_BASE}${samplePath}' -H 'content-type: application/json' -d '{}'`
+          ? postCurl
           : null,
   };
 }
@@ -288,16 +299,16 @@ export function renderApiReferenceMarkdown(apiIndex, openapi) {
         );
       } else if (route.method === "POST") {
         const samplePath = substituteRoutePlaceholders(route.path);
-        lines.push(
-          "**Try it**",
-          "",
-          "```bash",
-          `curl -s -X POST '${API_BASE}${samplePath}' \\`,
-          "  -H 'content-type: application/json' \\",
-          "  -d '{}'",
-          "```",
-          "",
-        );
+        const postCurl = buildPostCurl(route, openapi, API_BASE, samplePath);
+        lines.push("**Try it**", "");
+        if (postCurl) {
+          lines.push("```bash", postCurl, "```", "");
+        } else {
+          lines.push(
+            "_Request body required — see [Quickstart](../guides/quickstart.md) or the OpenAPI contract._",
+            "",
+          );
+        }
       }
       lines.push(
         "<!-- playground:",
@@ -514,7 +525,7 @@ export function generateDocsSiteContent() {
           apiIndex.contract_version ||
           openapi["x-metagraphed"]?.contract_version ||
           "unknown",
-        routes: routes.map(playgroundEntry),
+        routes: routes.map((route) => playgroundEntry(route, openapi)),
       },
       null,
       2,

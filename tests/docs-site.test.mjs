@@ -21,6 +21,7 @@ import {
   sampleQueryParams,
   substituteRoutePlaceholders,
 } from "../scripts/generate-docs-site.mjs";
+import { GRAPHQL_SAMPLE_QUERY } from "../scripts/lib/post-sample-bodies.mjs";
 import { DOCS_SAMPLE_DATE } from "../scripts/lib/route-samples.mjs";
 import { apiRouteUrl } from "../scripts/smoke-live-api.mjs";
 import { listToolDefinitions } from "../src/mcp-server.mjs";
@@ -43,6 +44,17 @@ function loadContractArtifacts() {
   const openapi = JSON.parse(readFileSync(OPENAPI_PATH, "utf8"));
   const apiIndex = JSON.parse(readFileSync(API_INDEX_PATH, "utf8"));
   return { openapi, apiIndex };
+}
+
+function graphqlPostRoute() {
+  return {
+    id: "graphql",
+    method: "POST",
+    path: "/api/v1/graphql",
+    description: "GraphQL query endpoint",
+    public: true,
+    query_parameters: [],
+  };
 }
 
 function urlPathAndQuery(url) {
@@ -224,6 +236,19 @@ describe("generate-docs-site", () => {
       "api-reference.md",
       "api-playground.json",
     ]);
+  });
+
+  it("renderApiReferenceMarkdown emits GraphQL sample body for POST routes", () => {
+    const { openapi, apiIndex } = loadContractArtifacts();
+    const markdown = renderApiReferenceMarkdown(
+      {
+        ...apiIndex,
+        routes: [...apiIndex.routes, graphqlPostRoute()],
+      },
+      openapi,
+    );
+    expect(markdown).toContain(GRAPHQL_SAMPLE_QUERY);
+    expect(markdown).not.toContain("-d '{}'");
   });
 
   it("try-it URLs stay aligned with smoke-live-api sample ids and query params", () => {
