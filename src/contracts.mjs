@@ -1,4 +1,5 @@
 import { artifactStorageTierForPath } from "./artifact-storage.mjs";
+import { ROUTE_CSV_EXAMPLES } from "./csv-route-examples.mjs";
 import { DOMAIN_TAGS } from "./domain-tags.mjs";
 import { sampleFromSchema } from "./openapi-sample.mjs";
 
@@ -991,7 +992,7 @@ export const PUBLIC_ARTIFACTS = [
   artifact(
     "subnet-yield",
     "/metagraph/subnets/{netuid}/yield.json",
-    "Per-UID emission yield (emission/stake return rate) for one subnet over the current metagraph snapshot, ranked high to low with a distribution summary (subnet aggregate yield, mean, p25/median/p75/p90 percentiles), a validator/miner split, and a per-UID above/below-median label, served live from the neurons D1 tier at /api/v1/subnets/{netuid}/yield (no static file).",
+    "Per-UID emission yield (emission/stake return rate) for one subnet over the current metagraph snapshot, ranked high to low with a distribution summary (subnet aggregate yield, mean, p25/median/p75/p90 percentiles), a validator/miner split, and a per-UID above/below-median label, served live from the neurons D1 tier at /api/v1/subnets/{netuid}/yield; pass ?format=csv to download the ranked neuron rows as CSV (no static file).",
     "SubnetYieldArtifact",
   ),
   artifact(
@@ -2003,10 +2004,10 @@ export const API_ROUTES = [
     "GET",
     "/api/v1/subnets/{netuid}/yield",
     "/metagraph/subnets/{netuid}/yield.json",
-    "Fetch the per-UID emission yield (emission/stake return rate) for one subnet over the current metagraph snapshot, ranked high to low with a distribution summary (subnet aggregate yield, mean, p25/median/p75/p90 percentiles), a validator/miner split, and a per-UID above/below-median label, computed live from the neurons D1 tier.",
+    "Fetch the per-UID emission yield (emission/stake return rate) for one subnet over the current metagraph snapshot, ranked high to low with a distribution summary (subnet aggregate yield, mean, p25/median/p75/p90 percentiles), a validator/miner split, and a per-UID above/below-median label, computed live from the neurons D1 tier. Pass ?format=csv to download the ranked neuron rows as CSV.",
     "short",
     ["subnets", "analytics"],
-    [],
+    csvRouteQuery(),
     [{ name: "netuid", schema: { type: "integer", minimum: 0 } }],
   ),
   route(
@@ -3348,6 +3349,8 @@ function csvRouteQuery(parameters = []) {
 }
 
 function csvExampleForRoute(entry) {
+  const supplemental = ROUTE_CSV_EXAMPLES[entry.id];
+  if (supplemental) return supplemental;
   if (entry.id === "subnet-movers") {
     return [
       "netuid,stake_start_tao,stake_end_tao,stake_delta_tao,stake_pct_change,emission_start_tao,emission_end_tao,emission_delta_tao,emission_pct_change,validators_start,validators_end,validators_delta,neurons_start,neurons_end,neurons_delta",
