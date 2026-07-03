@@ -3,7 +3,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { API_ROUTES } from "../src/contracts.mjs";
 import { MCP_TOOLS } from "../src/mcp-server.mjs";
-import { buildSampleRouteUrl } from "./lib/route-samples.mjs";
 
 const DEFAULT_BASE_URL = "https://api.metagraph.sh";
 const baseUrl = normalizeBaseUrl(
