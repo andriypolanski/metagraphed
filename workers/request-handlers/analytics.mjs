@@ -324,6 +324,14 @@ export async function withEdgeCache(
   return response;
 }
 
+// D1 MAX(captured_at) is INTEGER but often surfaces as a numeric string; coerce
+// before the integer guard so neurons-tier edge-cache stamps are not always null.
+function coerceCapturedAtStamp(value) {
+  if (value == null) return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? String(n) : null;
+}
+
 // Neurons-tier routes refresh on the ~3-minute events/metagraph cron, not the
 // 15-minute health prober — bust their edge cache on per-subnet snapshot time.
 export async function readSubnetNeuronsCacheStamp(env, netuid) {
@@ -333,10 +341,7 @@ export async function readSubnetNeuronsCacheStamp(env, netuid) {
     [netuid],
   );
   if (hasD1FallbackRows(rows)) return null;
-  const capturedAt = rows[0]?.captured_at;
-  return Number.isInteger(capturedAt) && capturedAt > 0
-    ? String(capturedAt)
-    : null;
+  return coerceCapturedAtStamp(rows[0]?.captured_at);
 }
 
 // Network-wide neuron cache stamp: the newest captured_at across ALL subnets, so a
@@ -353,10 +358,7 @@ export async function readNeuronsCacheStamp(env) {
     [],
   );
   if (hasD1FallbackRows(rows)) return null;
-  const capturedAt = rows[0]?.captured_at;
-  return Number.isInteger(capturedAt) && capturedAt > 0
-    ? String(capturedAt)
-    : null;
+  return coerceCapturedAtStamp(rows[0]?.captured_at);
 }
 
 // Edge-cache stamp for routes derived from the neuron_daily rollup (the daily-snapshot tier), NOT

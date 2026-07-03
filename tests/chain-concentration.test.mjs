@@ -5,7 +5,10 @@ import {
   loadChainConcentration,
 } from "../src/concentration.mjs";
 import { handleRequest } from "../workers/api.mjs";
-import { readNeuronsCacheStamp } from "../workers/request-handlers/analytics.mjs";
+import {
+  readNeuronsCacheStamp,
+  readSubnetNeuronsCacheStamp,
+} from "../workers/request-handlers/analytics.mjs";
 import { createLocalArtifactEnv } from "../scripts/lib.mjs";
 
 // buildChainConcentration reuses the (separately tested) computeConcentration /
@@ -344,6 +347,12 @@ describe("readNeuronsCacheStamp", () => {
 
   test("returns null when D1 is unbound (fallback rows)", async () => {
     assert.equal(await readNeuronsCacheStamp({}), null);
+  });
+
+  test("coerces D1 numeric-string captured_at cells", async () => {
+    const env = stampEnv([{ captured_at: "1700000000000" }]);
+    assert.equal(await readNeuronsCacheStamp(env), "1700000000000");
+    assert.equal(await readSubnetNeuronsCacheStamp(env, 7), "1700000000000");
   });
 });
 
