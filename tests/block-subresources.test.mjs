@@ -81,6 +81,16 @@ describe("resolveBlockNumber", () => {
     const n = await resolveBlockNumber(d1, "9999999");
     assert.equal(n, null);
   });
+
+  test("coerces a D1 numeric-string block_number cell to a number", async () => {
+    // D1 can surface the INTEGER block_number column as a numeric string; the
+    // resolved value must be a real number so it does not leak into the
+    // block_number envelope field as a string.
+    const d1 = d1With({ blockByNumber: [{ block_number: "4200000" }] });
+    const n = await resolveBlockNumber(d1, "4200000");
+    assert.equal(n, 4_200_000);
+    assert.equal(typeof n, "number");
+  });
 });
 
 describe("loadBlockExtrinsics", () => {

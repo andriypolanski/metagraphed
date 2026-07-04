@@ -27,7 +27,12 @@ export async function resolveBlockNumber(d1, ref) {
       : `SELECT block_number FROM blocks WHERE block_number = ? LIMIT 1`,
     [isHash ? String(ref).toLowerCase() : refBlockNumber],
   );
-  return rows[0]?.block_number ?? null;
+  // D1 can surface an INTEGER column as a numeric string, so a bare
+  // `rows[0]?.block_number ?? null` would leak "4200000" (string) into the
+  // resolved value — which then flows into the block_number field of the
+  // extrinsics/events envelopes as a string. Coerce with the same
+  // strictBlockNumber used for the input ref (also maps a missing row to null).
+  return strictBlockNumber(rows[0]?.block_number);
 }
 
 export async function loadBlockExtrinsics(d1, ref, { limit, offset } = {}) {
