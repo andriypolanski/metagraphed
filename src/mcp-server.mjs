@@ -212,6 +212,11 @@ import {
   SUBNET_WEIGHT_SETTERS_WINDOWS,
   DEFAULT_SUBNET_WEIGHT_SETTERS_WINDOW,
 } from "./subnet-weight-setters.mjs";
+import {
+  loadSubnetAxonRemovals,
+  SUBNET_AXON_REMOVALS_WINDOWS,
+  DEFAULT_SUBNET_AXON_REMOVALS_WINDOW,
+} from "./subnet-axon-removals.mjs";
 import { loadAccountPortfolio } from "./account-portfolio.mjs";
 import {
   buildNeuronHistory,
@@ -309,6 +314,9 @@ const SUBNET_EVENT_SUMMARY_WINDOW_KEYS = Object.keys(
 const SUBNET_WEIGHT_SETTERS_WINDOW_KEYS = Object.keys(
   SUBNET_WEIGHT_SETTERS_WINDOWS,
 );
+const SUBNET_AXON_REMOVALS_WINDOW_KEYS = Object.keys(
+  SUBNET_AXON_REMOVALS_WINDOWS,
+);
 const MOVERS_WINDOW_KEYS = Object.keys(MOVERS_WINDOWS);
 
 export const MCP_SERVER_INFO = {
@@ -393,7 +401,9 @@ export const MCP_INSTRUCTIONS =
   "account-event summary for one subnet (per-kind counts plus a recent-events " +
   "tail), get_subnet_weight_setters the per-subnet weight-setter leaderboard " +
   "(the validators behind /weights ranked by activity), " +
-  "get_subnet_movers the cross-subnet " +
+  "get_subnet_axon_removals the per-subnet AxonInfoRemoved teardown activity " +
+  "(distinct removers, event count, removals per remover — the removal-side " +
+  "companion to /serving), get_subnet_movers the cross-subnet " +
   "stake/emission/validator momentum leaderboard, get_subnet_yield per-UID " +
   "rates plus distribution percentiles over the current metagraph snapshot, " +
   "get_registry_leaderboards the live " +
@@ -2577,6 +2587,46 @@ export const MCP_TOOLS = [
       return await loadSubnetWeightSetters(mcpD1Runner(ctx), netuid, {
         windowLabel: window,
         windowDays: SUBNET_WEIGHT_SETTERS_WINDOWS[window],
+      });
+    },
+  },
+  {
+    name: "get_subnet_axon_removals",
+    title: "Get subnet axon-removal activity",
+    description:
+      "Fetch one subnet's axon-removal activity over a 7d or 30d window " +
+      "(default 7d): the distinct removers (hotkeys), AxonInfoRemoved event " +
+      "count, and average removals per remover, computed live from the " +
+      "account_events AxonInfoRemoved stream. Raw axon-teardown activity — " +
+      "the removal-side companion to get_subnet_serving (which measures " +
+      "neurons announcing an axon, not tearing one down). " +
+      "Mirrors GET /api/v1/subnets/{netuid}/axon-removals.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        netuid: { type: "integer", description: "Subnet netuid.", minimum: 0 },
+        window: {
+          type: "string",
+          enum: SUBNET_AXON_REMOVALS_WINDOW_KEYS,
+          description: `Lookback window (default ${DEFAULT_SUBNET_AXON_REMOVALS_WINDOW}).`,
+        },
+      },
+      required: ["netuid"],
+      additionalProperties: false,
+    },
+    async handler(args, ctx) {
+      const netuid = requireNetuid(args);
+      const window =
+        optionalString(args, "window") ?? DEFAULT_SUBNET_AXON_REMOVALS_WINDOW;
+      if (!Object.hasOwn(SUBNET_AXON_REMOVALS_WINDOWS, window)) {
+        throw toolError(
+          "invalid_params",
+          `window must be one of: ${SUBNET_AXON_REMOVALS_WINDOW_KEYS.join(", ")}.`,
+        );
+      }
+      return await loadSubnetAxonRemovals(mcpD1Runner(ctx), netuid, {
+        windowLabel: window,
+        windowDays: SUBNET_AXON_REMOVALS_WINDOWS[window],
       });
     },
   },
@@ -6612,6 +6662,26 @@ const TOOL_OUTPUT_SCHEMAS = {
         first_set_at: NULLABLE_STRING,
         last_set_at: NULLABLE_STRING,
       }),
+    },
+  },
+  get_subnet_axon_removals: {
+    type: "object",
+    additionalProperties: true,
+    required: [
+      "netuid",
+      "window",
+      "distinct_removers",
+      "removals",
+      "removals_per_remover",
+    ],
+    properties: {
+      schema_version: { type: "integer" },
+      netuid: { type: "integer" },
+      window: NULLABLE_STRING,
+      observed_at: NULLABLE_STRING,
+      distinct_removers: { type: "integer" },
+      removals: { type: "integer" },
+      removals_per_remover: { type: ["number", "null"] },
     },
   },
   get_subnet_movers: {
