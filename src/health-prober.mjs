@@ -98,14 +98,13 @@ function sanitizeRpcLatestBlocks(rows) {
   }
 }
 
-// --- DNS-aware SSRF guard for the Worker prober (codex #255) -------------------
+// --- DNS-aware SSRF guard + pinned fetch for the Worker prober (codex #255) ----
 // The literal `isUnsafePublicUrl` guard can't see DNS rebinding (a public-looking
 // hostname that resolves to a private IP). Workers have no node:dns, so we verify
-// answers via Cloudflare DNS-over-HTTPS immediately before the probe. Policy:
-// block on a DETECTED private answer (real rebinding), but fail OPEN on a DoH
-// timeout/error/no-answer — operational surfaces are a curated, public_safe,
-// PR-reviewed allowlist that already passed the literal guard, so a DoH blip must
-// never falsely mark all health unsafe.
+// answers via Cloudflare DNS-over-HTTPS immediately before the probe, then connect
+// to the vetted address with a Host header (mirroring scripts/lib.mjs safeFetch).
+// Policy: block on a DETECTED private answer (real rebinding) and FAIL CLOSED on a
+// DoH timeout/error/no-answer — an unverified hostname must never be probed.
 function normalizedHostname(value) {
   return String(value || "")
     .trim()
@@ -188,34 +187,119 @@ async function resolveDnsJson(host, recordType, fetchImpl, endpoint) {
   return dnsAddressAnswers(await response.json());
 }
 
-export function workerResolvedUrlSafetyGuard({
+function dnsAnswerFamily(address) {
+  return ipv4Octets(address) ? 4 : 6;
+}
+
+function buildPinnedUrl(parsed, { address, family }) {
+  const pinned = new URL(parsed.toString());
+  pinned.hostname =
+    family === 6 || address.includes(":") ? `[${address}]` : address;
+  return pinned.toString();
+}
+
+// Resolve a probe URL to one or more vetted public addresses via DoH. Returns
+// [] when the URL is unsafe, unresolvable, or DoH failed (fail-closed).
+export async function resolveWorkerPublicUrlAddresses(
+  value,
+  { fetchImpl = fetch, dnsJsonEndpoint = DNS_JSON_ENDPOINT } = {},
+) {
+  if (isUnsafePublicUrl(value)) {
+    return [];
+  }
+  let host;
+  try {
+    host = normalizedHostname(new URL(value).hostname);
+  } catch {
+    return [];
+  }
+  if (ipv4Octets(host) || host.includes(":")) {
+    return isUnsafeIpAddress(host)
+      ? []
+      : [{ address: host, family: dnsAnswerFamily(host) }];
+  }
+  const lookups = await Promise.allSettled(
+    DNS_RECORD_TYPES.map((type) =>
+      resolveDnsJson(host, type, fetchImpl, dnsJsonEndpoint),
+    ),
+  );
+  const answers = lookups.flatMap((lookup) =>
+    lookup.status === "fulfilled" ? lookup.value : [],
+  );
+  if (answers.some(isUnsafeIpAddress) || answers.length === 0) {
+    return [];
+  }
+  return answers.map((address) => ({
+    address,
+    family: dnsAnswerFamily(address),
+  }));
+}
+
+export function workerResolvedUrlSafetyGuard(options = {}) {
+  return async function isUnsafeWorkerResolvedUrl(value) {
+    const addresses = await resolveWorkerPublicUrlAddresses(value, options);
+    return addresses.length === 0;
+  };
+}
+
+// SSRF-safe outbound fetch for the Worker prober: resolves via DoH, pins the
+// vetted address into the request URL, and sets Host so TLS/SNI stay correct.
+export function createWorkerPinnedFetch({
   fetchImpl = fetch,
+  dohFetchImpl = fetch,
   dnsJsonEndpoint = DNS_JSON_ENDPOINT,
 } = {}) {
-  return async function isUnsafeWorkerResolvedUrl(value) {
-    if (isUnsafePublicUrl(value)) {
-      return true;
+  return async function workerPinnedFetch(url, init = {}) {
+    const addresses = await resolveWorkerPublicUrlAddresses(url, {
+      fetchImpl: dohFetchImpl,
+      dnsJsonEndpoint,
+    });
+    if (addresses.length === 0) {
+      const error = new Error("unsafe or unresolvable URL");
+      error.name = "WorkerPinnedFetchError";
+      throw error;
     }
-    let host;
+
+    let parsed;
     try {
-      host = normalizedHostname(new URL(value).hostname);
-    } catch {
-      return true;
+      parsed = new URL(url);
+    } catch (error) {
+      throw error;
     }
-    if (ipv4Octets(host) || host.includes(":")) {
-      return isUnsafeIpAddress(host);
+
+    const host = normalizedHostname(parsed.hostname);
+    const isLiteral = ipv4Octets(host) || host.includes(":");
+    if (isLiteral) {
+      return fetchImpl(url, init);
     }
-    const lookups = await Promise.allSettled(
-      DNS_RECORD_TYPES.map((type) =>
-        resolveDnsJson(host, type, fetchImpl, dnsJsonEndpoint),
-      ),
-    );
-    const answers = lookups.flatMap((lookup) =>
-      lookup.status === "fulfilled" ? lookup.value : [],
-    );
-    // Block on any confirmed private answer (rebinding), even if another RR
-    // lookup failed. No confirmed private answer / DoH failure → fail open.
-    return answers.some(isUnsafeIpAddress);
+
+    const headers = new Headers(init.headers);
+    headers.set("Host", parsed.host);
+    return fetchImpl(buildPinnedUrl(parsed, addresses[0]), {
+      ...init,
+      headers,
+    });
+  };
+}
+
+export function createWorkerProbeOptions(overrides = {}) {
+  const dohFetch = overrides.safetyFetch ?? overrides.dohFetchImpl ?? fetch;
+  const pinnedFetch =
+    overrides.pinnedFetch ??
+    createWorkerPinnedFetch({
+      fetchImpl: overrides.fetchImpl ?? dohFetch,
+      dohFetchImpl: dohFetch,
+      dnsJsonEndpoint: overrides.dnsJsonEndpoint,
+    });
+  return {
+    isUnsafeUrl:
+      overrides.isUnsafeUrl ||
+      workerResolvedUrlSafetyGuard({
+        fetchImpl: dohFetch,
+        dnsJsonEndpoint: overrides.dnsJsonEndpoint,
+      }),
+    fetchImpl: pinnedFetch,
+    connect: overrides.connect || workerWebSocketConnector(pinnedFetch),
   };
 }
 
@@ -385,14 +469,16 @@ export async function runHealthProber(env, ctx, overrides = {}) {
   const loadSurfaces =
     overrides.loadSurfaces || (() => loadOperationalSurfaces(env));
   const probe = overrides.probeSurface || coreProbeSurface;
-  const probeOptions = overrides.probeOptions || {
-    // DNS-aware SSRF guard (resolves via DoH; fail-open on DoH error). Falls back
-    // to the isomorphic literal guard when an override is supplied (tests).
-    isUnsafeUrl:
-      overrides.isUnsafeUrl ||
-      workerResolvedUrlSafetyGuard({ fetchImpl: overrides.safetyFetch }),
-    connect: overrides.connect || workerWebSocketConnector(),
-  };
+  const probeOptions =
+    overrides.probeOptions ||
+    createWorkerProbeOptions({
+      isUnsafeUrl: overrides.isUnsafeUrl,
+      safetyFetch: overrides.safetyFetch,
+      fetchImpl: overrides.fetchImpl,
+      pinnedFetch: overrides.pinnedFetch,
+      connect: overrides.connect,
+      dnsJsonEndpoint: overrides.dnsJsonEndpoint,
+    });
   const concurrency = overrides.concurrency || PROBE_CONCURRENCY;
 
   const runAt = now();

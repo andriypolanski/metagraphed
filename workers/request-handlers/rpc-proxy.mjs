@@ -46,8 +46,7 @@ import {
 import { SURFACE_ALIASES_PATH } from "../../src/surface-aliases.mjs";
 import {
   KV_HEALTH_RPC_POOL,
-  workerResolvedUrlSafetyGuard,
-  workerWebSocketConnector,
+  createWorkerProbeOptions,
 } from "../../src/health-prober.mjs";
 import { ipv6EmbeddedIpv4 } from "../../src/ip-safety.mjs";
 import { overlayRpcPoolEligibility } from "../../src/health-serving.mjs";
@@ -226,12 +225,7 @@ export async function handleSurfaceVerify(request, env, surfaceId, ctx = {}) {
 
   const result = await verifySurfaceWithCache(
     surface,
-    {
-      isUnsafeUrl: workerResolvedUrlSafetyGuard({
-        fetchImpl: globalThis.fetch,
-      }),
-      connect: workerWebSocketConnector(globalThis.fetch),
-    },
+    createWorkerProbeOptions(),
     {
       waitUntil: (promise) => ctx?.waitUntil?.(promise),
     },

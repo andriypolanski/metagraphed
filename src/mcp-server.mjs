@@ -145,8 +145,7 @@ import {
 import { generateServiceSnippets } from "./integration-snippets.mjs";
 import {
   KV_HEALTH_RPC_POOL,
-  workerResolvedUrlSafetyGuard,
-  workerWebSocketConnector,
+  createWorkerProbeOptions,
 } from "./health-prober.mjs";
 import {
   findSurface,
@@ -5323,12 +5322,7 @@ export const MCP_TOOLS = [
           "Provide either surface_id or netuid.",
         );
       }
-      return await verifySurfaceWithCache(surface, {
-        isUnsafeUrl: workerResolvedUrlSafetyGuard({
-          fetchImpl: globalThis.fetch,
-        }),
-        connect: workerWebSocketConnector(globalThis.fetch),
-      });
+      return await verifySurfaceWithCache(surface, createWorkerProbeOptions());
     },
   },
 ];

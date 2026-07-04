@@ -4,9 +4,11 @@ import {
   KV_HEALTH_CURRENT,
   KV_HEALTH_META,
   KV_HEALTH_RPC_POOL,
+  createWorkerPinnedFetch,
   loadOperationalSurfaces,
   OPERATIONAL_SURFACES_PATH,
   pruneHealthHistory,
+  resolveWorkerPublicUrlAddresses,
   rollupDailyUptime,
   runD1StatementBatches,
   D1_STATEMENTS_PER_BATCH,
@@ -126,16 +128,16 @@ describe("workerResolvedUrlSafetyGuard (DNS-aware SSRF)", () => {
     assert.equal(await guard("https://ok.example.com/x"), false);
   });
 
-  test("fails OPEN on a DoH error (does not block all health)", async () => {
+  test("fails CLOSED on a DoH error (does not probe unverified hostnames)", async () => {
     const guard = workerResolvedUrlSafetyGuard({
       fetchImpl: async () => {
         throw new Error("DoH unreachable");
       },
     });
-    assert.equal(await guard("https://ok.example.com/x"), false);
+    assert.equal(await guard("https://ok.example.com/x"), true);
   });
 
-  test("fails OPEN on no DNS answer / non-ok DoH", async () => {
+  test("fails CLOSED on no DNS answer / non-ok DoH", async () => {
     const guard = workerResolvedUrlSafetyGuard({
       fetchImpl: async () => ({
         ok: false,
@@ -144,7 +146,107 @@ describe("workerResolvedUrlSafetyGuard (DNS-aware SSRF)", () => {
         },
       }),
     });
-    assert.equal(await guard("https://unknown.example.com/x"), false);
+    assert.equal(await guard("https://unknown.example.com/x"), true);
+  });
+});
+
+describe("resolveWorkerPublicUrlAddresses", () => {
+  const dohFetch = (records) => async (url) => {
+    const u = new URL(url);
+    const name = u.searchParams.get("name");
+    const type = u.searchParams.get("type");
+    const data = records[name]?.[type] || [];
+    return {
+      ok: true,
+      async json() {
+        return { Answer: data.map((d) => ({ data: d })) };
+      },
+    };
+  };
+
+  test("returns vetted public addresses for a hostname", async () => {
+    const addresses = await resolveWorkerPublicUrlAddresses(
+      "https://ok.example.com/x",
+      { fetchImpl: dohFetch({ "ok.example.com": { A: ["93.184.216.34"] } }) },
+    );
+    assert.deepEqual(addresses, [{ address: "93.184.216.34", family: 4 }]);
+  });
+
+  test("returns [] on DoH failure (fail-closed)", async () => {
+    const addresses = await resolveWorkerPublicUrlAddresses(
+      "https://unknown.example.com/x",
+      {
+        fetchImpl: async () => {
+          throw new Error("DoH unreachable");
+        },
+      },
+    );
+    assert.deepEqual(addresses, []);
+  });
+});
+
+describe("createWorkerPinnedFetch", () => {
+  const dohFetch = (records) => async (url) => {
+    const u = new URL(url);
+    const name = u.searchParams.get("name");
+    const type = u.searchParams.get("type");
+    const data = records[name]?.[type] || [];
+    return {
+      ok: true,
+      async json() {
+        return { Answer: data.map((d) => ({ data: d })) };
+      },
+    };
+  };
+
+  test("pins hostname probes to the vetted address and sets Host", async () => {
+    let capturedUrl = null;
+    let capturedInit = null;
+    const pinned = createWorkerPinnedFetch({
+      dohFetchImpl: dohFetch({ "ok.example.com": { A: ["93.184.216.34"] } }),
+      fetchImpl: async (url, init) => {
+        capturedUrl = url;
+        capturedInit = init;
+        return new Response("ok", { status: 200 });
+      },
+    });
+    await pinned("https://ok.example.com/path?q=1", {
+      headers: { accept: "text/plain" },
+    });
+    assert.equal(capturedUrl, "https://93.184.216.34/path?q=1");
+    assert.equal(capturedInit.headers.get("Host"), "ok.example.com");
+    assert.equal(capturedInit.headers.get("accept"), "text/plain");
+  });
+
+  test("throws WorkerPinnedFetchError when resolution fails", async () => {
+    const pinned = createWorkerPinnedFetch({
+      dohFetchImpl: async () => {
+        throw new Error("DoH unreachable");
+      },
+      fetchImpl: async () => new Response("ok"),
+    });
+    await assert.rejects(
+      () => pinned("https://unknown.example.com/x"),
+      (error) => {
+        assert.equal(error.name, "WorkerPinnedFetchError");
+        return true;
+      },
+    );
+  });
+
+  test("passes IP-literal URLs through without rewriting", async () => {
+    let capturedUrl = null;
+    const pinned = createWorkerPinnedFetch({
+      dohFetchImpl: async () => {
+        throw new Error("DoH should not run for IP literals");
+      },
+      fetchImpl: async (url) => {
+        capturedUrl = url;
+        return new Response("ok");
+      },
+    });
+    await pinned("https://8.8.8.8/x");
+    assert.equal(capturedUrl, "https://8.8.8.8/x");
   });
 });
 
