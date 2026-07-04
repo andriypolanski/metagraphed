@@ -260,12 +260,7 @@ export function createWorkerPinnedFetch({
       throw error;
     }
 
-    let parsed;
-    try {
-      parsed = new URL(url);
-    } catch (error) {
-      throw error;
-    }
+    const parsed = new URL(url);
 
     const host = normalizedHostname(parsed.hostname);
     const isLiteral = ipv4Octets(host) || host.includes(":");
