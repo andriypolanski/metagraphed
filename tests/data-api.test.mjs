@@ -77,6 +77,26 @@ test("chain-events coerces blank bigint cells to null, not zero", async () => {
   expect(body.next_cursor).toBeNull();
 });
 
+test("chain-events coerces null and non-numeric bigint cells to null", async () => {
+  mockRows.current = [
+    {
+      block_number: null,
+      event_index: 0,
+      pallet: "System",
+      method: "ExtrinsicSuccess",
+      args: { x: 1 },
+      phase: "ApplyExtrinsic",
+      extrinsic_index: 2,
+      observed_at: "not-a-number",
+    },
+  ];
+  const res = await req("/api/v1/blocks/123/chain-events");
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.events[0].block_number).toBeNull();
+  expect(body.events[0].observed_at).toBeNull();
+});
+
 test("GET /api/v1/blocks/:n/chain-events returns the block's events", async () => {
   const res = await req("/api/v1/blocks/123/chain-events");
   expect(res.status).toBe(200);
