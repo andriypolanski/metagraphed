@@ -1787,6 +1787,23 @@ test("loadAccountEventSummary omits netuid filter when netuid is absent", async 
   assert.equal(out.subnet_count, 3);
 });
 
+test("loadAccountEventSummary falls back to the default direct-call window", async () => {
+  let cutoff;
+  const out = await loadAccountEventSummary(
+    async (sql, params) => {
+      if (/GROUP BY event_kind/.test(sql)) cutoff = params[1];
+      if (/COUNT\(DISTINCT netuid\)/.test(sql)) return [];
+      return [];
+    },
+    "5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5",
+    { windowLabel: "bogus" },
+  );
+  const expectedCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  assert.ok(Math.abs(cutoff - expectedCutoff) < 1000);
+  assert.equal(out.window, "30d");
+  assert.equal(out.subnet_count, 0);
+});
+
 test("loadAccountEvents emits a next_cursor only on a full page", async () => {
   // A full page (rows.length === limit) → keyset cursor off the last row.
   const full = await loadAccountEvents(
