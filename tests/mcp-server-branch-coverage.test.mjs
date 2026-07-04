@@ -1002,6 +1002,55 @@ describe("handleMcpRequest — rate limiter success + content-length guard", () 
     const body = await response.json();
     assert.equal(body.error.code, -32600);
   });
+
+  test("a request with a negative content-length is rejected with 400", async () => {
+    const request = new Request(MCP_URL, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "content-length": "-1",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }),
+    });
+    const response = await handleMcpRequest(request, {}, makeDeps());
+    assert.equal(response.status, 400);
+    const body = await response.json();
+    assert.equal(body.error.code, -32600);
+    assert.match(body.error.message, /Content-Length/i);
+  });
+
+  test("a request with a non-numeric content-length is rejected with 400", async () => {
+    const request = new Request(MCP_URL, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "content-length": "not-a-number",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }),
+    });
+    const response = await handleMcpRequest(request, {}, makeDeps());
+    assert.equal(response.status, 400);
+    const body = await response.json();
+    assert.equal(body.error.code, -32600);
+    assert.match(body.error.message, /Content-Length/i);
+  });
+
+  test("a request with a finite content-length within the cap proceeds normally", async () => {
+    const payload = { jsonrpc: "2.0", id: 1, method: "ping" };
+    const body = JSON.stringify(payload);
+    const request = new Request(MCP_URL, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "content-length": String(new TextEncoder().encode(body).byteLength),
+      },
+      body,
+    });
+    const response = await handleMcpRequest(request, {}, makeDeps());
+    assert.equal(response.status, 200);
+    const parsed = await response.json();
+    assert.deepEqual(parsed.result, {});
+  });
 });
 
 // ── resolveNetuid index fallback ───────────────────────────────────────

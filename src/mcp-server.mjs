@@ -8897,9 +8897,18 @@ export async function handleMcpRequest(request, env = {}, deps = {}) {
   const rateLimitResponse = await enforceMcpRateLimit(request, env);
   if (rateLimitResponse) return rateLimitResponse;
 
-  const contentLength = Number(request.headers.get("content-length") || 0);
-  if (contentLength > MAX_MCP_BODY_BYTES) {
-    return bodyTooLargeResponse();
+  const declaredLength = request.headers.get("content-length");
+  if (declaredLength !== null) {
+    const contentLength = Number(declaredLength);
+    if (!Number.isFinite(contentLength) || contentLength < 0) {
+      return jsonResponse(
+        rpcError(null, RPC_INVALID_REQUEST, "Invalid Content-Length header."),
+        400,
+      );
+    }
+    if (contentLength > MAX_MCP_BODY_BYTES) {
+      return bodyTooLargeResponse();
+    }
   }
 
   let body;
