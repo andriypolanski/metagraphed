@@ -135,6 +135,33 @@
         "https://creator.bitcast.network/briefs"
       ],
       "url": "https://creator.bitcast.network/api/health"
+    },
+    {
+      "auth_required": false,
+      "authority": "community",
+      "id": "sn-93-bitcast-network-openapi",
+      "kind": "openapi",
+      "name": "Bitcast API OpenAPI schema",
+      "notes": "Machine-readable OpenAPI 3.1 schema for the Bitcast API gateway (bitcast-api.bitcast.network). The spec and Swagger UI at /docs are publicly fetchable; most documented endpoints require API-key auth, but the schema itself is no-auth.",
+      "probe": {
+        "enabled": true,
+        "expect": "json",
+        "method": "HEAD",
+        "timeout_ms": 10000
+      },
+      "provider": "bitcast-network",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanksi"
+      },
+      "schema_status": "machine-readable",
+      "schema_url": "https://bitcast-api.bitcast.network/openapi.json",
+      "source_urls": [
+        "https://github.com/bitcast-network/bitcast/blob/main/bitcast/validator/utils/config.py",
+        "https://bitcast-api.bitcast.network/docs"
+      ],
+      "url": "https://bitcast-api.bitcast.network/openapi.json"
     }
   ]
 }
