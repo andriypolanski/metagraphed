@@ -10,7 +10,11 @@ import { ApiSourceFooter } from "@/components/metagraphed/api-source-footer";
 import { EmptyState, Skeleton } from "@/components/metagraphed/states";
 import { PageHero } from "@/components/metagraphed/page-hero";
 import { ListShell } from "@/components/metagraphed/list-shell";
-import { PageSizeSelect } from "@/components/metagraphed/table-controls";
+import {
+  PageSizeSelect,
+  ResetFiltersButton,
+  SearchInput,
+} from "@/components/metagraphed/table-controls";
 import { QueryErrorBoundary } from "@/components/metagraphed/error-boundary";
 import { ShareButton } from "@/components/metagraphed/share-button";
 import { blocksQuery } from "@/lib/metagraphed/queries";
@@ -22,6 +26,13 @@ import type { Block } from "@/lib/metagraphed/types";
 const blocksSearchSchema = z.object({
   limit: fallback(z.number().int().min(1).max(100), 50).default(50),
   offset: fallback(z.number().int().min(0), 0).default(0),
+  // Server-side filters wired to the /api/v1/blocks conjunctive set.
+  author: fallback(z.string(), "").default(""),
+  spec_version: fallback(z.string(), "").default(""),
+  block_start: fallback(z.string(), "").default(""),
+  block_end: fallback(z.string(), "").default(""),
+  min_extrinsics: fallback(z.string(), "").default(""),
+  min_events: fallback(z.string(), "").default(""),
 });
 
 export const Route = createFileRoute("/blocks/")({
@@ -69,8 +80,19 @@ function BlocksTable() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
 
-  const rows = (useSuspenseQuery(blocksQuery({ limit: search.limit, offset: search.offset })).data
-    .data ?? []) as Block[];
+  // Only send filters the user actually set, so an empty bar is the plain feed.
+  const queryParams: Record<string, string | number> = {
+    limit: search.limit,
+    offset: search.offset,
+  };
+  if (search.author) queryParams.author = search.author;
+  if (search.spec_version) queryParams.spec_version = search.spec_version;
+  if (search.block_start) queryParams.block_start = search.block_start;
+  if (search.block_end) queryParams.block_end = search.block_end;
+  if (search.min_extrinsics) queryParams.min_extrinsics = search.min_extrinsics;
+  if (search.min_events) queryParams.min_events = search.min_events;
+
+  const rows = (useSuspenseQuery(blocksQuery(queryParams)).data.data ?? []) as Block[];
 
   // Offset pagination: the API returns newest-first pages with no total. A full
   // page (rows === limit) implies more may exist; a short page is the tail.
@@ -83,13 +105,75 @@ function BlocksTable() {
   const goPrev = () => setSearch({ offset: Math.max(0, search.offset - search.limit) });
   const goNext = () => setSearch({ offset: search.offset + search.limit });
 
+  const filtersActive = Boolean(
+    search.author ||
+      search.spec_version ||
+      search.block_start ||
+      search.block_end ||
+      search.min_extrinsics ||
+      search.min_events,
+  );
+
   const filters = (
     <>
-      <span className="font-mono text-[11px] text-ink-muted">Newest first</span>
+      <SearchInput
+        value={search.author}
+        onChange={(v) => setSearch({ author: v, offset: 0 })}
+        placeholder="Author ss58…"
+      />
+      <SearchInput
+        value={search.spec_version}
+        onChange={(v) => setSearch({ spec_version: v, offset: 0 })}
+        placeholder="Spec version…"
+        inputMode="numeric"
+        className="min-w-[120px] max-w-[140px] flex-none"
+      />
+      <SearchInput
+        value={search.block_start}
+        onChange={(v) => setSearch({ block_start: v, offset: 0 })}
+        placeholder="Block from…"
+        inputMode="numeric"
+        className="min-w-[120px] max-w-[140px] flex-none"
+      />
+      <SearchInput
+        value={search.block_end}
+        onChange={(v) => setSearch({ block_end: v, offset: 0 })}
+        placeholder="Block to…"
+        inputMode="numeric"
+        className="min-w-[120px] max-w-[140px] flex-none"
+      />
+      <SearchInput
+        value={search.min_extrinsics}
+        onChange={(v) => setSearch({ min_extrinsics: v, offset: 0 })}
+        placeholder="Min extrinsics…"
+        inputMode="numeric"
+        className="min-w-[120px] max-w-[140px] flex-none"
+      />
+      <SearchInput
+        value={search.min_events}
+        onChange={(v) => setSearch({ min_events: v, offset: 0 })}
+        placeholder="Min events…"
+        inputMode="numeric"
+        className="min-w-[120px] max-w-[140px] flex-none"
+      />
       <PageSizeSelect
         value={search.limit}
         onChange={(n) => setSearch({ limit: n, offset: 0 })}
         options={[10, 25, 50, 100]}
+      />
+      <ResetFiltersButton
+        active={filtersActive}
+        onReset={() =>
+          setSearch({
+            author: "",
+            spec_version: "",
+            block_start: "",
+            block_end: "",
+            min_extrinsics: "",
+            min_events: "",
+            offset: 0,
+          })
+        }
       />
     </>
   );
