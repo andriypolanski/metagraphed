@@ -12,5 +12,32 @@
   "social": {
     "x": "https://x.com/tpn_labs"
   },
-  "surfaces": []
+  "surfaces": [
+    {
+      "auth_required": false,
+      "authority": "community",
+      "id": "sn-65-tao-private-network-lease-countries-api",
+      "kind": "subnet-api",
+      "name": "TPN federated lease countries API",
+      "notes": "Public no-auth GET /api/lease/countries returning supported worker geographies as ISO codes or human-readable names (format=json&type=code|name). SN65 validators run the federated HTTP API on port 3000; the official taofu-labs/tpn-cli resolves these via a comma-separated validator list (BASE_URLS in tpn.sh, mirrored in sn65-validator-list).",
+      "probe": {
+        "enabled": true,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "tao-private-network",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanksi"
+      },
+      "source_urls": [
+        "https://github.com/taofu-labs/tpn-cli/blob/main/tpn.sh",
+        "https://github.com/taofu-labs/tpn-subnet/blob/main/federated-container/openapi.yaml",
+        "https://github.com/taofu-labs/sn65-validator-list/blob/main/validators.json"
+      ],
+      "url": "http://161.35.91.172:3000/api/lease/countries?format=json&type=code"
+    }
+  ]
 }
