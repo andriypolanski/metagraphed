@@ -1116,6 +1116,19 @@ export interface SubnetIdentityHistory {
   next_cursor: string | null;
 }
 
+/** One network-wide identity change — same snapshot fields plus the owning netuid (#3474). */
+export interface ChainIdentityChange extends SubnetIdentityHistoryEntry {
+  netuid: number;
+}
+
+/** Network-wide subnet identity change feed from /api/v1/chain/identity-history. */
+export interface ChainIdentityHistory {
+  schema_version: number;
+  count: number;
+  subnet_count: number;
+  changes: ChainIdentityChange[];
+}
+
 /**
  * Per-subnet validator weight-setting activity over a 7d/30d window, from
  * /api/v1/subnets/{netuid}/weights — aggregate WeightsSet counts (distinct

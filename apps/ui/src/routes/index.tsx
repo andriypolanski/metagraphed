@@ -22,6 +22,7 @@ import { ScrollReveal } from "@/components/metagraphed/scroll-reveal";
 import { CoverageFunnel } from "@/components/metagraphed/analytics/coverage-funnel";
 import { NetworkPulseBand } from "@/components/metagraphed/analytics/network-pulse-band";
 import { WhatChangedFeed } from "@/components/metagraphed/analytics/what-changed-feed";
+import { RecentIdentityChanges } from "@/components/metagraphed/analytics/recent-identity-changes";
 import {
   RegistryScoreHistogram,
   DimensionCoverageHeatmap,
@@ -127,6 +128,11 @@ function OverviewPage() {
                 <Suspense fallback={<Skeleton className="h-64 lg:col-span-12" />}>
                   <div className="lg:col-span-12">
                     <WhatChangedFeed />
+                  </div>
+                </Suspense>
+                <Suspense fallback={<Skeleton className="h-64 lg:col-span-12" />}>
+                  <div className="lg:col-span-12">
+                    <RecentIdentityChanges />
                   </div>
                 </Suspense>
               </div>

@@ -46,6 +46,8 @@ import type {
   ChainFees,
   ChainFeeDay,
   ChainFeePayer,
+  ChainIdentityChange,
+  ChainIdentityHistory,
   ChainTransferPair,
   ChainTransferPairs,
   ChainConcentration,
@@ -2927,6 +2929,54 @@ export const subnetIdentityHistoryQuery = (netuid: number) =>
       );
       return {
         data: normalizeSubnetIdentityHistory(netuid, res.data),
+        meta: res.meta,
+        url: res.url,
+      };
+    },
+    staleTime: STALE_MED,
+  });
+
+const MAX_CHAIN_IDENTITY_HISTORY_CHANGES = 200;
+
+export function normalizeChainIdentityChange(raw: unknown): ChainIdentityChange | null {
+  const entry = normalizeSubnetIdentityHistoryEntry(raw);
+  if (!entry) return null;
+  const rec = isRecord(raw) ? raw : {};
+  const netuid = firstFiniteNumber(rec.netuid);
+  if (netuid == null || netuid < 0) return null;
+  return { ...entry, netuid };
+}
+
+function normalizeChainIdentityHistory(raw: unknown): ChainIdentityHistory {
+  const rec = isRecord(raw) ? raw : {};
+  const changes = (Array.isArray(rec.changes) ? rec.changes : [])
+    .map(normalizeChainIdentityChange)
+    .filter((change): change is ChainIdentityChange => change != null)
+    .slice(0, MAX_CHAIN_IDENTITY_HISTORY_CHANGES);
+  const subnetCount = firstFiniteNumber(rec.subnet_count);
+  return {
+    schema_version: firstFiniteNumber(rec.schema_version) ?? 1,
+    count: firstFiniteNumber(rec.count) ?? changes.length,
+    subnet_count:
+      subnetCount ??
+      new Set(changes.map((change) => change.netuid)).size,
+    changes,
+  };
+}
+
+// Network-wide subnet identity change feed (#3474) — newest SubnetIdentitiesV3
+// snapshots across every subnet. Distinct from subnetIdentityHistoryQuery, which
+// scopes to one netuid.
+export const chainIdentityHistoryQuery = (limit = 10) =>
+  queryOptions({
+    queryKey: k("chain-identity-history", limit),
+    queryFn: async ({ signal }) => {
+      const res = await apiFetch<Partial<ChainIdentityHistory>>(
+        "/api/v1/chain/identity-history",
+        { params: { limit }, signal },
+      );
+      return {
+        data: normalizeChainIdentityHistory(res.data),
         meta: res.meta,
         url: res.url,
       };
