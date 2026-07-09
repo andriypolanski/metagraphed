@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useInfiniteQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useSuspenseQueries } from "@tanstack/react-query";
 import { Suspense, useMemo, useState } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
@@ -25,7 +25,10 @@ import {
   chainSignersQuery,
   chainStakeFlowQuery,
   chainStakeMovesQuery,
+  chainTurnoverQuery,
   chainStakeTransfersQuery,
+  chainTransferPairsQuery,
+  economicsTrendsQuery,
 } from "@/lib/metagraphed/queries";
 import { formatNumber } from "@/lib/metagraphed/format";
 import { shortHash } from "@/lib/metagraphed/blocks";
@@ -36,6 +39,8 @@ import type {
   ChainEventsStats,
   ChainStakeFlow,
   ChainStakeMoves,
+  ChainTurnover,
+  EconomicsTrends,
 } from "@/lib/metagraphed/types";
 
 const explorerSearchSchema = z.object({
@@ -104,9 +109,11 @@ function ExplorerPage() {
           "/api/v1/chain/signers",
           "/api/v1/chain/stake-flow",
           "/api/v1/chain/stake-moves",
+          "/api/v1/chain/turnover",
           "/api/v1/chain/stake-transfers",
           "/api/v1/chain-events",
           "/api/v1/chain-events/stats",
+          "/api/v1/economics/trends",
         ]}
       />
     </AppShell>
@@ -508,19 +515,216 @@ function StakeMovesSection({ moves }: { moves: ChainStakeMoves }) {
   );
 }
 
+/**
+ * Network-wide validator-set turnover (#3473) — how much each subnet's validator
+ * set churned over the window (entered / exited, retention, stability), plus the
+ * most volatile subnets. Chain-direct: GET /api/v1/chain/turnover. Placed here
+ * alongside the sibling network-chain sections; the issue names /leaderboards,
+ * which does not exist yet.
+ */
+function ValidatorTurnoverSection({ turnover }: { turnover: ChainTurnover }) {
+  const net = turnover.network;
+  // Most volatile first (lowest stability score); bar width ~ total churn.
+  const volatile = [...turnover.subnets]
+    .sort((a, b) => (a.stability_score ?? 100) - (b.stability_score ?? 100))
+    .slice(0, 12);
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-muted">
+          Validator turnover
+        </h2>
+        <span className="font-mono text-[11px] text-ink-muted">
+          {formatNumber(turnover.subnet_count)} subnets
+        </span>
+      </div>
+
+      {net ? (
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StakeFlowMetric
+            label="Retention"
+            value={
+              net.validator_retention != null
+                ? `${(net.validator_retention * 100).toFixed(1)}%`
+                : "—"
+            }
+            tone="ok"
+          />
+          <StakeFlowMetric label="Entered" value={formatNumber(net.validators_entered)} />
+          <StakeFlowMetric label="Exited" value={formatNumber(net.validators_exited)} />
+          <StakeFlowMetric
+            label="Stability"
+            value={net.stability_score != null ? `${formatNumber(net.stability_score)}/100` : "—"}
+          />
+        </div>
+      ) : null}
+
+      {volatile.length > 0 ? (
+        <div>
+          <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-muted">
+            Most volatile subnets
+          </div>
+          <ul className="space-y-1.5">
+            {volatile.map((s) => {
+              const pct = Math.max(
+                2,
+                Math.round((s.validator_retention != null ? 1 - s.validator_retention : 0) * 100),
+              );
+              return (
+                <li key={s.netuid}>
+                  <Link
+                    to="/subnets/$netuid"
+                    params={{ netuid: s.netuid }}
+                    className="grid w-full grid-cols-[3.5rem_1fr_6rem] items-center gap-2 text-left hover:opacity-80"
+                  >
+                    <span className="truncate font-mono text-[10px] uppercase tracking-widest text-ink-muted">
+                      SN{s.netuid}
+                    </span>
+                    <span className="relative h-1.5 overflow-hidden rounded-full bg-surface">
+                      <span
+                        className="absolute inset-y-0 left-0 rounded-full"
+                        style={{ width: `${pct}%`, background: "var(--health-warn)" }}
+                      />
+                    </span>
+                    <span className="text-right font-mono text-[10px] tabular-nums text-ink-strong">
+                      {s.validator_retention != null
+                        ? `${Math.round(s.validator_retention * 100)}% kept`
+                        : "—"}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : (
+        <p className="font-mono text-[12px] text-ink-muted">No turnover in this window yet.</p>
+      )}
+
+      {net ? (
+        <p className="mt-4 border-t border-border pt-3 font-mono text-[10px] text-ink-muted">
+          Validator set {formatNumber(net.validators_start)} to {formatNumber(net.validators_end)}{" "}
+          over {turnover.window}, across {formatNumber(turnover.subnet_count)} subnets.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * Network-wide economics trend (#3365) — the subnet_snapshots rollup (stake,
+ * alpha price, validator/miner counts, emission share), a distinct data source
+ * from every other section on this page (which reads the chain indexer). Reuses
+ * the page's MiniSeries idiom for consistency with "Daily activity"/"Daily fees".
+ */
+function EconomicsTrendsSection({ trends }: { trends: EconomicsTrends }) {
+  const chrono = [...trends.days].reverse();
+  return (
+    <section className="rounded-lg border border-border bg-card p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-muted">
+          Network economics trend
+        </h2>
+        <span className="font-mono text-[11px] text-ink-muted">{trends.day_count} days</span>
+      </div>
+      {chrono.length > 0 ? (
+        <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">
+          <MiniSeries
+            label="Total stake"
+            days={chrono.map((d) => d.snapshot_date)}
+            values={chrono.map((d) => d.total_stake_tao ?? 0)}
+            color="var(--accent)"
+            formatValue={fmtTao}
+          />
+          <MiniSeries
+            label="Alpha price"
+            days={chrono.map((d) => d.snapshot_date)}
+            values={chrono.map((d) => d.alpha_price_tao_weighted ?? 0)}
+            color="var(--chart-1)"
+            formatValue={fmtTao}
+          />
+          <MiniSeries
+            label="Emission share"
+            days={chrono.map((d) => d.snapshot_date)}
+            values={chrono.map((d) => (d.mean_emission_share ?? 0) * 100)}
+            color="var(--chart-6)"
+            formatValue={(v) => `${v.toFixed(3)}%`}
+          />
+          <MiniSeries
+            label="Validators"
+            days={chrono.map((d) => d.snapshot_date)}
+            values={chrono.map((d) => d.validator_count ?? 0)}
+            color="var(--chart-3)"
+            formatValue={(v) => formatNumber(v)}
+          />
+          <MiniSeries
+            label="Miners"
+            days={chrono.map((d) => d.snapshot_date)}
+            values={chrono.map((d) => d.miner_count ?? 0)}
+            color="var(--chart-1)"
+            formatValue={(v) => formatNumber(v)}
+          />
+        </div>
+      ) : (
+        <p className="font-mono text-[12px] text-ink-muted">
+          No economics snapshots in this window yet.
+        </p>
+      )}
+    </section>
+  );
+}
+
 function ExplorerDashboard() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const win = search.window;
 
-  const activity = useSuspenseQuery(chainActivityQuery(win)).data.data;
-  const fees = useSuspenseQuery(chainFeesQuery(win)).data.data;
-  const calls = useSuspenseQuery(chainCallsQuery(win)).data.data;
-  const signers = useSuspenseQuery(chainSignersQuery(win)).data.data;
-  const stakeFlow = useSuspenseQuery(chainStakeFlowQuery(win)).data.data;
-  const stakeMoves = useSuspenseQuery(chainStakeMovesQuery(win)).data.data;
-  const stakeTransfers = useSuspenseQuery(chainStakeTransfersQuery(win)).data.data;
-  const eventMix = useSuspenseQuery(chainEventsStatsQuery()).data.data;
+  // A single batched useSuspenseQueries, not one useSuspenseQuery call per
+  // endpoint: each individual call suspends the component separately, so on a
+  // cold cache (in particular during SSR) React re-renders and re-suspends
+  // once per query, resolving them in a serial waterfall instead of parallel
+  // -- the original 9 queries at ~5s each measured as a genuine ~33s page load
+  // in production, not a hang (confirmed by testing each endpoint standalone,
+  // all fast, and the full page eventually completing at ~33s with a longer
+  // timeout). useSuspenseQueries fires all fetches concurrently and suspends
+  // once, so the page waits on the slowest single query, not the sum. #3365
+  // adds a 10th (economics/trends, a different data source entirely).
+  const [
+    { data: activityRes },
+    { data: feesRes },
+    { data: callsRes },
+    { data: signersRes },
+    { data: stakeFlowRes },
+    { data: stakeMovesRes },
+    { data: turnoverRes },
+    { data: stakeTransfersRes },
+    { data: eventMixRes },
+    { data: trendsRes },
+  ] = useSuspenseQueries({
+    queries: [
+      chainActivityQuery(win),
+      chainFeesQuery(win),
+      chainCallsQuery(win),
+      chainSignersQuery(win),
+      chainStakeFlowQuery(win),
+      chainStakeMovesQuery(win),
+      chainTurnoverQuery(win),
+      chainStakeTransfersQuery(win),
+      chainEventsStatsQuery(),
+      economicsTrendsQuery(win),
+    ],
+  });
+  const activity = activityRes.data;
+  const fees = feesRes.data;
+  const calls = callsRes.data;
+  const signers = signersRes.data;
+  const stakeFlow = stakeFlowRes.data;
+  const stakeMoves = stakeMovesRes.data;
+  const turnover = turnoverRes.data;
+  const stakeTransfers = stakeTransfersRes.data;
+  const eventMix = eventMixRes.data;
+  const trends = trendsRes.data;
 
   // The API returns newest-day-first; sparklines want chronological order.
   const chrono = [...activity.days].reverse();
@@ -741,6 +945,10 @@ function ExplorerDashboard() {
         </section>
       </div>
 
+      {/* network-wide economics trend (#3365) — subnet_snapshots rollup, a
+          different data source from the chain-indexer sections above/below */}
+      <EconomicsTrendsSection trends={trends} />
+
       <div className="grid gap-6 lg:grid-cols-2">
         {/* call mix */}
         <CallMixSection calls={calls} />
@@ -806,9 +1014,13 @@ function ExplorerDashboard() {
         </section>
       </div>
 
+      <TransferPairsSection win={win} />
+
       <StakeFlowSection flow={stakeFlow} />
 
       <StakeMovesSection moves={stakeMoves} />
+
+      <ValidatorTurnoverSection turnover={turnover} />
 
       {/* stake-transfer leaderboard */}
       <section className="rounded-lg border border-border bg-card p-5">
@@ -869,6 +1081,128 @@ function ExplorerDashboard() {
       </section>
       <PalletEventMixSection stats={eventMix} />
     </div>
+  );
+}
+
+// Ranked sender→receiver native-TAO transfer corridors (#3476). Uses a plain
+// useQuery (not the page's suspense queries) so the volume/count sort toggle can
+// swap the ranking in place without re-suspending the whole dashboard.
+function TransferPairsSection({ win }: { win: "7d" | "30d" }) {
+  const [sort, setSort] = useState<"volume" | "count">("volume");
+  const pairsQ = useQuery(chainTransferPairsQuery(win, 25, sort));
+  const pairs = pairsQ.data?.data;
+  const rows = pairs?.pairs ?? [];
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-muted">
+            Transfer pairs
+          </h2>
+          {pairs ? (
+            <p className="mt-1 font-mono text-[11px] text-ink-muted">
+              {formatNumber(pairs.unique_pairs)} sender→receiver corridors ·{" "}
+              {fmtTao(pairs.total_volume_tao)} moved
+            </p>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-1.5" role="group" aria-label="Sort transfer pairs by">
+          {(["volume", "count"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              aria-pressed={s === sort}
+              onClick={() => setSort(s)}
+              className={
+                s === sort
+                  ? "rounded-full border border-accent/40 bg-accent/10 px-3 py-1 font-mono text-[11px] uppercase tracking-widest text-accent"
+                  : "rounded-full border border-border bg-card px-3 py-1 font-mono text-[11px] uppercase tracking-widest text-ink-muted hover:border-ink/30"
+              }
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {pairsQ.isPending ? (
+        <Skeleton className="h-64 w-full" />
+      ) : pairsQ.error ? (
+        <ErrorState
+          error={pairsQ.error}
+          onRetry={() => pairsQ.refetch()}
+          context="transfer pairs"
+        />
+      ) : rows.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr>
+                <th className={`${TH} text-right`}>#</th>
+                <th className={TH}>From</th>
+                <th className={TH}>To</th>
+                <th className={`${TH} text-right`}>Volume</th>
+                <th className={`${TH} text-right`}>Transfers</th>
+                <th className={`${TH} text-right`}>Last block</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {rows.map((p, i) => (
+                <tr key={`${p.from}-${p.to}`} className="hover:bg-surface/40">
+                  <td className="px-4 py-2 text-right font-mono text-[11px] tabular-nums text-ink-muted">
+                    {i + 1}
+                  </td>
+                  <td className="px-4 py-2 font-mono text-[11px]">
+                    <Link
+                      to="/accounts/$ss58"
+                      params={{ ss58: p.from }}
+                      className="text-ink-strong hover:text-accent hover:underline"
+                      title={p.from}
+                    >
+                      {shortHash(p.from) ?? p.from}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2 font-mono text-[11px]">
+                    <Link
+                      to="/accounts/$ss58"
+                      params={{ ss58: p.to }}
+                      className="text-ink-strong hover:text-accent hover:underline"
+                      title={p.to}
+                    >
+                      {shortHash(p.to) ?? p.to}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono text-[11px] tabular-nums text-ink">
+                    {fmtTao(p.volume_tao)}
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono text-[11px] tabular-nums text-ink-muted">
+                    {formatNumber(p.transfer_count)}
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono text-[11px] tabular-nums text-ink-muted">
+                    {p.last_block != null ? (
+                      <Link
+                        to="/blocks/$ref"
+                        params={{ ref: String(p.last_block) }}
+                        className="hover:text-accent hover:underline"
+                      >
+                        #{formatNumber(p.last_block)}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="font-mono text-[12px] text-ink-muted">
+          No transfer pairs in this window yet.
+        </p>
+      )}
+    </section>
   );
 }
 

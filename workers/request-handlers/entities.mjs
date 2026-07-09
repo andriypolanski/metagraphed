@@ -53,6 +53,15 @@ import {
   GLOBAL_VALIDATOR_LIMIT_MAX,
 } from "../../src/metagraph-neurons.mjs";
 import {
+  loadAccountsList,
+  ACCOUNTS_LIST_SORTS,
+  DEFAULT_ACCOUNTS_LIST_SORT,
+  ACCOUNTS_LIST_LIMIT_DEFAULT,
+  ACCOUNTS_LIST_LIMIT_MAX,
+} from "../../src/accounts-list.mjs";
+import { loadSubnetHyperparams } from "../../src/subnet-hyperparams.mjs";
+import { loadSubnetHyperparamsHistory } from "../../src/subnet-hyperparams-history.mjs";
+import {
   loadSubnetYield,
   YIELD_HISTORY_READ_COLUMNS,
   YIELD_HISTORY_ROW_CAP,
@@ -84,9 +93,16 @@ import {
 } from "../../src/account-events.mjs";
 import { loadAccountPortfolio } from "../../src/account-portfolio.mjs";
 import {
+  ACCOUNT_POSITION_DAILY_READ_COLUMNS,
+  buildAccountPositionHistory,
+} from "../../src/account-position-history.mjs";
+import {
   isFinneySs58Address,
   loadAccountBalance,
 } from "../../src/account-balance.mjs";
+import { loadSudoKey } from "../../src/sudo-key.mjs";
+import { loadSubnetRecycled } from "../../src/subnet-recycled.mjs";
+import { loadRuntimeVersionHistory } from "../../src/runtime-versions.mjs";
 import { decodeCursor, encodeCursor } from "../../src/cursor.mjs";
 import {
   BLOCK_READ_COLUMNS,
@@ -184,6 +200,10 @@ import {
   DEFAULT_STAKE_FLOW_DIRECTION,
   STAKE_FLOW_DIRECTIONS,
 } from "../../src/stake-flow.mjs";
+import { loadSubnetAlphaVolume } from "../../src/alpha-volume.mjs";
+import { resolveLiveEconomics } from "../../src/health-serving.mjs";
+import { KV_ECONOMICS_CURRENT } from "../../src/kv-keys.mjs";
+import { readArtifact, readHealthKv } from "../storage.mjs";
 import { loadAccountStakeFlow } from "../../src/account-stake-flow.mjs";
 import {
   loadValidatorNominators,
@@ -292,6 +312,21 @@ const GLOBAL_VALIDATOR_CSV_COLUMNS = [
   "stake_dominance",
   "avg_validator_trust",
   "max_validator_trust",
+  "latest_captured_at",
+  "latest_block_number",
+  "subnets",
+];
+const ACCOUNTS_LIST_CSV_COLUMNS = [
+  "hotkey",
+  "coldkey",
+  "coldkey_count",
+  "subnet_count",
+  "uid_count",
+  "validator_count",
+  "miner_count",
+  "total_stake_tao",
+  "total_emission_tao",
+  "stake_dominance",
   "latest_captured_at",
   "latest_block_number",
   "subnets",
@@ -548,6 +583,65 @@ export async function handleNeuron(request, env, netuid, uid) {
   );
 }
 
+// GET /api/v1/subnets/{netuid}/hyperparameters (#4307/1.4): one netuid's live
+// consensus/economic/governance settings from the subnet_hyperparams D1 tier
+// (refreshed daily by refresh-subnet-hyperparams.yml, #4306/1.3) — no static
+// file, no query params (a single-row lookup, nothing to filter or paginate).
+export async function handleSubnetHyperparams(request, env, netuid, url) {
+  const validationError = validateQueryParams(url, []);
+  if (validationError) return analyticsQueryError(validationError);
+  const data = await loadSubnetHyperparams(d1Runner(env), netuid);
+  return envelopeResponse(
+    request,
+    {
+      data,
+      meta: await metagraphMeta(
+        env,
+        `/metagraph/subnets/${netuid}/hyperparameters.json`,
+        data.captured_at,
+      ),
+    },
+    "short",
+  );
+}
+
+// GET /api/v1/subnets/{netuid}/hyperparameters/history (#4309/1.6): append-only
+// hyperparameter-change timeline for one subnet, newest first. Forward-only —
+// rows only exist from when the diff-on-change loader started running (see
+// recordSubnetHyperparamsChanges in src/subnet-hyperparams-history.mjs).
+// Cold/absent store -> schema-stable zero, never 404.
+export async function handleSubnetHyperparamsHistory(
+  request,
+  env,
+  netuid,
+  url,
+) {
+  const validationError = validateQueryParams(url, [
+    "limit",
+    "offset",
+    "cursor",
+  ]);
+  if (validationError) return analyticsQueryError(validationError);
+  const { limit, offset, cursor } = parsePagination(url, FEED_PAGINATION);
+  const data = await loadSubnetHyperparamsHistory(d1Runner(env), netuid, {
+    limit,
+    offset,
+    cursor,
+  });
+  return envelopeResponse(
+    request,
+    {
+      data,
+      meta: await metagraphMeta(
+        env,
+        `/metagraph/subnets/${netuid}/hyperparameters/history.json`,
+        data.entries[0]?.observed_at ?? null,
+      ),
+    },
+    "short",
+  );
+}
+
 export async function handleSubnetValidators(request, env, netuid, url) {
   const validationError = validateEntityQuery(url, ["format"]);
   if (validationError) return analyticsQueryError(validationError);
@@ -645,6 +739,86 @@ export async function handleGlobalValidators(request, env, url) {
       meta: await metagraphMeta(
         env,
         "/metagraph/validators.json",
+        data.captured_at,
+      ),
+    },
+    "short",
+  );
+}
+
+// GET /api/v1/accounts?sort=total_stake|total_emission|subnet_count|uid_count|
+// validator_count|stake_dominance|last_active&limit=20 (#4324/5.3): site-wide
+// accounts leaderboard — every currently-registered hotkey, miners included,
+// from the current neurons snapshot. The collection-level counterpart to
+// /api/v1/validators (which this route follows as its precedent), generalized
+// to every account rather than just validator_permit=1 rows. See
+// src/accounts-list.mjs's header for the "Free"/"Total" balance columns this
+// deliberately does NOT carry (no balance-tracking tier exists to derive them
+// from). Cold/absent D1 returns a schema-stable empty list.
+function parseAccountsListQuery(url) {
+  const validationError = validateEntityQuery(url, ["sort", "limit", "format"]);
+  if (validationError) return { error: validationError };
+
+  const sort = url.searchParams.get("sort") || DEFAULT_ACCOUNTS_LIST_SORT;
+  if (!ACCOUNTS_LIST_SORTS.includes(sort)) {
+    return {
+      error: {
+        parameter: "sort",
+        message: `"${sort}" is not a supported sort. Supported: ${ACCOUNTS_LIST_SORTS.join(
+          ", ",
+        )}.`,
+      },
+    };
+  }
+
+  const limit = parseBoundedIntParam(url, "limit", {
+    def: ACCOUNTS_LIST_LIMIT_DEFAULT,
+    min: 1,
+    max: ACCOUNTS_LIST_LIMIT_MAX,
+  });
+  if (limit.error) return { error: limit.error };
+
+  return { sort, limit: limit.value };
+}
+
+export function canonicalAccountsListCachePath(url, request = null) {
+  const parsed = parseAccountsListQuery(url);
+  if (parsed.error) {
+    return { response: analyticsQueryError(parsed.error) };
+  }
+  const search = `sort=${encodeURIComponent(parsed.sort)}&limit=${parsed.limit}`;
+  return {
+    cachePathAndSearch: csvCacheVariant(
+      url,
+      request,
+      `${url.pathname}?${search}`,
+    ),
+  };
+}
+
+export async function handleAccountsList(request, env, url) {
+  const parsed = parseAccountsListQuery(url);
+  if (parsed.error) return analyticsQueryError(parsed.error);
+  const data = await loadAccountsList(d1Runner(env), {
+    sort: parsed.sort,
+    limit: parsed.limit,
+  });
+  if (csvRequested(url, request)) {
+    return csvResponse(
+      data.accounts,
+      "accounts-list",
+      "short",
+      request,
+      ACCOUNTS_LIST_CSV_COLUMNS,
+    );
+  }
+  return envelopeResponse(
+    request,
+    {
+      data,
+      meta: await metagraphMeta(
+        env,
+        "/metagraph/accounts.json",
         data.captured_at,
       ),
     },
@@ -2022,6 +2196,67 @@ export async function handleSubnetStakeFlow(request, env, netuid, url) {
   );
 }
 
+// One subnet's alpha_market_cap_tao (#4342/8.3), preferring the live economics
+// KV tier and falling back to the committed R2 economics.json when the live
+// tier is cold/stale — same fallback shape resolveEconomicsRows uses in
+// request-handlers/analytics-routes.mjs. Unmemoized (unlike api.mjs's
+// readEconomicsCurrentKv): this route's traffic doesn't warrant the isolate
+// cache analytics-routes.mjs's higher-traffic /economics + /subnets/{netuid}
+// pair share, and entities.mjs deliberately imports leaf modules directly
+// rather than taking injected deps from api.mjs (see this file's header).
+// Null when neither tier has a row for this subnet.
+async function resolveSubnetMarketCapTao(env, netuid) {
+  const live = await resolveLiveEconomics({
+    readHealthKv: (e) => readHealthKv(e, KV_ECONOMICS_CURRENT),
+    env,
+    contractVersion: contractVersion(env),
+  });
+  let rows = Array.isArray(live?.data?.subnets) ? live.data.subnets : null;
+  if (!rows) {
+    const artifact = await readArtifact(env, "/metagraph/economics.json");
+    rows =
+      artifact.ok && Array.isArray(artifact.data?.subnets)
+        ? artifact.data.subnets
+        : [];
+  }
+  const row = rows.find((entry) => entry?.netuid === netuid);
+  const marketCap = row?.alpha_market_cap_tao;
+  return typeof marketCap === "number" && Number.isFinite(marketCap)
+    ? marketCap
+    : null;
+}
+
+// GET /api/v1/subnets/{netuid}/volume (#4339/8.1): rolling 24h buy (StakeAdded)
+// vs sell (StakeRemoved) alpha volume for one subnet, summed live from the same
+// account_events stream as stake-flow — unsigned (buy + sell), never netted, and
+// a fixed 24h window (no ?window= param), matching the issue's framing as a
+// canonical market-depth figure rather than a windowed analytics view. Cold/
+// absent store → 200 with zeroed totals (schema-stable, never 404).
+export async function handleSubnetAlphaVolume(request, env, netuid, url) {
+  const validationError = validateQueryParams(url, []);
+  if (validationError) return analyticsQueryError(validationError);
+  const marketCapTao = await resolveSubnetMarketCapTao(env, netuid);
+  const { data, generatedAt } = await loadSubnetAlphaVolume(
+    d1Runner(env),
+    netuid,
+    {
+      marketCapTao,
+    },
+  );
+  return envelopeResponse(
+    request,
+    {
+      data,
+      meta: await accountMeta(
+        env,
+        `/metagraph/subnets/${netuid}/volume.json`,
+        generatedAt,
+      ),
+    },
+    "short",
+  );
+}
+
 // GET /api/v1/subnets/movers?window=7d|30d|90d&sort=stake|emission|validators&limit=20:
 // cross-subnet momentum leaderboard — every subnet ranked by its stake/emission/validator
 // change between the window's start and end neuron_daily snapshots. Computed live from the
@@ -2860,6 +3095,57 @@ export async function handleAccountPortfolio(request, env, ss58) {
   );
 }
 
+// GET /api/v1/accounts/{ss58}/subnets/{netuid}/history?window=7d|30d|90d|1y|all
+// (block-explorer Tier-1, #4329/6.2): one wallet's position on one subnet over
+// time — the "Alpha Holdings chart" — read from the account_position_daily
+// rollup tier (#4330/6.1). Same window/SQL shape as handleNeuronHistory, keyed
+// by (account, netuid) instead of (netuid, uid); source is metagraph-snapshot
+// (rolled from `neurons`), not chain-events, so this uses envelopeResponse +
+// metagraphMeta like the neuron/subnet history routes, not accountEnvelopeResponse.
+// Cold/absent store → 200 with empty points (never 404), matching every sibling
+// history route.
+export async function handleAccountPositionHistory(
+  request,
+  env,
+  ss58,
+  netuid,
+  url,
+) {
+  const validationError = validateQueryParams(url, ["window"]);
+  if (validationError) return analyticsQueryError(validationError);
+  const { label, days, error } = parseHistoryWindow(
+    url.searchParams.get("window"),
+  );
+  if (error) return analyticsQueryError(error);
+  const params = [ss58, netuid];
+  let sql = `SELECT ${ACCOUNT_POSITION_DAILY_READ_COLUMNS} FROM account_position_daily WHERE account = ? AND netuid = ?`;
+  if (days != null) {
+    const cutoff = new Date(Date.now() - days * DAY_MS)
+      .toISOString()
+      .slice(0, 10);
+    sql += " AND snapshot_date >= ?";
+    params.push(cutoff);
+  }
+  sql += " ORDER BY snapshot_date DESC LIMIT ?";
+  params.push(MAX_HISTORY_POINTS);
+  const rows = await d1All(env, sql, params);
+  const data = buildAccountPositionHistory(rows, ss58, netuid, {
+    window: label,
+  });
+  return envelopeResponse(
+    request,
+    {
+      data,
+      meta: await metagraphMeta(
+        env,
+        `/metagraph/accounts/${ss58}/subnets/${netuid}/history.json`,
+        data.points[0]?.captured_at ?? null,
+      ),
+    },
+    "short",
+  );
+}
+
 // GET /api/v1/subnets/{netuid}/events (#1345 block explorer): the first-party
 // chain-event stream for one subnet — account_events filtered by netuid, newest
 // first (the idx_account_events_netuid index this tier was built for). Optional
@@ -3018,6 +3304,44 @@ export async function handleAccountBalance(request, env, ss58) {
     "short",
   );
 }
+
+// GET /api/v1/subnets/{netuid}/recycled (#4339/8.4): the live cumulative TAO
+// recycled for registration on one subnet, queried from the chain's own
+// RAORecycledForRegistration storage map at request time (600s KV cache via
+// METAGRAPH_CONTROL) — see src/subnet-recycled.mjs's header for why this
+// isn't a log-layer/account_events aggregation. netuid is a per-request-
+// controllable cache-busting parameter (like /accounts/{ss58}/balance's
+// ss58), so it shares that route's rate limiter rather than sudo-key's
+// no-limiter reasoning. recycled_tao is null on RPC failure (schema-stable).
+export async function handleSubnetRecycled(request, env, netuid) {
+  if (env.RPC_RATE_LIMITER?.limit) {
+    const { success } = await env.RPC_RATE_LIMITER.limit({
+      key: `recycled:${resolveClientIp(request)}`,
+    });
+    if (!success) {
+      return errorResponse(
+        "recycled_rate_limited",
+        "Too many live recycled-TAO requests from this client; slow down.",
+        429,
+        {},
+        {
+          "retry-after": String(BALANCE_RATE_LIMIT.windowSeconds),
+          "x-ratelimit-limit": String(BALANCE_RATE_LIMIT.limit),
+          "x-ratelimit-policy": `${BALANCE_RATE_LIMIT.limit};w=${BALANCE_RATE_LIMIT.windowSeconds}`,
+          "x-ratelimit-remaining": "0",
+        },
+      );
+    }
+  }
+
+  const data = await loadSubnetRecycled(env, netuid);
+  return envelopeResponse(
+    request,
+    { data, meta: { contract_version: contractVersion(env) } },
+    "short",
+  );
+}
+
 // GET /api/v1/blocks: the recent-block feed (newest first), served live from the
 // `blocks` D1 tier (#1345 block explorer). ?limit clamp <=100, ?offset. Cold/
 // absent store → schema-stable zero (never throws). Reuses the chain-events meta
@@ -3321,6 +3645,199 @@ export async function handleExtrinsics(request, env, url) {
         data.extrinsics[0]?.observed_at ?? null,
       ),
     },
+    "short",
+  );
+}
+
+// GET /api/v1/sudo (#4310/2.2): the root-origin call table. subtensor has no
+// Council/Senate (confirmed live against finney, bittensor 10.5.0, 2026-07-08 —
+// only the Sudo pallet exists from the generic-Substrate governance family), so
+// this is the extrinsics feed hardcoded to call_module='Sudo' rather than a
+// proposal-lifecycle route — same D1 tier + loader as handleExtrinsics, no
+// signer/call_module query params (signer is always the current sudo key, see
+// GET /api/v1/sudo/key; call_module is fixed).
+export async function handleSudo(request, env, url) {
+  const validationError = validateEntityQuery(url, [
+    "limit",
+    "offset",
+    "cursor",
+    "block",
+    "call_function",
+    "success",
+    "block_start",
+    "block_end",
+    "from",
+    "to",
+    "format",
+  ]);
+  if (validationError) return analyticsQueryError(validationError);
+  const { limit, offset, cursor } = parsePagination(url, BLOCK_PAGINATION);
+  const sp = url.searchParams;
+  const numericFilters = {};
+  for (const param of ["block", "block_start", "block_end", "from", "to"]) {
+    const raw = sp.get(param);
+    if (raw === null) continue;
+    const parsed = parseNonNegativeIntParam(raw, param);
+    if (parsed.error) return analyticsQueryError(parsed.error);
+    numericFilters[param] = parsed.value;
+  }
+  const successRaw = sp.get("success");
+  if (successRaw !== null && successRaw !== "true" && successRaw !== "false") {
+    return analyticsQueryError({
+      parameter: "success",
+      message: "success must be one of: true, false.",
+    });
+  }
+  const data = await loadExtrinsics(d1Runner(env), {
+    callModule: "Sudo",
+    block: numericFilters.block ?? undefined,
+    callFunction: sp.get("call_function") || undefined,
+    success:
+      successRaw === "true" ? true : successRaw === "false" ? false : undefined,
+    blockStart: numericFilters.block_start ?? undefined,
+    blockEnd: numericFilters.block_end ?? undefined,
+    from: numericFilters.from ?? undefined,
+    to: numericFilters.to ?? undefined,
+    limit,
+    offset,
+    cursor,
+  });
+  if (csvRequested(url, request)) {
+    return csvResponse(
+      extrinsicsToCsvRows(data.extrinsics),
+      "sudo-calls",
+      "short",
+      request,
+      EXTRINSICS_CSV_COLUMNS,
+    );
+  }
+  return envelopeResponse(
+    request,
+    {
+      data,
+      meta: await accountMeta(
+        env,
+        "/metagraph/sudo.json",
+        data.extrinsics[0]?.observed_at ?? null,
+      ),
+    },
+    "short",
+  );
+}
+
+// GET /api/v1/governance/config-changes (#4310/2.3, re-scoped from the
+// original Council/Senate framing — see #4310's audit): subtensor's own
+// root-origin hyperparameter/network-config change pathway. Same shape as
+// handleSudo, just call_module='AdminUtils' — most AdminUtils calls (77 of
+// ~83) don't emit their own dedicated event, so the extrinsic + its decoded
+// call_args is the reliable source, not chain_events.
+export async function handleGovernanceConfigChanges(request, env, url) {
+  const validationError = validateEntityQuery(url, [
+    "limit",
+    "offset",
+    "cursor",
+    "block",
+    "call_function",
+    "success",
+    "block_start",
+    "block_end",
+    "from",
+    "to",
+    "format",
+  ]);
+  if (validationError) return analyticsQueryError(validationError);
+  const { limit, offset, cursor } = parsePagination(url, BLOCK_PAGINATION);
+  const sp = url.searchParams;
+  const numericFilters = {};
+  for (const param of ["block", "block_start", "block_end", "from", "to"]) {
+    const raw = sp.get(param);
+    if (raw === null) continue;
+    const parsed = parseNonNegativeIntParam(raw, param);
+    if (parsed.error) return analyticsQueryError(parsed.error);
+    numericFilters[param] = parsed.value;
+  }
+  const successRaw = sp.get("success");
+  if (successRaw !== null && successRaw !== "true" && successRaw !== "false") {
+    return analyticsQueryError({
+      parameter: "success",
+      message: "success must be one of: true, false.",
+    });
+  }
+  const data = await loadExtrinsics(d1Runner(env), {
+    callModule: "AdminUtils",
+    block: numericFilters.block ?? undefined,
+    callFunction: sp.get("call_function") || undefined,
+    success:
+      successRaw === "true" ? true : successRaw === "false" ? false : undefined,
+    blockStart: numericFilters.block_start ?? undefined,
+    blockEnd: numericFilters.block_end ?? undefined,
+    from: numericFilters.from ?? undefined,
+    to: numericFilters.to ?? undefined,
+    limit,
+    offset,
+    cursor,
+  });
+  if (csvRequested(url, request)) {
+    return csvResponse(
+      extrinsicsToCsvRows(data.extrinsics),
+      "governance-config-changes",
+      "short",
+      request,
+      EXTRINSICS_CSV_COLUMNS,
+    );
+  }
+  return envelopeResponse(
+    request,
+    {
+      data,
+      meta: await accountMeta(
+        env,
+        "/metagraph/governance/config-changes.json",
+        data.extrinsics[0]?.observed_at ?? null,
+      ),
+    },
+    "short",
+  );
+}
+
+// GET /api/v1/runtime (#4316/3.1): the spec-version transition timeline — the
+// earliest known block at each distinct spec_version the blocks D1 tier has
+// observed, ascending by block_number. A single-row aggregate over the whole
+// retained window, nothing to filter or paginate. See src/runtime-versions.mjs
+// for the coverage caveat (spec_version wasn't tracked before 2026-06-25 and
+// can't be back-filled for rows written before then).
+export async function handleRuntime(request, env, url) {
+  const validationError = validateQueryParams(url, []);
+  if (validationError) return analyticsQueryError(validationError);
+  const data = await loadRuntimeVersionHistory(d1Runner(env));
+  return envelopeResponse(
+    request,
+    {
+      data,
+      meta: await accountMeta(
+        env,
+        "/metagraph/runtime.json",
+        data.transitions[data.transitions.length - 1]?.observed_at ?? null,
+      ),
+    },
+    "short",
+  );
+}
+
+// GET /api/v1/sudo/key (#4310/2.4, re-scoped from the original Senate/Council
+// membership framing — see #4310's audit): the current Sudo::Key holder,
+// queried live from finney RPC at request time. Sudo::Key changes extremely
+// rarely, so a single fixed-key KV cache (1h TTL, same METAGRAPH_CONTROL
+// binding as loadAccountBalance) means only the first request per hour ever
+// reaches the live RPC — no per-request-controllable cache-busting parameter
+// exists for this route (unlike /accounts/{ss58}/balance), so it doesn't need
+// that route's rate limiter. hotkey is null on RPC failure or an unset sudo
+// key (schema-stable, never throws).
+export async function handleSudoKey(request, env) {
+  const data = await loadSudoKey(env);
+  return envelopeResponse(
+    request,
+    { data, meta: { contract_version: contractVersion(env) } },
     "short",
   );
 }

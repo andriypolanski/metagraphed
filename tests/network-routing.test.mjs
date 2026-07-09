@@ -314,9 +314,25 @@ describe("multi-network routing prefix (Phase 1)", () => {
       "/api/v1/testnet/blocks/summary",
       "/api/v1/testnet/blocks/12345",
       "/api/v1/testnet/extrinsics",
+      // Sudo-call feed reads the same mainnet-only extrinsics D1 tier (#4310/2.2).
+      "/api/v1/testnet/sudo",
+      // Same for the AdminUtils config-change feed (#4310/2.3).
+      "/api/v1/testnet/governance/config-changes",
+      // The live Sudo::Key RPC read is fixed to finney, no testnet variant (#4310/2.4).
+      "/api/v1/testnet/sudo/key",
+      // The spec-version transition timeline reads the same mainnet-only
+      // blocks D1 tier as /api/v1/blocks (#4316/3.1).
+      "/api/v1/testnet/runtime",
       `/api/v1/testnet/accounts/${SS58}`,
       "/api/v1/testnet/subnets/7/metagraph",
+      "/api/v1/testnet/subnets/7/hyperparameters",
       "/api/v1/testnet/subnets/7/validators",
+      // Cross-subnet validator drill-in routes read the same mainnet-only
+      // neurons D1 tier as /api/v1/validators — must not fall through to a
+      // testnet R2 read either.
+      `/api/v1/testnet/validators/${SS58}`,
+      `/api/v1/testnet/validators/${SS58}/nominators`,
+      `/api/v1/testnet/validators/${SS58}/history`,
       "/api/v1/testnet/subnets/7/events",
       "/api/v1/testnet/subnets/7/health",
       // D1-backed per-subnet analytics: also mainnet-only, must not fall through
@@ -325,6 +341,9 @@ describe("multi-network routing prefix (Phase 1)", () => {
       "/api/v1/testnet/subnets/7/concentration/history",
       "/api/v1/testnet/subnets/7/turnover",
       "/api/v1/testnet/subnets/7/stake-flow",
+      // Rolling 24h alpha volume reads the same mainnet-only account_events
+      // stream as stake-flow (#4339/8.1).
+      "/api/v1/testnet/subnets/7/volume",
       "/api/v1/testnet/subnets/7/yield",
       `/api/v1/testnet/accounts/${SS58}/stake-flow`,
       `/api/v1/testnet/accounts/${SS58}/portfolio`,

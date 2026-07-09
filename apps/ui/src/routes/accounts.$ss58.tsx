@@ -17,6 +17,7 @@ import {
   Scale,
   Unplug,
   UserMinus,
+  UserPlus,
 } from "lucide-react";
 import { AppShell } from "@/components/metagraphed/app-shell";
 import { CopyableCode } from "@/components/metagraphed/copyable-code";
@@ -25,6 +26,7 @@ import { ApiSourceFooter } from "@/components/metagraphed/api-source-footer";
 import { EmptyState, PageHeading, Skeleton } from "@/components/metagraphed/states";
 import { TableState } from "@/components/metagraphed/table-state";
 import { PageHero } from "@/components/metagraphed/page-hero";
+import { ShareButton } from "@/components/metagraphed/share-button";
 import { SectionAnchor } from "@/components/metagraphed/section-anchor";
 import { SelectFilter } from "@/components/metagraphed/table-controls";
 import { EndpointSnippet } from "@/components/metagraphed/endpoint-snippet";
@@ -35,7 +37,9 @@ import { AccountHistoryChart } from "@/components/metagraphed/account-history-ch
 import {
   accountAxonRemovalsQuery,
   accountPortfolioQuery,
+  accountStakeMovesQuery,
   accountDeregistrationsQuery,
+  accountRegistrationsQuery,
   accountWeightSettersQuery,
   accountBalanceQuery,
   accountEventsQuery,
@@ -50,6 +54,7 @@ import { classNames, formatNumber } from "@/lib/metagraphed/format";
 import { shortHash } from "@/lib/metagraphed/blocks";
 import { extrinsicCall } from "@/lib/metagraphed/extrinsics";
 import { isValidSs58, ss58PathSegment } from "@/lib/metagraphed/accounts";
+import { accountFeedSectionPhase } from "@/lib/metagraphed/account-feed-section";
 import type {
   AccountRegistration,
   AccountSummary,
@@ -179,6 +184,7 @@ function ValidAccountDetail({ ss58 }: { ss58: string }) {
         }
         actions={
           <>
+            <ShareButton />
             <a
               href="#history"
               className="inline-flex items-center rounded-full border border-accent/30 bg-accent/10 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.18em] text-accent transition-colors hover:bg-accent/15"
@@ -257,9 +263,11 @@ function ValidAccountDetail({ ss58 }: { ss58: string }) {
       <AccountFootprintSection ss58={ss58} fallback={account.registrations} />
 
       <AccountPortfolioSection ss58={ss58} />
+      <AccountStakeMovesSection ss58={ss58} />
 
       <AccountTeardownActivitySection ss58={ss58} />
 
+      <AccountRegistrationActivitySection ss58={ss58} />
       <AccountDeregistrationActivitySection ss58={ss58} />
 
       <AccountWeightSettingSection ss58={ss58} />
@@ -299,8 +307,21 @@ function ValidAccountDetail({ ss58 }: { ss58: string }) {
 
       <AccountEventsSection ss58={ss58} kindOptions={account.event_kinds} />
 
-      <AccountExtrinsicsSection rows={signedExtrinsics} isPending={extrinsicsResult.isPending} />
-      <AccountTransfersSection ss58={ss58} rows={transfers} isPending={transfersResult.isPending} />
+      <AccountExtrinsicsSection
+        rows={signedExtrinsics}
+        isPending={extrinsicsResult.isPending}
+        isError={extrinsicsResult.isError}
+        error={extrinsicsResult.error}
+        onRetry={() => void extrinsicsResult.refetch()}
+      />
+      <AccountTransfersSection
+        ss58={ss58}
+        rows={transfers}
+        isPending={transfersResult.isPending}
+        isError={transfersResult.isError}
+        error={transfersResult.error}
+        onRetry={() => void transfersResult.refetch()}
+      />
 
       <div className="mt-6">
         <Link
@@ -397,8 +418,25 @@ function AccountFeedSectionSkeleton({
   );
 }
 
-function AccountExtrinsicsSection({ rows, isPending }: { rows: Extrinsic[]; isPending?: boolean }) {
-  if (isPending && rows.length === 0) {
+function AccountExtrinsicsSection({
+  rows,
+  isPending,
+  isError,
+  error,
+  onRetry,
+}: {
+  rows: Extrinsic[];
+  isPending?: boolean;
+  isError?: boolean;
+  error?: unknown;
+  onRetry?: () => void;
+}) {
+  const phase = accountFeedSectionPhase({
+    isPending,
+    isError,
+    rowCount: rows.length,
+  });
+  if (phase === "skeleton") {
     return (
       <AccountFeedSectionSkeleton
         id="extrinsics"
@@ -407,7 +445,25 @@ function AccountExtrinsicsSection({ rows, isPending }: { rows: Extrinsic[]; isPe
       />
     );
   }
-  if (rows.length === 0) return null;
+  if (phase === "error") {
+    return (
+      <SectionAnchor
+        id="extrinsics"
+        title="Signed extrinsics"
+        subtitle="The newest transactions this account signed, from the chain-direct extrinsics tier."
+        tone="accent"
+      >
+        <TableState
+          variant="error"
+          title="Couldn't load signed extrinsics"
+          description="The extrinsics tier is optional enrichment — the rest of the account page is unaffected."
+          error={error}
+          onRetry={onRetry}
+        />
+      </SectionAnchor>
+    );
+  }
+  if (phase === "empty") return null;
   return (
     <SectionAnchor
       id="extrinsics"
@@ -486,12 +542,23 @@ function AccountTransfersSection({
   ss58,
   rows,
   isPending,
+  isError,
+  error,
+  onRetry,
 }: {
   ss58: string;
   rows: Transfer[];
   isPending?: boolean;
+  isError?: boolean;
+  error?: unknown;
+  onRetry?: () => void;
 }) {
-  if (isPending && rows.length === 0) {
+  const phase = accountFeedSectionPhase({
+    isPending,
+    isError,
+    rowCount: rows.length,
+  });
+  if (phase === "skeleton") {
     return (
       <AccountFeedSectionSkeleton
         id="transfers"
@@ -500,7 +567,25 @@ function AccountTransfersSection({
       />
     );
   }
-  if (rows.length === 0) return null;
+  if (phase === "error") {
+    return (
+      <SectionAnchor
+        id="transfers"
+        title="Transfers"
+        subtitle="Native-TAO Balances.Transfer activity for this account, directional (sent / received)."
+        tone="accent"
+      >
+        <TableState
+          variant="error"
+          title="Couldn't load transfers"
+          description="The transfers tier is optional enrichment — the rest of the account page is unaffected."
+          error={error}
+          onRetry={onRetry}
+        />
+      </SectionAnchor>
+    );
+  }
+  if (phase === "empty") return null;
   return (
     <SectionAnchor
       id="transfers"
@@ -603,6 +688,122 @@ function fmtTaoCompact(v?: number | null): string {
 // per-subnet position table (netuid, role, stake, emission, incentive). Non-
 // blocking: while it loads or if it fails, the rest of the account page is
 // unaffected.
+function AccountStakeMovesSection({ ss58 }: { ss58: string }) {
+  const result = useQuery(accountStakeMovesQuery(ss58));
+  const m = result.data?.data;
+
+  if (result.isPending && !m) {
+    return (
+      <AccountFeedSectionSkeleton
+        id="stake-moves"
+        title="Stake moves"
+        subtitle="Where this account re-delegated stake over the window: total movements, the subnets it moved across, and the per-subnet breakdown."
+      />
+    );
+  }
+  if (result.isError) {
+    return (
+      <SectionAnchor
+        id="stake-moves"
+        title="Stake moves"
+        subtitle="Where this account re-delegated stake over the window: total movements, the subnets it moved across, and the per-subnet breakdown."
+        tone="accent"
+      >
+        <TableState
+          variant="error"
+          title="Could not load stake moves"
+          description="The stake-moves tier is optional enrichment — the rest of the account page is unaffected."
+          error={result.error}
+          onRetry={() => void result.refetch()}
+        />
+      </SectionAnchor>
+    );
+  }
+  const subnets = m?.subnets ?? [];
+  if (!m || subnets.length === 0) return null;
+  const rows = [...subnets].sort((a, b) => b.movements - a.movements).slice(0, 20);
+
+  return (
+    <SectionAnchor
+      id="stake-moves"
+      title="Stake moves"
+      subtitle="Where this account re-delegated stake over the window: total movements, the subnets it moved across, and the per-subnet breakdown."
+      tone="accent"
+      info="Re-delegation activity for this account, from /api/v1/accounts/{ss58}/stake-moves — total movements over the window, how concentrated they are, the dominant subnet, and the per-subnet breakdown."
+      right={<SectionBadge tone="accent">{formatNumber(m.subnet_count)} subnets</SectionBadge>}
+    >
+      <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatTile
+          icon={Activity}
+          eyebrow="Movements"
+          tone="accent"
+          value={formatNumber(m.total_movements)}
+          hint={`over ${m.window}`}
+          className={KPI_TILE}
+        />
+        <StatTile
+          icon={Boxes}
+          eyebrow="Subnets moved"
+          value={formatNumber(m.subnet_count)}
+          hint="distinct subnets"
+          className={KPI_TILE}
+        />
+        <StatTile
+          icon={Scale}
+          eyebrow="Concentration"
+          value={m.concentration != null ? m.concentration.toFixed(4) : "—"}
+          hint="0 = spread, 1 = single"
+          className={KPI_TILE}
+        />
+        <StatTile
+          icon={Sparkles}
+          eyebrow="Dominant subnet"
+          value={m.dominant_netuid != null ? `SN${m.dominant_netuid}` : "—"}
+          hint="most-moved"
+          className={KPI_TILE}
+        />
+      </div>
+      <DataPanel>
+        <table className="w-full text-left text-sm">
+          <thead className="bg-surface/50">
+            <tr>
+              <th className={TH}>Subnet</th>
+              <th className={`${TH} text-right`}>Movements</th>
+              <th className={`${TH} text-right`}>Last moved</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((s) => (
+              <tr key={s.netuid} className="hover:bg-surface/30">
+                <td className="px-5 py-4 font-mono text-[12px]">
+                  <Link
+                    to="/subnets/$netuid"
+                    params={{ netuid: s.netuid }}
+                    className="text-ink hover:text-accent hover:underline"
+                  >
+                    SN{s.netuid}
+                  </Link>
+                </td>
+                <td className="px-5 py-4 text-right font-mono text-[12px] tabular-nums text-ink">
+                  {formatNumber(s.movements)}
+                </td>
+                <td className="px-5 py-4 text-right font-mono text-[11px] text-ink-muted">
+                  {s.last_moved_at ? <TimeAgo at={s.last_moved_at} /> : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </DataPanel>
+      {subnets.length > rows.length ? (
+        <p className="mt-3 font-mono text-[10px] text-ink-muted">
+          Showing the {rows.length} most-active of {formatNumber(subnets.length)} subnets.
+        </p>
+      ) : null}
+    </SectionAnchor>
+  );
+}
+
 function AccountPortfolioSection({ ss58 }: { ss58: string }) {
   const result = useQuery(accountPortfolioQuery(ss58));
   const p = result.data?.data;
@@ -805,6 +1006,74 @@ function AccountTeardownActivitySection({ ss58 }: { ss58: string }) {
  * count + distinct-subnet summary from /deregistrations. Non-blocking: while the
  * dedicated query loads (or if it fails), the section never stalls the page.
  */
+function AccountRegistrationActivitySection({ ss58 }: { ss58: string }) {
+  const result = useQuery(accountRegistrationsQuery(ss58));
+  const card = result.data?.data;
+  const windowLabel = card?.window ?? "30d";
+
+  if (result.isPending && !card) {
+    return (
+      <AccountFeedSectionSkeleton
+        id="registrations"
+        title="Registration activity"
+        subtitle="Neuron registrations (NeuronRegistered) for this account over the trailing 30-day window."
+      />
+    );
+  }
+
+  if (result.isError) {
+    return (
+      <SectionAnchor
+        id="registrations"
+        title="Registration activity"
+        subtitle="Neuron registrations (NeuronRegistered) for this account over the trailing 30-day window."
+        tone="accent"
+      >
+        <TableState
+          variant="error"
+          title="Could not load registration activity"
+          description="The registrations tier is optional enrichment — the rest of the account page is unaffected."
+          error={result.error}
+          onRetry={() => void result.refetch()}
+        />
+      </SectionAnchor>
+    );
+  }
+
+  const registrations = card?.total_registrations ?? 0;
+  const distinctSubnets = card?.subnet_count ?? 0;
+  if (registrations === 0 && distinctSubnets === 0) return null;
+
+  return (
+    <SectionAnchor
+      id="registrations"
+      title="Registration activity"
+      subtitle="Neuron registrations (NeuronRegistered) for this account over the trailing 30-day window."
+      tone="accent"
+      info="The account-level companion to subnet registration activity — counts how often this hotkey was registered into a subnet, and on how many distinct subnets."
+      right={<SectionBadge tone="accent">{windowLabel}</SectionBadge>}
+    >
+      <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
+        <StatTile
+          icon={UserPlus}
+          eyebrow="Registrations"
+          tone="accent"
+          value={formatNumber(registrations)}
+          hint={`NeuronRegistered · ${windowLabel}`}
+          className={KPI_TILE}
+        />
+        <StatTile
+          icon={Boxes}
+          eyebrow="Distinct subnets"
+          value={formatNumber(distinctSubnets)}
+          hint="subnets with registration"
+          className={KPI_TILE}
+        />
+      </div>
+    </SectionAnchor>
+  );
+}
+
 function AccountDeregistrationActivitySection({ ss58 }: { ss58: string }) {
   const result = useQuery(accountDeregistrationsQuery(ss58));
   const card = result.data?.data;
@@ -1036,9 +1305,15 @@ function AccountEndpointAnnouncementSection({ ss58 }: { ss58: string }) {
     );
   }
 
+  // Each source can fail independently while the other succeeds — the
+  // combined section must not render the failed half's count as if it were
+  // a genuine zero.
+  const servingFailed = servingResult.isError && !serving;
+  const prometheusFailed = prometheusResult.isError && !prometheus;
   const servingCount = serving?.total_announcements ?? 0;
   const prometheusCount = prometheus?.total_announcements ?? 0;
-  const isEmpty = servingCount === 0 && prometheusCount === 0;
+  const isEmpty =
+    !servingFailed && !prometheusFailed && servingCount === 0 && prometheusCount === 0;
 
   return (
     <SectionAnchor
@@ -1059,16 +1334,25 @@ function AccountEndpointAnnouncementSection({ ss58 }: { ss58: string }) {
           <StatTile
             icon={Radar}
             eyebrow="Axon serving"
-            tone="accent"
-            value={formatNumber(servingCount)}
-            hint={`AxonServed · ${windowLabel}`}
+            tone={servingFailed ? "warn" : "accent"}
+            value={servingFailed ? "—" : formatNumber(servingCount)}
+            hint={
+              servingFailed
+                ? "fetch failed · showing Prometheus only"
+                : `AxonServed · ${windowLabel}`
+            }
             className={KPI_TILE}
           />
           <StatTile
             icon={Gauge}
             eyebrow="Prometheus"
-            value={formatNumber(prometheusCount)}
-            hint={`PrometheusServed · ${windowLabel}`}
+            tone={prometheusFailed ? "warn" : "default"}
+            value={prometheusFailed ? "—" : formatNumber(prometheusCount)}
+            hint={
+              prometheusFailed
+                ? "fetch failed · showing Axon only"
+                : `PrometheusServed · ${windowLabel}`
+            }
             className={KPI_TILE}
           />
         </div>

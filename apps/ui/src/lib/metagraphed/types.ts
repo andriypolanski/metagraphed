@@ -293,6 +293,49 @@ export interface RpcPool {
   [key: string]: unknown;
 }
 
+/** One row from GET /api/v1/rpc/endpoints — the base-layer Subtensor RPC/WSS registry (RpcEndpoint schema). */
+export interface RpcEndpoint {
+  id: string;
+  kind?: string; // subtensor-rpc | subtensor-wss
+  url?: string;
+  provider?: string;
+  netuid?: number;
+  subnet_name?: string;
+  subnet_slug?: string;
+  status?: string; // ok | degraded | failed | unknown
+  classification?: string; // live | redirected | auth-required | dead | unsafe | unsupported | rate-limited
+  network?: string;
+  chain?: string;
+  archive_support?: boolean | null;
+  latency_ms?: number | null;
+  latest_block?: number | null;
+  auth_required?: boolean;
+  authority?: string;
+  health_source?: string;
+  health_stale?: boolean;
+  last_ok?: string | null;
+  last_checked?: string | null;
+  observed_at?: string | null;
+  error?: string | null;
+  [key: string]: unknown;
+}
+
+/** Roll-up counts accompanying GET /api/v1/rpc/endpoints (RpcEndpointsArtifact.summary). */
+export interface RpcEndpointsSummary {
+  endpoint_count?: number;
+  archive_supported_count?: number;
+  by_kind?: Record<string, number>;
+  by_provider?: Record<string, number>;
+  by_status?: Record<string, number>;
+  [key: string]: unknown;
+}
+
+/** The unwrapped GET /api/v1/rpc/endpoints payload — the endpoint list plus its summary rollup. */
+export interface RpcEndpointsData {
+  endpoints: RpcEndpoint[];
+  summary: RpcEndpointsSummary | null;
+}
+
 export interface EndpointIncident {
   id: string;
   endpoint_id?: string;
@@ -367,6 +410,25 @@ export interface AgentResources {
   resources: AgentResource[];
 }
 
+/** One grounding source backing an /api/v1/ask answer. */
+export interface AskCitation {
+  ref: number;
+  score: number;
+  title: string | null;
+  netuid: number | null;
+  slug: string | null;
+  url: string | null;
+}
+
+/** Response payload for POST /api/v1/ask — a grounded Q&A answer + its citations. */
+export interface AskAnswerData {
+  question: string;
+  answer: string;
+  context_count: number;
+  model: string;
+  citations: AskCitation[];
+}
+
 /** One reconstructed downtime window from /api/v1/incidents (epoch-ms timestamps). */
 export interface GlobalIncident {
   started_at: number;
@@ -391,6 +453,26 @@ export interface GlobalIncidents {
   source?: string;
   summary?: { incident_count?: number; affected_surface_count?: number };
   surfaces: GlobalIncidentSurface[];
+}
+
+/** One JSON Feed 1.1 item from /api/v1/feeds/* endpoints. */
+export interface FeedItem {
+  id: string;
+  url?: string;
+  title?: string;
+  content_text?: string;
+  date_published?: string | null;
+  tags?: string[];
+}
+
+/** JSON Feed body from GET /api/v1/feeds/incidents.json. */
+export interface IncidentsFeed {
+  version?: string;
+  title?: string;
+  home_page_url?: string;
+  feed_url?: string;
+  description?: string;
+  items: FeedItem[];
 }
 
 export interface ProviderEndpointSummary {
@@ -1027,6 +1109,25 @@ export interface AccountDeregistrations {
   subnets: AccountDeregistrationsSubnet[];
 }
 
+export interface AccountRegistrationsSubnet {
+  netuid: number;
+  registrations: number;
+  first_registered_at: string | null;
+  last_registered_at: string | null;
+}
+
+/** Per-account registration (NeuronRegistered) footprint over a window (#3730). */
+export interface AccountRegistrations {
+  schema_version: number;
+  address: string;
+  window: string | null;
+  total_registrations: number;
+  subnet_count: number;
+  concentration: number | null;
+  dominant_netuid: number | null;
+  subnets: AccountRegistrationsSubnet[];
+}
+
 /** Per-subnet WeightsSet row in /api/v1/accounts/{ss58}/weight-setters. */
 export interface AccountWeightSettersSubnet {
   netuid: number;
@@ -1141,6 +1242,22 @@ export interface PortfolioConcentration {
  * counts, overall return, stake concentration). Richer than the registrations-only
  * AccountSubnets footprint.
  */
+export interface AccountStakeMovesSubnet {
+  netuid: number;
+  movements: number;
+  first_moved_at?: string | null;
+  last_moved_at?: string | null;
+}
+export interface AccountStakeMoves {
+  ss58: string;
+  window: string;
+  total_movements: number;
+  subnet_count: number;
+  concentration: number | null;
+  dominant_netuid: number | null;
+  subnets: AccountStakeMovesSubnet[];
+  [key: string]: unknown;
+}
 export interface AccountPortfolio {
   ss58: string;
   captured_at?: string | null;
@@ -1200,6 +1317,12 @@ export interface AccountBalance {
   queried_at?: string | null;
 }
 
+/** Current Sudo::Key holder from /api/v1/sudo/key. Null hotkey = unset or RPC failure. */
+export interface SudoKey {
+  hotkey: string | null;
+  queried_at?: string | null;
+}
+
 /** Per-subnet on-chain economics from /api/v1/economics. */
 export interface SubnetEconomics {
   netuid: number;
@@ -1216,6 +1339,9 @@ export interface SubnetEconomics {
   subnet_volume_tao?: number;
   registration_cost_tao?: number;
   registration_allowed?: boolean;
+  /** Proxy metrics (#3361): alpha_price × total_stake, and alpha_price × ALPHA_MAX_SUPPLY. */
+  alpha_market_cap_tao?: number;
+  alpha_fdv_tao?: number;
   [key: string]: unknown;
 }
 
@@ -1303,6 +1429,55 @@ export interface SubnetIdentityHistoryEntry {
   subnet_url: string | null;
   logo_url: string | null;
   discord: string | null;
+}
+
+/** One subnet's consensus, economic, and governance hyperparameters (#4307/1.4).
+ * *_ratio fields are 0..1 ratios; min_burn_tao/max_burn_tao are TAO floats;
+ * bonds_moving_avg_raw is the raw on-chain integer (not yet ratio-converted). */
+export interface SubnetHyperparameters {
+  kappa_ratio: number | null;
+  immunity_period: number | null;
+  min_allowed_weights: number | null;
+  max_weight_limit_ratio: number | null;
+  tempo: number | null;
+  weights_version: number | null;
+  weights_rate_limit: number | null;
+  activity_cutoff: number | null;
+  activity_cutoff_factor: number | null;
+  registration_allowed: boolean;
+  target_regs_per_interval: number | null;
+  min_burn_tao: number | null;
+  max_burn_tao: number | null;
+  burn_half_life: number | null;
+  burn_increase_mult: number | null;
+  bonds_moving_avg_raw: number | null;
+  max_regs_per_block: number | null;
+  serving_rate_limit: number | null;
+  max_validators: number | null;
+  commit_reveal_period: number | null;
+  commit_reveal_enabled: boolean;
+  alpha_high_ratio: number | null;
+  alpha_low_ratio: number | null;
+  liquid_alpha_enabled: boolean;
+  alpha_sigmoid_steepness: number | null;
+  yuma_version: number | null;
+  subnet_is_active: boolean;
+  transfers_enabled: boolean;
+  bonds_reset_enabled: boolean;
+  user_liquidity_enabled: boolean;
+  owner_cut_enabled: boolean;
+  owner_cut_auto_lock_enabled: boolean;
+  min_childkey_take_ratio: number | null;
+}
+
+/** Envelope from GET /api/v1/subnets/{netuid}/hyperparameters — hyperparameters
+ * is null on a cold/absent snapshot, never a 404. */
+export interface SubnetHyperparametersDetail {
+  schema_version?: number;
+  netuid: number;
+  captured_at?: string | null;
+  block_number?: number | null;
+  hyperparameters: SubnetHyperparameters | null;
 }
 
 /** Append-only on-chain identity timeline for one subnet (#1647), newest first. */
@@ -1450,6 +1625,18 @@ export interface SubnetRegistrations {
   distinct_registrants: number;
   registrations: number;
   registrations_per_registrant: number | null;
+}
+
+/** Per-subnet stake-flow scorecard from /api/v1/subnets/{netuid}/stake-flow (#3342). */
+export interface SubnetStakeFlow {
+  schema_version: number;
+  netuid: number;
+  window: string;
+  total_staked_tao: number;
+  total_unstaked_tao: number;
+  net_flow_tao: number;
+  stake_events: number;
+  unstake_events: number;
 }
 
 /** One subnet's movement over the comparison window on the /subnets/movers board. */
@@ -1644,6 +1831,74 @@ export interface GlobalValidators {
   captured_at?: string;
   block_number?: number;
   validators: GlobalValidator[];
+}
+
+/** One per-subnet membership row from /api/v1/validators/{hotkey} (#4335, 7.1). */
+export interface ValidatorDetailSubnet {
+  netuid: number;
+  uid: number;
+  hotkey?: string | null;
+  coldkey?: string | null;
+  active?: boolean | null;
+  validator_permit: boolean;
+  rank?: number | null;
+  trust?: number | null;
+  validator_trust?: number | null;
+  consensus?: number | null;
+  incentive?: number | null;
+  dividends?: number | null;
+  emission_tao?: number | null;
+  stake_tao?: number | null;
+  registered_at_block?: number | null;
+  is_immunity_period?: boolean | null;
+  axon?: string | null;
+}
+
+/** Cross-subnet validator detail from GET /api/v1/validators/{hotkey} (#4335, 7.1).
+ * Schema-stable: a cold/unknown hotkey returns 200 with a zeroed aggregate, never 404. */
+export interface ValidatorDetail {
+  schema_version?: number;
+  hotkey: string;
+  coldkey: string | null;
+  coldkey_count: number;
+  subnet_count: number;
+  total_stake_tao: number;
+  total_emission_tao: number;
+  avg_validator_trust: number | null;
+  max_validator_trust: number | null;
+  captured_at?: string | null;
+  block_number?: number | null;
+  subnets: ValidatorDetailSubnet[];
+}
+
+/** One nominator row from /api/v1/validators/{hotkey}/nominators (#4336, 7.2). */
+export interface ValidatorNominatorEntry {
+  coldkey: string;
+  staked_tao: number;
+  unstaked_tao: number;
+  net_staked_tao: number;
+  gross_staked_tao: number;
+  event_count: number;
+  last_observed_at?: string | null;
+}
+
+/** One daily snapshot from /api/v1/validators/{hotkey}/history (#4337, 7.3). */
+export interface ValidatorHistoryPoint {
+  snapshot_date: string;
+  subnet_count?: number | null;
+  total_stake_tao?: number | null;
+  total_emission_tao?: number | null;
+  /** Null when stake is 0/absent for the day (division by zero avoided server-side). */
+  rewards_per_1000_tao?: number | null;
+}
+
+/** Daily stake/rewards history from GET /api/v1/validators/{hotkey}/history (#4337, 7.3). */
+export interface ValidatorHistory {
+  schema_version?: number;
+  hotkey: string;
+  window?: string | null;
+  point_count: number;
+  points: ValidatorHistoryPoint[];
 }
 
 /** A single neuron snapshot from /api/v1/subnets/{netuid}/neurons/{uid}. */
@@ -1890,6 +2145,24 @@ export interface ChainActivity {
   day_count: number;
   days: ChainActivityDay[];
 }
+// #3365: network-wide economics rollup (subnet_snapshots, not the chain-indexer
+// tables the rest of the explorer page reads from).
+export interface EconomicsTrendsDay {
+  snapshot_date: string;
+  subnet_count: number;
+  total_stake_tao: number | null;
+  alpha_price_tao_weighted: number | null;
+  alpha_price_tao_median: number | null;
+  validator_count: number | null;
+  miner_count: number | null;
+  mean_emission_share: number | null;
+}
+export interface EconomicsTrends {
+  schema_version: number;
+  window: string | null;
+  day_count: number;
+  days: EconomicsTrendsDay[];
+}
 export interface ChainCallEntry {
   call_module: string;
   call_function: string | null;
@@ -1960,6 +2233,33 @@ export interface ChainStakeFlow {
   network: ChainStakeFlowNetwork | null;
   net_flow_distribution: ChainStakeFlowDistribution | null;
   subnets: ChainStakeFlowSubnet[];
+}
+export interface ChainTurnoverNetwork {
+  validators_start: number;
+  validators_end: number;
+  validators_entered: number;
+  validators_exited: number;
+  validator_retention: number | null;
+  stability_score: number | null;
+}
+export interface ChainTurnoverSubnet {
+  netuid: number;
+  validators_start: number;
+  validators_end: number;
+  validators_entered: number;
+  validators_exited: number;
+  validator_retention: number | null;
+  stability_score: number | null;
+}
+export interface ChainTurnover {
+  schema_version: number;
+  window: string;
+  start_date: string | null;
+  end_date: string | null;
+  comparable: boolean;
+  subnet_count: number;
+  network: ChainTurnoverNetwork | null;
+  subnets: ChainTurnoverSubnet[];
 }
 export interface ChainStakeMovesNetwork {
   distinct_movers: number;

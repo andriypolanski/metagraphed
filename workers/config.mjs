@@ -37,6 +37,15 @@ export const INCIDENTS_PATH_PATTERN =
   /^\/api\/v1\/subnets\/(\d+)\/health\/incidents$/;
 export const TRAJECTORY_PATH_PATTERN =
   /^\/api\/v1\/subnets\/(\d+)\/trajectory$/;
+// Subnet hyperparameters (#4303/1.4): one row per netuid, computed live from
+// the subnet_hyperparams D1 tier, no static file.
+export const SUBNET_HYPERPARAMS_PATH_PATTERN =
+  /^\/api\/v1\/subnets\/(\d+)\/hyperparameters$/;
+// Historical hyperparameter change tracking (#4309/1.6): append-only timeline
+// read from the subnet_hyperparams_history D1 tier, no static file. Detail
+// (more specific) before the base pattern above — both are anchored.
+export const SUBNET_HYPERPARAMS_HISTORY_PATH_PATTERN =
+  /^\/api\/v1\/subnets\/(\d+)\/hyperparameters\/history$/;
 // Stake/emission concentration metrics (#2106): computed live from the neurons
 // D1 tier, no static file.
 export const SUBNET_CONCENTRATION_PATH_PATTERN =
@@ -57,6 +66,16 @@ export const SUBNET_TURNOVER_PATH_PATTERN =
 // account_events tier, no static file.
 export const SUBNET_STAKE_FLOW_PATH_PATTERN =
   /^\/api\/v1\/subnets\/(\d+)\/stake-flow$/;
+// Rolling 24h buy/sell alpha volume (#4339/8.1) — unsigned, distinct from
+// stake-flow's netted capital-flow framing — summed live from the same
+// account_events tier, no static file.
+export const SUBNET_ALPHA_VOLUME_PATH_PATTERN =
+  /^\/api\/v1\/subnets\/(\d+)\/volume$/;
+// Live cumulative TAO recycled for registration on one subnet (#4339/8.4),
+// queried from the chain's own RAORecycledForRegistration storage map at
+// request time — not a D1/account_events tier, no static file.
+export const SUBNET_RECYCLED_PATH_PATTERN =
+  /^\/api\/v1\/subnets\/(\d+)\/recycled$/;
 // Validator weight-setting activity over the window, live from account_events, no static file.
 export const SUBNET_WEIGHTS_PATH_PATTERN =
   /^\/api\/v1\/subnets\/(\d+)\/weights$/;
@@ -151,6 +170,11 @@ export const ACCOUNT_SUBNETS_PATH_PATTERN =
 // + aggregates), richer than the bare /subnets registration footprint.
 export const ACCOUNT_PORTFOLIO_PATH_PATTERN =
   /^\/api\/v1\/accounts\/([1-9A-HJ-NP-Za-km-z]{47,48})\/portfolio$/;
+// Per-account, per-subnet position HISTORY (block-explorer Tier-1, #4329/6.2):
+// time series read from the account_position_daily rollup tier — the "Alpha
+// Holdings chart" for one wallet's position on one subnet.
+export const ACCOUNT_SUBNET_POSITION_HISTORY_PATH_PATTERN =
+  /^\/api\/v1\/accounts\/([1-9A-HJ-NP-Za-km-z]{47,48})\/subnets\/(\d+)\/history$/;
 // Per-account signed extrinsics (#1844): the extrinsics this account signed,
 // matched by extrinsics.signer (a single column, not the hotkey or coldkey union).
 export const ACCOUNT_EXTRINSICS_PATH_PATTERN =
@@ -219,6 +243,24 @@ export const BLOCK_EVENTS_PATH_PATTERN =
 // detail, computed live from the `extrinsics` D1 tier. {hash} is a 0x extrinsic_hash
 // (32-byte blake2b = 64 hex chars).
 export const EXTRINSICS_FEED_PATH_PATTERN = /^\/api\/v1\/extrinsics$/;
+// Sudo-call feed (#4310/2.2): the extrinsics feed hardcoded to call_module='Sudo'
+// (subtensor has no Council/Senate — see #4310's audit). Same D1 tier as
+// EXTRINSICS_FEED_PATH_PATTERN, just a dedicated, discoverable path.
+export const SUDO_CALLS_PATH_PATTERN = /^\/api\/v1\/sudo$/;
+// Current Sudo::Key holder (#4310/2.4, re-scoped from the original Senate/
+// Council membership framing — see #4310's audit): a live finney RPC read,
+// not a D1 tier — distinct from SUDO_CALLS_PATH_PATTERN's extrinsic feed.
+export const SUDO_KEY_PATH_PATTERN = /^\/api\/v1\/sudo\/key$/;
+// AdminUtils config-change feed (#4310/2.3, re-scoped from the original
+// Council/Senate framing — see #4310's audit): the extrinsics feed hardcoded
+// to call_module='AdminUtils', subtensor's own root-origin hyperparameter/
+// network-config change pathway. Same D1 tier as EXTRINSICS_FEED_PATH_PATTERN.
+export const GOVERNANCE_CONFIG_CHANGES_PATH_PATTERN =
+  /^\/api\/v1\/governance\/config-changes$/;
+// Runtime spec-version transition timeline (#4316/3.1): the earliest known
+// block at each distinct spec_version seen on the blocks D1 tier. Same D1
+// tier as BLOCKS_FEED_PATH_PATTERN, a site-wide aggregate, not per-block.
+export const RUNTIME_VERSIONS_PATH_PATTERN = /^\/api\/v1\/runtime$/;
 // Per-extrinsic detail (#1345/#1848): ref is a 0x extrinsic_hash OR the canonical
 // composite id "<block_number>-<extrinsic_index>" (the guaranteed-present id, since
 // the hash is best-effort/nullable). Single capture group; the handler branches.

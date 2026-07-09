@@ -22,6 +22,7 @@ import {
   handleNeuronHistory,
   handleSubnetHistory,
   handleSubnetIdentityHistory,
+  handleSubnetHyperparamsHistory,
   handleSubnetConcentration,
   handleSubnetPerformance,
   handleSubnetConcentrationHistory,
@@ -240,6 +241,49 @@ function identityHistoryRow(overrides = {}) {
   };
 }
 
+function hyperparamsHistoryRow(overrides = {}) {
+  return {
+    id: 10,
+    block_number: 100,
+    observed_at: OBSERVED_AT,
+    kappa_ratio: 0.5,
+    immunity_period: 7200,
+    min_allowed_weights: 8,
+    max_weight_limit_ratio: 1,
+    tempo: 360,
+    weights_version: 1,
+    weights_rate_limit: 100,
+    activity_cutoff: 5000,
+    activity_cutoff_factor: 1,
+    registration_allowed: 1,
+    target_regs_per_interval: 1,
+    min_burn_tao: 0.001,
+    max_burn_tao: 100,
+    burn_half_life: 100_000,
+    burn_increase_mult: 1,
+    bonds_moving_avg_raw: 900_000,
+    max_regs_per_block: 1,
+    serving_rate_limit: 50,
+    max_validators: 64,
+    commit_reveal_period: 1,
+    commit_reveal_enabled: 0,
+    alpha_high_ratio: 0.9,
+    alpha_low_ratio: 0.1,
+    liquid_alpha_enabled: 0,
+    alpha_sigmoid_steepness: 10,
+    yuma_version: 3,
+    subnet_is_active: 1,
+    transfers_enabled: 1,
+    bonds_reset_enabled: 0,
+    user_liquidity_enabled: 0,
+    owner_cut_enabled: 1,
+    owner_cut_auto_lock_enabled: 1,
+    min_childkey_take_ratio: 0,
+    hyperparams_hash: "abc",
+    ...overrides,
+  };
+}
+
 // A D1 mock that routes SQL by regex patterns (order-sensitive: specific first).
 // Named buckets let each handler test supply only the rows it needs.
 function dbWith({
@@ -251,12 +295,14 @@ function dbWith({
   turnoverRows,
   stakeFlow,
   stakeMoves,
+  stakeMovesPrices,
   agg,
   kinds,
   registrations,
   accountEvents,
   accountEventsDaily,
   subnetIdentityHistory,
+  subnetHyperparamsHistory,
   transfers,
   relationshipTransfers,
   subnetEvents,
@@ -345,6 +391,11 @@ function dbWith({
                   ) {
                     return { results: stakeMoves || [] };
                   }
+                  // Price-at-tx enrichment follow-up: subnet_snapshots.alpha_price_tao
+                  // lookup for the stake-moves rows' (netuid, last-moved-date) pairs.
+                  if (/FROM subnet_snapshots/.test(sql)) {
+                    return { results: stakeMovesPrices || [] };
+                  }
                   // Account summary aggregates (order matters).
                   if (
                     /GROUP BY event_kind ORDER BY event_count DESC/.test(sql) &&
@@ -381,6 +432,10 @@ function dbWith({
                   // Subnet on-chain identity history (#1647).
                   if (/FROM subnet_identity_history/.test(sql)) {
                     return { results: subnetIdentityHistory || [] };
+                  }
+                  // Historical hyperparameter change tracking (#4309).
+                  if (/FROM subnet_hyperparams_history/.test(sql)) {
+                    return { results: subnetHyperparamsHistory || [] };
                   }
                   // Extrinsic-emitted events embed (#1849) — before generic events.
                   if (
@@ -1112,6 +1167,49 @@ describe("handleSubnetIdentityHistory", () => {
     );
     assert.equal(body.data.entry_count, 1);
     assert.equal(body.data.entries[0].subnet_name, "MIAO");
+    assert.equal(body.data.limit, 20);
+  });
+});
+
+describe("handleSubnetHyperparamsHistory", () => {
+  test("rejects an unsupported query param with 400", async () => {
+    const res = await handleSubnetHyperparamsHistory(
+      req(`/api/v1/subnets/${NETUID}/hyperparameters/history`),
+      emptyEnv(),
+      NETUID,
+      url(`/api/v1/subnets/${NETUID}/hyperparameters/history?bogus=1`),
+    );
+    await errorJson(res);
+  });
+
+  test("returns schema-stable empty entries on cold D1", async () => {
+    const body = await assertColdSchema(
+      handleSubnetHyperparamsHistory,
+      req(`/api/v1/subnets/${NETUID}/hyperparameters/history`),
+      emptyEnv(),
+      NETUID,
+      url(`/api/v1/subnets/${NETUID}/hyperparameters/history`),
+    );
+    assert.equal(body.data.netuid, NETUID);
+    assert.equal(body.data.entry_count, 0);
+    assert.deepEqual(body.data.entries, []);
+  });
+
+  test("happy path returns hyperparameter change timeline rows", async () => {
+    const { env } = dbWith({
+      subnetHyperparamsHistory: [hyperparamsHistoryRow()],
+    });
+    const body = await json(
+      await handleSubnetHyperparamsHistory(
+        req(`/api/v1/subnets/${NETUID}/hyperparameters/history`),
+        env,
+        NETUID,
+        url(`/api/v1/subnets/${NETUID}/hyperparameters/history?limit=20`),
+      ),
+    );
+    assert.equal(body.data.entry_count, 1);
+    assert.equal(body.data.entries[0].hyperparameters.tempo, 360);
+    assert.equal(body.data.entries[0].hyperparams_hash, "abc");
     assert.equal(body.data.limit, 20);
   });
 });
@@ -4150,6 +4248,12 @@ describe("handleAccountStakeMoves", () => {
           last_observed: 1717600000000,
         },
       ],
+      // Price-at-tx enrichment (#4332/6.3): only netuid 1's date has a
+      // snapshot; netuid 7 stays null (no matching row), proving the
+      // per-subnet lookup is genuinely keyed, not a blanket fill.
+      stakeMovesPrices: [
+        { netuid: 1, snapshot_date: "2024-06-09", alpha_price_tao: 3.25 },
+      ],
     });
     const body = await json(
       await handleAccountStakeMoves(
@@ -4172,6 +4276,11 @@ describe("handleAccountStakeMoves", () => {
     assert.equal(
       body.data.subnets[0].last_moved_at,
       new Date(1717900000000).toISOString(),
+    );
+    assert.equal(body.data.subnets[0].price_tao_at_last_move, 3.25);
+    assert.equal(
+      body.data.subnets.find((s) => s.netuid === 7).price_tao_at_last_move,
+      null,
     );
     await assertValidComponent("AccountStakeMovesArtifact", body.data);
     const idx = captures.sql.findIndex((s) =>

@@ -250,6 +250,28 @@ const checks = [
     },
   ],
   [
+    "/api/v1/subnets/7/volume",
+    (body) => {
+      assert.equal(body.data.netuid, 7);
+      assert.equal(body.data.window, "24h");
+      assert.equal(typeof body.data.buy_volume_alpha, "number");
+      assert.equal(typeof body.data.sell_volume_alpha, "number");
+      assert.equal(typeof body.data.total_volume_alpha, "number");
+      assert.equal(typeof body.data.net_volume_alpha, "number");
+      assert.ok(
+        body.data.sentiment_ratio === null ||
+          typeof body.data.sentiment_ratio === "number",
+      );
+      assert.ok(
+        ["bullish", "bearish", "neutral"].includes(body.data.sentiment),
+      );
+      assert.ok(
+        body.data.vol_mcap_ratio === null ||
+          typeof body.data.vol_mcap_ratio === "number",
+      );
+    },
+  ],
+  [
     "/api/v1/subnets/7/weights?window=30d",
     (body) => {
       assert.equal(body.data.netuid, 7);
@@ -423,6 +445,22 @@ const checks = [
     },
   ],
   [
+    "/api/v1/subnets/7/hyperparameters",
+    (body) => {
+      assert.equal(body.data.netuid, 7);
+      // Cold harness (no D1) → hyperparameters present but null; never 404.
+      assert.equal("hyperparameters" in body.data, true);
+    },
+  ],
+  [
+    "/api/v1/subnets/7/hyperparameters/history?limit=5",
+    (body) => {
+      assert.equal(body.data.netuid, 7);
+      assert.equal(Array.isArray(body.data.entries), true);
+      assert.equal(body.data.entries.length <= 5, true);
+    },
+  ],
+  [
     "/api/v1/subnets/7/validators",
     (body) => {
       assert.equal(body.data.netuid, 7);
@@ -455,6 +493,15 @@ const checks = [
       assert.equal(body.data.limit, 3);
       assert.equal(Array.isArray(body.data.validators), true);
       assert.equal(typeof body.data.validator_count, "number");
+    },
+  ],
+  [
+    "/api/v1/accounts?sort=uid_count&limit=3",
+    (body) => {
+      assert.equal(body.data.sort, "uid_count");
+      assert.equal(body.data.limit, 3);
+      assert.equal(Array.isArray(body.data.accounts), true);
+      assert.equal(typeof body.data.account_count, "number");
     },
   ],
   [
@@ -650,6 +697,20 @@ const checks = [
     },
   ],
   [
+    "/api/v1/accounts/5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5/subnets/7/history?window=30d",
+    (body) => {
+      assert.equal(body.data.schema_version, 1);
+      assert.equal(
+        body.data.ss58,
+        "5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5",
+      );
+      assert.equal(body.data.netuid, 7);
+      assert.equal(body.data.window, "30d");
+      assert.equal(Array.isArray(body.data.points), true);
+      assert.equal(typeof body.data.point_count, "number");
+    },
+  ],
+  [
     "/api/v1/accounts/5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5/balance",
     (body) => {
       assert.equal(
@@ -657,6 +718,19 @@ const checks = [
         "5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5",
       );
       assert.equal("balance_tao" in body.data, true);
+    },
+  ],
+  [
+    "/api/v1/sudo/key",
+    (body) => {
+      assert.equal("hotkey" in body.data, true);
+    },
+  ],
+  [
+    "/api/v1/subnets/7/recycled",
+    (body) => {
+      assert.equal(body.data.netuid, 7);
+      assert.equal("recycled_tao" in body.data, true);
     },
   ],
   [
@@ -717,6 +791,27 @@ const checks = [
     (body) => {
       assert.equal(body.data.ref, `0x${"a".repeat(64)}`);
       assert.equal("extrinsic" in body.data, true);
+    },
+  ],
+  [
+    "/api/v1/sudo",
+    (body) => {
+      assert.equal(Array.isArray(body.data.extrinsics), true);
+      assert.equal(typeof body.data.extrinsic_count, "number");
+    },
+  ],
+  [
+    "/api/v1/governance/config-changes",
+    (body) => {
+      assert.equal(Array.isArray(body.data.extrinsics), true);
+      assert.equal(typeof body.data.extrinsic_count, "number");
+    },
+  ],
+  [
+    "/api/v1/runtime",
+    (body) => {
+      assert.equal(Array.isArray(body.data.transitions), true);
+      assert.equal(typeof body.data.transition_count, "number");
     },
   ],
   [

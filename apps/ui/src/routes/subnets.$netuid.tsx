@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
-import { Suspense } from "react";
-import { AlertTriangle } from "lucide-react";
+import { Suspense, type ReactNode } from "react";
+import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Waves, Activity } from "lucide-react";
 import { AppShell } from "@/components/metagraphed/app-shell";
 import { CandidateChip, CurationChip, ReviewChip } from "@/components/metagraphed/chips";
 import { ExternalLink } from "@/components/metagraphed/external-link";
@@ -18,6 +18,8 @@ import { TimeAgo } from "@/components/metagraphed/time-ago";
 import { ProfileTabs, useActiveTab } from "@/components/metagraphed/profile-tabs";
 import { SchemaDriftSummary } from "@/components/metagraphed/schema-drift";
 import { SectionAnchor } from "@/components/metagraphed/section-anchor";
+import { StatTile } from "@/components/metagraphed/charts/stat-tile";
+import { taoCompact } from "@/components/metagraphed/neuron-table";
 import { ReadinessScorecard } from "@/components/metagraphed/readiness-scorecard";
 import { EndpointList } from "@/components/metagraphed/endpoint-list";
 import { SurfaceFixture } from "@/components/metagraphed/surface-fixture";
@@ -42,12 +44,15 @@ import {
   subnetCandidatesQuery,
   subnetEventsQuery,
   subnetGapsQuery,
+  subnetOverviewQuery,
   fixturesIndexQuery,
   lineageQuery,
   agentCatalogDetailQuery,
   subnetWeightSettersQuery,
   subnetWeightsQuery,
   subnetIdentityHistoryQuery,
+  subnetStakeFlowQuery,
+  subnetHyperparametersQuery,
 } from "@/lib/metagraphed/queries";
 import { isStaleFreshness, formatNumber, classNames } from "@/lib/metagraphed/format";
 import { shortHash } from "@/lib/metagraphed/blocks";
@@ -61,6 +66,7 @@ import type {
   FixtureIndexEntry,
   AgentCatalogService,
   AgentCatalogBlocker,
+  SubnetHyperparameters,
 } from "@/lib/metagraphed/types";
 import { HealthPill } from "@/components/metagraphed/chips";
 import { CopyableCode } from "@/components/metagraphed/copyable-code";
@@ -147,6 +153,7 @@ const TABS = [
   { id: "validators", label: "Validators" },
   { id: "activity", label: "Activity" },
   { id: "identity", label: "Identity history" },
+  { id: "hyperparameters", label: "Hyperparameters" },
   { id: "services", label: "Callable services" },
   { id: "surfaces", label: "Surfaces" },
   { id: "endpoints", label: "Endpoints" },
@@ -173,6 +180,7 @@ const SECTION_TO_TAB: Record<string, string> = {
   turnover: "metagraph",
   validators: "validators",
   identity: "identity",
+  hyperparameters: "hyperparameters",
   services: "services",
   "agent-readiness": "services",
   surfaces: "surfaces",
@@ -266,6 +274,7 @@ function ProfileShell({ netuid }: { netuid: number }) {
           {tab === "validators" ? <ValidatorsPanel netuid={netuid} /> : null}
           {tab === "activity" ? <ActivityPanel netuid={netuid} /> : null}
           {tab === "identity" ? <IdentityHistoryPanel netuid={netuid} /> : null}
+          {tab === "hyperparameters" ? <HyperparametersPanel netuid={netuid} /> : null}
           {tab === "services" ? <CallableServicesPanel netuid={netuid} /> : null}
           {tab === "surfaces" ? <SurfacesPanel netuid={netuid} /> : null}
           {tab === "endpoints" ? <EndpointsPanel netuid={netuid} /> : null}
@@ -317,6 +326,16 @@ function OverviewPanel({ netuid, profile }: { netuid: number; profile?: SubnetPr
   const subnetGaps = gapsResult?.data;
   return (
     <div className="space-y-6">
+      {/* 0 — Composed overview summary strip (#3346): counts + status +
+          curation from the single server-composed /overview route, at a
+          glance before the more detailed sub-panels below. Each of those
+          sub-panels owns its own deeper backend route and stays as-is. */}
+      <QueryErrorBoundary>
+        <Suspense fallback={<Skeleton className="h-24 w-full" />}>
+          <OverviewSummaryStrip netuid={netuid} />
+        </Suspense>
+      </QueryErrorBoundary>
+
       {/* 1 — Readiness scorecard: the "can I build on this, where do I start?"
           answer, up top before the operational/resource detail. */}
       <ReadinessScorecard profile={profile} />
@@ -397,6 +416,47 @@ function OverviewPanel({ netuid, profile }: { netuid: number; profile?: SubnetPr
       (subnetGaps?.gap_notes.length ?? 0) > 0 ||
       (profile?.gap_notes?.length ?? 0) > 0 ? (
         <GapsPanel netuid={netuid} compact />
+      ) : null}
+    </div>
+  );
+}
+
+// #3346: the server-composed summary — counts + lifecycle status + curation
+// level + (if any) the top gap-priority hint — sourced from the one dedicated
+// /overview route instead of re-deriving equivalent state from the several
+// separate calls the sub-panels below already make. `status` here is the
+// subnet's on-chain lifecycle (e.g. "active"/"deregistered"), a different
+// vocabulary than health.status's probe-derived ok/warn/down/unknown — so it
+// renders as a plain badge rather than through HealthPill, which only knows
+// the probe vocabulary and would otherwise mislabel e.g. "active" as
+// "Unknown". health.status (when present) uses HealthPill correctly.
+function OverviewSummaryStrip({ netuid }: { netuid: number }) {
+  const { data } = useSuspenseQuery(subnetOverviewQuery(netuid));
+  const overview = data.data;
+  const health = overview.health as Record<string, unknown> | undefined;
+  const curation = overview.curation as Record<string, unknown> | undefined;
+  const topGap = overview.gap_priorities?.[0] as Record<string, unknown> | undefined;
+  const topGapHint =
+    typeof topGap?.suggested_next_action === "string" ? topGap.suggested_next_action : undefined;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {overview.status ? (
+          <span className="inline-flex items-center rounded border border-border bg-card px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-ink-muted">
+            {overview.status}
+          </span>
+        ) : null}
+        {typeof health?.status === "string" ? <HealthPill state={health.status} /> : null}
+        {typeof curation?.level === "string" ? <CurationChip level={curation.level} /> : null}
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <StatTile eyebrow="Surfaces" value={formatNumber(overview.counts?.surfaces ?? 0)} />
+        <StatTile eyebrow="Endpoints" value={formatNumber(overview.counts?.endpoints ?? 0)} />
+        <StatTile eyebrow="Candidates" value={formatNumber(overview.counts?.candidates ?? 0)} />
+      </div>
+      {topGapHint ? (
+        <p className="font-mono text-[11px] text-ink-muted">Top gap: {topGapHint}</p>
       ) : null}
     </div>
   );
@@ -543,6 +603,43 @@ function SurfacesPanel({ netuid }: { netuid: number }) {
 
 // On-chain activity stream (#1345): first-party SubtensorModule events for this
 // subnet, decoded direct from finney and served from /api/v1/subnets/{netuid}/events.
+function StakeFlowScorecard({ netuid }: { netuid: number }) {
+  const { data: res } = useQuery(subnetStakeFlowQuery(netuid));
+  const card = res?.data;
+  if (!card) return null;
+  const net = card.net_flow_tao;
+  const netTone: "ok" | "down" | "default" = net > 0 ? "ok" : net < 0 ? "down" : "default";
+  return (
+    <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <StatTile
+        icon={ArrowDownToLine}
+        eyebrow="Staked in"
+        value={`${taoCompact(card.total_staked_tao)} τ`}
+        hint={`${formatNumber(card.stake_events)} stake events`}
+      />
+      <StatTile
+        icon={ArrowUpFromLine}
+        eyebrow="Unstaked out"
+        value={`${taoCompact(card.total_unstaked_tao)} τ`}
+        hint={`${formatNumber(card.unstake_events)} unstake events`}
+      />
+      <StatTile
+        icon={Waves}
+        eyebrow="Net flow"
+        tone={netTone}
+        value={`${taoCompact(net)} τ`}
+        hint={net > 0 ? "net inflow" : net < 0 ? "net outflow" : "balanced"}
+      />
+      <StatTile
+        icon={Activity}
+        eyebrow="Total events"
+        value={formatNumber(card.stake_events + card.unstake_events)}
+        hint={`over ${card.window}`}
+      />
+    </div>
+  );
+}
+
 function ActivityPanel({ netuid }: { netuid: number }) {
   return (
     <SectionAnchor
@@ -551,6 +648,7 @@ function ActivityPanel({ netuid }: { netuid: number }) {
       subtitle="First-party chain events for this subnet, newest first."
       info="Registrations, stake, weights, axon, delegation, lifecycle, and transfers decoded directly from finney System.Events for recent finalized blocks (the rolling first-party event window) — not Taostats."
     >
+      <StakeFlowScorecard netuid={netuid} />
       <QueryErrorBoundary>
         <Suspense fallback={<Skeleton className="h-32 w-full" />}>
           <ActivityTableLoader netuid={netuid} />
@@ -1243,6 +1341,251 @@ function SchemasPanel({ netuid }: { netuid: number }) {
         </Suspense>
       </QueryErrorBoundary>
     </SectionAnchor>
+  );
+}
+
+/* ----------------------------- hyperparameters ----------------------------- */
+
+function ratioStr(v: number | null): string {
+  return v == null ? "—" : `${(v * 100).toFixed(2)}%`;
+}
+
+function numStr(v: number | null): string {
+  if (v == null) return "—";
+  return Number.isInteger(v) ? formatNumber(v) : v.toFixed(4);
+}
+
+function boolBadge(v: boolean) {
+  return (
+    <span
+      className={classNames(
+        "inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+        v ? "border-accent/40 bg-accent-surface text-accent-text" : "border-border text-ink-muted",
+      )}
+    >
+      {v ? "Yes" : "No"}
+    </span>
+  );
+}
+
+type HyperparamField = {
+  key: keyof SubnetHyperparameters;
+  label: string;
+  format: (h: SubnetHyperparameters) => ReactNode;
+};
+
+const HYPERPARAM_GROUPS: { title: string; fields: HyperparamField[] }[] = [
+  {
+    title: "Registration & weights",
+    fields: [
+      {
+        key: "registration_allowed",
+        label: "Registration allowed",
+        format: (h) => boolBadge(h.registration_allowed),
+      },
+      {
+        key: "target_regs_per_interval",
+        label: "Target regs / interval",
+        format: (h) => numStr(h.target_regs_per_interval),
+      },
+      {
+        key: "max_regs_per_block",
+        label: "Max regs / block",
+        format: (h) => numStr(h.max_regs_per_block),
+      },
+      {
+        key: "immunity_period",
+        label: "Immunity period",
+        format: (h) => `${numStr(h.immunity_period)} blocks`,
+      },
+      {
+        key: "min_allowed_weights",
+        label: "Min allowed weights",
+        format: (h) => numStr(h.min_allowed_weights),
+      },
+      {
+        key: "max_weight_limit_ratio",
+        label: "Max weight limit",
+        format: (h) => ratioStr(h.max_weight_limit_ratio),
+      },
+      {
+        key: "weights_version",
+        label: "Weights version",
+        format: (h) => numStr(h.weights_version),
+      },
+      {
+        key: "weights_rate_limit",
+        label: "Weights rate limit",
+        format: (h) => `${numStr(h.weights_rate_limit)} blocks`,
+      },
+      { key: "tempo", label: "Tempo", format: (h) => `${numStr(h.tempo)} blocks` },
+      {
+        key: "activity_cutoff",
+        label: "Activity cutoff",
+        format: (h) => `${numStr(h.activity_cutoff)} blocks`,
+      },
+      {
+        key: "activity_cutoff_factor",
+        label: "Activity cutoff factor",
+        format: (h) => numStr(h.activity_cutoff_factor),
+      },
+      {
+        key: "serving_rate_limit",
+        label: "Serving rate limit",
+        format: (h) => `${numStr(h.serving_rate_limit)} blocks`,
+      },
+      { key: "max_validators", label: "Max validators", format: (h) => numStr(h.max_validators) },
+    ],
+  },
+  {
+    title: "Burn & economics",
+    fields: [
+      { key: "min_burn_tao", label: "Min burn", format: (h) => taoCompact(h.min_burn_tao) },
+      { key: "max_burn_tao", label: "Max burn", format: (h) => taoCompact(h.max_burn_tao) },
+      {
+        key: "burn_half_life",
+        label: "Burn half-life",
+        format: (h) => `${numStr(h.burn_half_life)} blocks`,
+      },
+      {
+        key: "burn_increase_mult",
+        label: "Burn increase multiplier",
+        format: (h) => numStr(h.burn_increase_mult),
+      },
+      { key: "kappa_ratio", label: "Kappa", format: (h) => ratioStr(h.kappa_ratio) },
+      {
+        key: "bonds_moving_avg_raw",
+        label: "Bonds moving avg (raw)",
+        format: (h) => numStr(h.bonds_moving_avg_raw),
+      },
+    ],
+  },
+  {
+    title: "Commit-reveal & alpha",
+    fields: [
+      {
+        key: "commit_reveal_enabled",
+        label: "Commit-reveal enabled",
+        format: (h) => boolBadge(h.commit_reveal_enabled),
+      },
+      {
+        key: "commit_reveal_period",
+        label: "Commit-reveal period",
+        format: (h) => numStr(h.commit_reveal_period),
+      },
+      {
+        key: "liquid_alpha_enabled",
+        label: "Liquid alpha enabled",
+        format: (h) => boolBadge(h.liquid_alpha_enabled),
+      },
+      { key: "alpha_high_ratio", label: "Alpha high", format: (h) => ratioStr(h.alpha_high_ratio) },
+      { key: "alpha_low_ratio", label: "Alpha low", format: (h) => ratioStr(h.alpha_low_ratio) },
+      {
+        key: "alpha_sigmoid_steepness",
+        label: "Alpha sigmoid steepness",
+        format: (h) => numStr(h.alpha_sigmoid_steepness),
+      },
+      { key: "yuma_version", label: "Yuma version", format: (h) => numStr(h.yuma_version) },
+    ],
+  },
+  {
+    title: "Network & ownership",
+    fields: [
+      {
+        key: "subnet_is_active",
+        label: "Subnet active",
+        format: (h) => boolBadge(h.subnet_is_active),
+      },
+      {
+        key: "transfers_enabled",
+        label: "Transfers enabled",
+        format: (h) => boolBadge(h.transfers_enabled),
+      },
+      {
+        key: "bonds_reset_enabled",
+        label: "Bonds reset enabled",
+        format: (h) => boolBadge(h.bonds_reset_enabled),
+      },
+      {
+        key: "user_liquidity_enabled",
+        label: "User liquidity enabled",
+        format: (h) => boolBadge(h.user_liquidity_enabled),
+      },
+      {
+        key: "owner_cut_enabled",
+        label: "Owner cut enabled",
+        format: (h) => boolBadge(h.owner_cut_enabled),
+      },
+      {
+        key: "owner_cut_auto_lock_enabled",
+        label: "Owner cut auto-lock",
+        format: (h) => boolBadge(h.owner_cut_auto_lock_enabled),
+      },
+      {
+        key: "min_childkey_take_ratio",
+        label: "Min childkey take",
+        format: (h) => ratioStr(h.min_childkey_take_ratio),
+      },
+    ],
+  },
+];
+
+function HyperparametersPanel({ netuid }: { netuid: number }) {
+  return (
+    <SectionAnchor
+      id="hyperparameters"
+      title="Hyperparameters"
+      subtitle="Consensus, economic, and governance settings for this subnet."
+      info="GET /api/v1/subnets/{netuid}/hyperparameters — refreshed daily from the subnet_hyperparams D1 tier."
+    >
+      <QueryErrorBoundary>
+        <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+          <HyperparametersTable netuid={netuid} />
+        </Suspense>
+      </QueryErrorBoundary>
+    </SectionAnchor>
+  );
+}
+
+function HyperparametersTable({ netuid }: { netuid: number }) {
+  const { data: res } = useSuspenseQuery(subnetHyperparametersQuery(netuid));
+  const h = res.data.hyperparameters;
+
+  if (!h) {
+    return (
+      <EmptyState
+        title="No hyperparameters captured yet"
+        description="The refresh-subnet-hyperparams cron fills this in daily — check back shortly."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {res.data.captured_at ? (
+        <p className="font-mono text-[11px] text-ink-muted">
+          Captured <TimeAgo at={res.data.captured_at} />
+          {res.data.block_number != null ? ` · block #${formatNumber(res.data.block_number)}` : ""}
+        </p>
+      ) : null}
+      {HYPERPARAM_GROUPS.map((group) => (
+        <div key={group.title} className="rounded-xl border border-border bg-card">
+          <div className="border-b border-border px-4 py-2.5">
+            <h3 className="font-display text-sm font-semibold text-ink-strong">{group.title}</h3>
+          </div>
+          <div className="grid grid-cols-1 gap-px sm:grid-cols-2 lg:grid-cols-3">
+            {group.fields.map((field) => (
+              <div key={field.key} className="px-4 py-2.5">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">
+                  {field.label}
+                </div>
+                <div className="mt-1 font-mono text-[13px] text-ink-strong">{field.format(h)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

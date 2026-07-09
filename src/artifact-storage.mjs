@@ -17,6 +17,9 @@ export const R2_ONLY_PATTERNS = [
   /^incidents\.json$/,
   // Global validator/operator leaderboard, computed live from the neurons D1 tier.
   /^validators\.json$/,
+  // Site-wide accounts leaderboard (#4324/5.3), computed live from the neurons
+  // D1 tier — the collection-level counterpart to validators.json above.
+  /^accounts\.json$/,
   // Cross-subnet validator detail (#4334/7.1): computed live from the neurons D1 tier.
   /^validators\/(?:[1-9A-HJ-NP-Za-km-z]{47,48}|\{hotkey\})\.json$/,
   // Validator nominator list (#4334/7.2): computed live from account_events.
@@ -55,6 +58,9 @@ export const R2_ONLY_PATTERNS = [
   /^subnets\/(?:\d+|\{netuid\})\/turnover\.json$/,
   // Net stake flow: computed live from account_events.
   /^subnets\/(?:\d+|\{netuid\})\/stake-flow\.json$/,
+  // Rolling 24h buy/sell alpha volume (#4339/8.1): computed live from the same
+  // account_events stream as stake-flow.
+  /^subnets\/(?:\d+|\{netuid\})\/volume\.json$/,
   // Validator weight-setting activity: computed live from the account_events WeightsSet stream.
   /^subnets\/(?:\d+|\{netuid\})\/weights\.json$/,
   // Per-subnet weight-setter leaderboard: computed live from the account_events WeightsSet stream.
@@ -82,6 +88,12 @@ export const R2_ONLY_PATTERNS = [
   // tier at /api/v1/subnets/{netuid}/metagraph, /neurons/{uid}, /validators —
   // never written as files.
   /^subnets\/(?:\d+|\{netuid\})\/metagraph\.json$/,
+  // Subnet hyperparameters (#4303/1.4): computed live from the
+  // subnet_hyperparams D1 tier, refreshed daily — never written as a file.
+  /^subnets\/(?:\d+|\{netuid\})\/hyperparameters\.json$/,
+  // Historical hyperparameter change tracking (#4309/1.6): computed live from
+  // the subnet_hyperparams_history D1 tier — never written as a file.
+  /^subnets\/(?:\d+|\{netuid\})\/hyperparameters\/history\.json$/,
   /^subnets\/(?:\d+|\{netuid\})\/neurons\/(?:\d+|\{uid\})\.json$/,
   /^subnets\/(?:\d+|\{netuid\})\/neurons\/(?:\d+|\{uid\})\/history\.json$/,
   /^subnets\/(?:\d+|\{netuid\})\/history\.json$/,
@@ -113,8 +125,18 @@ export const R2_ONLY_PATTERNS = [
   // Cross-subnet neuron portfolio, computed live from the neurons D1 tier at
   // /api/v1/accounts/{ss58}/portfolio — never a file.
   /^accounts\/(?:[1-9A-HJ-NP-Za-km-z]{47,48}|\{ss58\})\/portfolio\.json$/,
+  // Per-account, per-subnet position history (#4329/6.2), computed live from the
+  // account_position_daily D1 rollup tier at
+  // /api/v1/accounts/{ss58}/subnets/{netuid}/history — never a file.
+  /^accounts\/(?:[1-9A-HJ-NP-Za-km-z]{47,48}|\{ss58\})\/subnets\/(?:\d+|\{netuid\})\/history\.json$/,
   // Live TAO balance query (#1818): computed from RPC at request time, never a static file.
   /^accounts\/(?:[1-9A-HJ-NP-Za-km-z]{47,48}|\{ss58\})\/balance\.json$/,
+  // Current Sudo::Key holder (#4310/2.4): computed from RPC at request time,
+  // never a static file.
+  /^sudo\/key\.json$/,
+  // Live cumulative TAO recycled for registration on one subnet (#4339/8.4):
+  // computed from RPC at request time, never a static file.
+  /^subnets\/(?:\d+|\{netuid\})\/recycled\.json$/,
   // Block-explorer tiers (#1345): computed live from the blocks D1 tier at
   // /api/v1/blocks (recent feed) + /api/v1/blocks/{ref} (numeric block_number or
   // 0x block_hash) — never written as files.
@@ -122,6 +144,9 @@ export const R2_ONLY_PATTERNS = [
   // Block-production analytics summary, computed live from the blocks D1 tier at
   // /api/v1/blocks/summary — never a file.
   /^blocks\/summary\.json$/,
+  // Spec-version transition timeline (#4316/3.1), computed live from the blocks
+  // D1 tier at /api/v1/runtime — never a file.
+  /^runtime\.json$/,
   /^blocks\/(?:\d+|0x[0-9a-fA-F]{64}|\{ref\})\.json$/,
   // Per-block extrinsics sub-resource (#1845): computed live from the extrinsics
   // D1 tier at /api/v1/blocks/{ref}/extrinsics — never written as a file.
@@ -134,6 +159,13 @@ export const R2_ONLY_PATTERNS = [
   // (0x extrinsic_hash or composite block-index ref) — never written as files.
   /^extrinsics\.json$/,
   /^extrinsics\/(?:0x[0-9a-fA-F]{64}|\d+-\d+|\{hash\})\.json$/,
+  // Sudo-call feed (#4310/2.2): the extrinsics feed hardcoded to
+  // call_module='Sudo' — computed live from the same D1 tier, never a file.
+  /^sudo\.json$/,
+  // AdminUtils config-change feed (#4310/2.3): the extrinsics feed hardcoded
+  // to call_module='AdminUtils' — computed live from the same D1 tier, never
+  // a file.
+  /^governance\/config-changes\.json$/,
   // Chain analytics (#1987-#1990): network-activity / call-mix / signer-leaderboard
   // / fee-market aggregates computed live from the extrinsics + blocks D1 tiers at
   // /api/v1/chain/* — never files.

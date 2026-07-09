@@ -78,10 +78,14 @@ import {
   loadStagedEvents,
   loadStagedBlocks,
   loadStagedExtrinsics,
+  loadStagedSubnetHyperparams,
+  loadStagedAccountIdentity,
 } from "./request-handlers/staging.mjs";
 import {
   handleSubnetMetagraph,
   handleNeuron,
+  handleSubnetHyperparams,
+  handleSubnetHyperparamsHistory,
   handleSubnetValidators,
   handleSubnetEventSummary,
   handleSubnetEvents,
@@ -106,6 +110,8 @@ import {
   canonicalSubnetTurnoverCachePath,
   handleSubnetStakeFlow,
   canonicalSubnetStakeFlowCachePath,
+  handleSubnetAlphaVolume,
+  handleSubnetRecycled,
   handleSubnetWeights,
   canonicalSubnetWeightsCachePath,
   handleSubnetWeightSetters,
@@ -132,6 +138,8 @@ import {
   canonicalChainTurnoverCachePath,
   handleGlobalValidators,
   canonicalGlobalValidatorsCachePath,
+  handleAccountsList,
+  canonicalAccountsListCachePath,
   handleValidatorDetail,
   handleValidatorNominators,
   handleValidatorHistory,
@@ -155,6 +163,7 @@ import {
   handleAccountAxonRemovals,
   handleAccountSubnets,
   handleAccountPortfolio,
+  handleAccountPositionHistory,
   handleBlocks,
   handleBlocksSummary,
   handleBlock,
@@ -162,6 +171,10 @@ import {
   handleBlockEvents,
   handleExtrinsics,
   handleExtrinsic,
+  handleSudo,
+  handleSudoKey,
+  handleGovernanceConfigChanges,
+  handleRuntime,
 } from "./request-handlers/entities.mjs";
 import {
   canonicalCompareCachePath,
@@ -248,6 +261,10 @@ import {
   validNeuronDailyRows,
 } from "../src/neuron-history.mjs";
 import {
+  rollupAccountPositionDaily,
+  pruneAccountPositionDaily,
+} from "../src/account-position-history.mjs";
+import {
   eventInsertStatements,
   pruneAccountEvents,
   rollupAccountEventsDaily,
@@ -299,6 +316,7 @@ import {
   ACCOUNT_PATH_PATTERN,
   ACCOUNT_SUBNETS_PATH_PATTERN,
   ACCOUNT_PORTFOLIO_PATH_PATTERN,
+  ACCOUNT_SUBNET_POSITION_HISTORY_PATH_PATTERN,
   BLOCK_DETAIL_PATH_PATTERN,
   BLOCK_EXTRINSICS_PATH_PATTERN,
   BLOCK_EVENTS_PATH_PATTERN,
@@ -309,6 +327,7 @@ import {
   EMBEDDING_SYNC_CRON,
   EVENTS_INGEST_TOKEN_HEADER,
   EVENTS_LOAD_CRON,
+  GOVERNANCE_CONFIG_CHANGES_PATH_PATTERN,
   HEALTH_PRUNE_CRON,
   INCIDENTS_PATH_PATTERN,
   JSON_CONTENT_TYPE,
@@ -324,7 +343,10 @@ import {
   PERCENTILES_PATH_PATTERN,
   RETIRED_CURRENT_HEALTH_ARTIFACT_PATTERN,
   resolveClientIp,
+  RUNTIME_VERSIONS_PATH_PATTERN,
   SUBNET_HISTORY_PATH_PATTERN,
+  SUBNET_HYPERPARAMS_PATH_PATTERN,
+  SUBNET_HYPERPARAMS_HISTORY_PATH_PATTERN,
   SUBNET_IDENTITY_HISTORY_PATH_PATTERN,
   SUBNET_METAGRAPH_PATH_PATTERN,
   SUBNET_NEURON_HISTORY_PATH_PATTERN,
@@ -342,6 +364,8 @@ import {
   SUBNET_YIELD_HISTORY_PATH_PATTERN,
   SUBNET_TURNOVER_PATH_PATTERN,
   SUBNET_STAKE_FLOW_PATH_PATTERN,
+  SUBNET_ALPHA_VOLUME_PATH_PATTERN,
+  SUBNET_RECYCLED_PATH_PATTERN,
   SUBNET_WEIGHTS_PATH_PATTERN,
   SUBNET_WEIGHT_SETTERS_PATH_PATTERN,
   SUBNET_SERVING_PATH_PATTERN,
@@ -353,6 +377,8 @@ import {
   SUBNET_DEREGISTRATIONS_PATH_PATTERN,
   SUBNET_YIELD_PATH_PATTERN,
   SUBNET_PERFORMANCE_PATH_PATTERN,
+  SUDO_CALLS_PATH_PATTERN,
+  SUDO_KEY_PATH_PATTERN,
   TRENDS_PATH_PATTERN,
   UPTIME_PATH_PATTERN,
   WEBHOOK_SUBSCRIPTION_TOKEN_HEADER,
@@ -441,6 +467,8 @@ export {
   loadStagedEvents,
   loadStagedBlocks,
   loadStagedExtrinsics,
+  loadStagedSubnetHyperparams,
+  loadStagedAccountIdentity,
 };
 
 // The RPC-proxy subsystem now lives in request-handlers/rpc-proxy.mjs (#1763).
@@ -858,11 +886,15 @@ export async function handleScheduled(controller, env = {}, ctx = {}) {
     //   - loadStagedNeurons: token-free per-UID metagraph load (#1303)
     //   - loadStagedEvents:  token-free chain-event load (#1346)
     //   - loadStagedBlocks / loadStagedExtrinsics: block-explorer hot window (#1345)
+    //   - loadStagedSubnetHyperparams: token-free subnet hyperparams load (#4303/1.3)
+    //   - loadStagedAccountIdentity: token-free personal identity load (#4324/5.1)
     await Promise.allSettled([
       loadStagedNeurons(env),
       loadStagedEvents(env),
       loadStagedBlocks(env),
       loadStagedExtrinsics(env),
+      loadStagedSubnetHyperparams(env),
+      loadStagedAccountIdentity(env),
     ]);
     return { ok: true, fast_load: true };
   }
@@ -936,7 +968,26 @@ export async function handleScheduled(controller, env = {}, ctx = {}) {
             days: archivedPrunable.complete ? undefined : archivedPrunable.days,
           }).catch(() => ({ pruned: false }))
         : { pruned: false, reason: "archive-not-confirmed" };
-    return { rolled, archived, archivedPrunable, pruned };
+    // Per-account position history (#4329/6.1): same source `neurons` table and
+    // cron tick as neuron_daily, so both stay snapshot-consistent. Simple prune,
+    // no cold-archive tier (see src/account-position-history.mjs).
+    // pruneAccountPositionDaily already self-catches its own D1 errors (unlike
+    // rollupAccountPositionDaily, which has no internal try/catch), so it needs
+    // no wrapper .catch() here.
+    const accountPositionRolled = await rollupAccountPositionDaily(env).catch(
+      () => ({ rolled: false }),
+    );
+    const accountPositionPruned = await pruneAccountPositionDaily(env, {
+      now,
+    });
+    return {
+      rolled,
+      archived,
+      archivedPrunable,
+      pruned,
+      accountPositionRolled,
+      accountPositionPruned,
+    };
   }
   return runHealthProber(env, ctx);
 }
@@ -1364,6 +1415,23 @@ export async function handleRequest(request, env = {}, ctx = {}) {
     );
   }
 
+  // Site-wide accounts leaderboard (#4324/5.3): every currently-registered
+  // hotkey, not just validator_permit=1 ones — the collection-level
+  // counterpart to /api/v1/validators above, same neurons-snapshot cache stamp.
+  if (url.pathname === "/api/v1/accounts") {
+    const accountsCache = canonicalAccountsListCachePath(url, request);
+    if (accountsCache.response) return accountsCache.response;
+    return withEdgeCache(
+      request,
+      ctx,
+      env,
+      "accounts-list",
+      () => handleAccountsList(request, env, url),
+      accountsCache.cachePathAndSearch,
+      (edgeEnv) => readNeuronsCacheStamp(edgeEnv),
+    );
+  }
+
   // Cross-subnet validator detail (#4334/7.1): single-entity drill-in of the
   // leaderboard above, keyed by hotkey. Direct dispatch (no edge cache), same
   // as the other single-entity-by-key routes (handleAccount, handleNeuron).
@@ -1638,6 +1706,30 @@ export async function handleRequest(request, env = {}, ctx = {}) {
           ),
         canonicalSubnetStakeFlowCachePath(resolved.url),
       );
+    }
+    const alphaVolumeMatch = SUBNET_ALPHA_VOLUME_PATH_PATTERN.exec(
+      resolved.url.pathname,
+    );
+    if (alphaVolumeMatch) {
+      // Rolling 24h buy/sell alpha volume summed live from account_events —
+      // deterministic per request (no query params), edge-cache like the
+      // sibling analytics routes.
+      return withEdgeCache(request, ctx, env, "subnet-alpha-volume", () =>
+        handleSubnetAlphaVolume(
+          request,
+          env,
+          Number(alphaVolumeMatch[1]),
+          resolved.url,
+        ),
+      );
+    }
+    const recycledMatch = SUBNET_RECYCLED_PATH_PATTERN.exec(
+      resolved.url.pathname,
+    );
+    if (recycledMatch) {
+      // Live RPC + KV-cache route (like /accounts/{ss58}/balance and
+      // /sudo/key) — not D1-backed, so no withEdgeCache here.
+      return handleSubnetRecycled(request, env, Number(recycledMatch[1]));
     }
     const weightSettersMatch = SUBNET_WEIGHT_SETTERS_PATH_PATTERN.exec(
       resolved.url.pathname,
@@ -1941,6 +2033,31 @@ export async function handleRequest(request, env = {}, ctx = {}) {
         Number(neuronMatch[2]),
       );
     }
+    const hyperparamsHistoryMatch =
+      SUBNET_HYPERPARAMS_HISTORY_PATH_PATTERN.exec(resolved.url.pathname);
+    if (hyperparamsHistoryMatch) {
+      // Append-only timeline, same cost class as handleSubnetIdentityHistory —
+      // dispatch directly, no edge-cache wrapper.
+      return handleSubnetHyperparamsHistory(
+        request,
+        env,
+        Number(hyperparamsHistoryMatch[1]),
+        resolved.url,
+      );
+    }
+    const hyperparamsMatch = SUBNET_HYPERPARAMS_PATH_PATTERN.exec(
+      resolved.url.pathname,
+    );
+    if (hyperparamsMatch) {
+      // Single PK-by-netuid D1 lookup, same cost class as handleNeuron —
+      // dispatch directly, no edge-cache wrapper.
+      return handleSubnetHyperparams(
+        request,
+        env,
+        Number(hyperparamsMatch[1]),
+        resolved.url,
+      );
+    }
     const validatorsMatch = SUBNET_VALIDATORS_PATH_PATTERN.exec(
       resolved.url.pathname,
     );
@@ -2026,6 +2143,19 @@ export async function handleRequest(request, env = {}, ctx = {}) {
     );
     if (accountPortfolioMatch) {
       return handleAccountPortfolio(request, env, accountPortfolioMatch[1]);
+    }
+    // Per-account, per-subnet position history (#4329/6.2): computed live from
+    // the account_position_daily rollup tier.
+    const accountPositionHistoryMatch =
+      ACCOUNT_SUBNET_POSITION_HISTORY_PATH_PATTERN.exec(resolved.url.pathname);
+    if (accountPositionHistoryMatch) {
+      return handleAccountPositionHistory(
+        request,
+        env,
+        accountPositionHistoryMatch[1],
+        Number(accountPositionHistoryMatch[2]),
+        resolved.url,
+      );
     }
     const accountExtrinsicsMatch = ACCOUNT_EXTRINSICS_PATH_PATTERN.exec(
       resolved.url.pathname,
@@ -2205,6 +2335,34 @@ export async function handleRequest(request, env = {}, ctx = {}) {
     if (EXTRINSICS_FEED_PATH_PATTERN.test(resolved.url.pathname)) {
       return handleExtrinsics(request, env, resolved.url);
     }
+    if (SUDO_KEY_PATH_PATTERN.test(resolved.url.pathname)) {
+      return handleSudoKey(request, env);
+    }
+    if (SUDO_CALLS_PATH_PATTERN.test(resolved.url.pathname)) {
+      return handleSudo(request, env, resolved.url);
+    }
+    if (GOVERNANCE_CONFIG_CHANGES_PATH_PATTERN.test(resolved.url.pathname)) {
+      return handleGovernanceConfigChanges(request, env, resolved.url);
+    }
+    if (RUNTIME_VERSIONS_PATH_PATTERN.test(resolved.url.pathname)) {
+      const cacheRequest =
+        request.method === "HEAD"
+          ? new Request(request, { method: "GET" })
+          : request;
+      const response = await withEdgeCache(
+        cacheRequest,
+        ctx,
+        env,
+        "runtime-versions",
+        () => handleRuntime(cacheRequest, env, resolved.url),
+      );
+      return request.method === "HEAD"
+        ? new Response(null, {
+            status: response.status,
+            headers: response.headers,
+          })
+        : response;
+    }
     if (resolved.url.pathname === "/api/v1/incidents") {
       return withEdgeCache(request, ctx, env, "global-incidents", () =>
         handleGlobalIncidents(request, env, resolved.url),
@@ -2381,6 +2539,10 @@ function isMainnetOnlyApiPath(pathname) {
     pathname === "/api/v1/graphql" ||
     pathname === "/api/v1/search/semantic" ||
     pathname === "/api/v1/validators" ||
+    pathname === "/api/v1/accounts" ||
+    VALIDATOR_DETAIL_PATH_PATTERN.test(pathname) ||
+    VALIDATOR_NOMINATORS_PATH_PATTERN.test(pathname) ||
+    VALIDATOR_HISTORY_PATH_PATTERN.test(pathname) ||
     pathname === "/api/v1/registry/leaderboards" ||
     pathname === "/api/v1/compare" ||
     pathname === "/api/v1/subnets/movers" ||
@@ -2420,6 +2582,7 @@ function isMainnetOnlyApiPath(pathname) {
     /^\/api\/v1\/subnets\/(\d+)\/health$/.test(pathname) ||
     SUBNET_METAGRAPH_PATH_PATTERN.test(pathname) ||
     SUBNET_NEURON_PATH_PATTERN.test(pathname) ||
+    SUBNET_HYPERPARAMS_PATH_PATTERN.test(pathname) ||
     SUBNET_NEURON_HISTORY_PATH_PATTERN.test(pathname) ||
     SUBNET_VALIDATORS_PATH_PATTERN.test(pathname) ||
     SUBNET_EVENTS_PATH_PATTERN.test(pathname) ||
@@ -2431,6 +2594,8 @@ function isMainnetOnlyApiPath(pathname) {
     SUBNET_YIELD_HISTORY_PATH_PATTERN.test(pathname) ||
     SUBNET_TURNOVER_PATH_PATTERN.test(pathname) ||
     SUBNET_STAKE_FLOW_PATH_PATTERN.test(pathname) ||
+    SUBNET_ALPHA_VOLUME_PATH_PATTERN.test(pathname) ||
+    SUBNET_RECYCLED_PATH_PATTERN.test(pathname) ||
     SUBNET_YIELD_PATH_PATTERN.test(pathname) ||
     SUBNET_PERFORMANCE_PATH_PATTERN.test(pathname) ||
     ACCOUNT_PATH_PATTERN.test(pathname) ||
@@ -2438,6 +2603,7 @@ function isMainnetOnlyApiPath(pathname) {
     ACCOUNT_HISTORY_PATH_PATTERN.test(pathname) ||
     ACCOUNT_SUBNETS_PATH_PATTERN.test(pathname) ||
     ACCOUNT_PORTFOLIO_PATH_PATTERN.test(pathname) ||
+    ACCOUNT_SUBNET_POSITION_HISTORY_PATH_PATTERN.test(pathname) ||
     ACCOUNT_EXTRINSICS_PATH_PATTERN.test(pathname) ||
     ACCOUNT_TRANSFERS_PATH_PATTERN.test(pathname) ||
     ACCOUNT_COUNTERPARTIES_PATH_PATTERN.test(pathname) ||
@@ -2455,7 +2621,11 @@ function isMainnetOnlyApiPath(pathname) {
     BLOCK_EXTRINSICS_PATH_PATTERN.test(pathname) ||
     BLOCK_EVENTS_PATH_PATTERN.test(pathname) ||
     EXTRINSICS_FEED_PATH_PATTERN.test(pathname) ||
-    EXTRINSIC_DETAIL_PATH_PATTERN.test(pathname)
+    EXTRINSIC_DETAIL_PATH_PATTERN.test(pathname) ||
+    SUDO_CALLS_PATH_PATTERN.test(pathname) ||
+    SUDO_KEY_PATH_PATTERN.test(pathname) ||
+    GOVERNANCE_CONFIG_CHANGES_PATH_PATTERN.test(pathname) ||
+    RUNTIME_VERSIONS_PATH_PATTERN.test(pathname)
   );
 }
 

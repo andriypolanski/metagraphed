@@ -49,6 +49,29 @@ describe("MEGA_PANELS catalogue", () => {
       }
     }
   });
+
+  it("only links to real curation levels in subnet filters", () => {
+    // /subnets filters on the curation levels enumerated in chips.tsx's
+    // `curationLabel`. A mega-menu link carrying a value outside this set
+    // (e.g. the old "verified") matches zero rows and silently renders the
+    // full unfiltered list instead of a curated one.
+    const CURATION_LEVELS = new Set([
+      "native",
+      "candidate-discovered",
+      "community-seeded",
+      "machine-verified",
+      "maintainer-reviewed",
+      "adapter-backed",
+    ]);
+    for (const p of MEGA_PANELS) {
+      for (const l of [...p.browse, ...p.filters]) {
+        const curation = l.search?.curation;
+        if (curation !== undefined) {
+          expect(CURATION_LEVELS.has(curation)).toBe(true);
+        }
+      }
+    }
+  });
 });
 
 describe("storage helpers (SSR/node-safe)", () => {

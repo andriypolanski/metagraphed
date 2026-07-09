@@ -69,6 +69,64 @@
         "timeout_ms": 10000
       },
       "notes": "Official oneoneone source repository."
+    },
+    {
+      "auth_required": false,
+      "authority": "community",
+      "id": "sn-111-oneoneone-node-validator-config",
+      "kind": "data-artifact",
+      "name": "oneoneone Node.js validator configuration",
+      "notes": "Public no-auth JavaScript configuration for the SN111 oneoneone Node.js validator layer. Defines synapse timeouts, spot-check counts, supported job types (Google Maps reviews and X tweets), Apify actor IDs, Chutes/OpenRouter model lists, and place-type allowlists. Imported at runtime by node/validator.js via the package.json #config alias. Pinned to an immutable commit.",
+      "provider": "oneoneone",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "petermilord"
+      },
+      "source_urls": [
+        "https://github.com/oneoneone-io/subnet-111/blob/2e9b759039fc40d7ee1a50ff7362bae29eba5a2f/node/validator.js",
+        "https://github.com/oneoneone-io/subnet-111/blob/2e9b759039fc40d7ee1a50ff7362bae29eba5a2f/node/package.json",
+        "https://github.com/oneoneone-io/subnet-111/blob/2e9b759039fc40d7ee1a50ff7362bae29eba5a2f/README.md"
+      ],
+      "url": "https://raw.githubusercontent.com/oneoneone-io/subnet-111/2e9b759039fc40d7ee1a50ff7362bae29eba5a2f/node/config.js"
+    },
+    {
+      "auth_required": false,
+      "authority": "community",
+      "id": "sn-111-oneoneone-python-subnet-config",
+      "kind": "data-artifact",
+      "name": "oneoneone Python subnet configuration",
+      "notes": "Public no-auth Python constants for the SN111 oneoneone Bittensor validator loop: MAX_MINER_COUNT, SYNAPSE_WAIT_TIME, VALIDATOR_MIN_STAKE, and VALIDATOR_API_TIMEOUT. Consumed by oneoneone/validator/forward.py when querying miners and pacing validation rounds. Pinned to an immutable commit.",
+      "provider": "oneoneone",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "petermilord"
+      },
+      "source_urls": [
+        "https://github.com/oneoneone-io/subnet-111/blob/2e9b759039fc40d7ee1a50ff7362bae29eba5a2f/oneoneone/validator/forward.py",
+        "https://github.com/oneoneone-io/subnet-111/blob/2e9b759039fc40d7ee1a50ff7362bae29eba5a2f/README.md"
+      ],
+      "url": "https://raw.githubusercontent.com/oneoneone-io/subnet-111/2e9b759039fc40d7ee1a50ff7362bae29eba5a2f/oneoneone/config.py"
+    },
+    {
+      "auth_required": false,
+      "authority": "community",
+      "id": "sn-111-oneoneone-generic-synapse-protocol",
+      "kind": "data-artifact",
+      "name": "oneoneone GenericSynapse protocol definition",
+      "notes": "Public no-auth Bittensor synapse protocol for SN111 oneoneone miner–validator communication. Defines the GenericSynapse request/response shape (type_id, metadata, timeout, responses) used by the validator forward pass to dispatch data-fetch tasks to miners. Pinned to an immutable commit.",
+      "provider": "oneoneone",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "petermilord"
+      },
+      "source_urls": [
+        "https://github.com/oneoneone-io/subnet-111/blob/2e9b759039fc40d7ee1a50ff7362bae29eba5a2f/oneoneone/validator/forward.py",
+        "https://github.com/oneoneone-io/subnet-111/blob/2e9b759039fc40d7ee1a50ff7362bae29eba5a2f/README.md"
+      ],
+      "url": "https://raw.githubusercontent.com/oneoneone-io/subnet-111/2e9b759039fc40d7ee1a50ff7362bae29eba5a2f/oneoneone/protocol.py"
     }
   ],
   "contact": "support@oneoneone.io"

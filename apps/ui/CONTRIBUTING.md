@@ -6,7 +6,7 @@ gets you from clone to a green PR.
 
 ## Setup
 
-Node 22 and npm are the canonical toolchain.
+**Fastest path:** open the repo root in a [devcontainer](../../.devcontainer/devcontainer.json)-aware tool (VS Code, GitHub Codespaces, the `devcontainer` CLI) — Node 22 and Playwright's Chromium come preinstalled, which covers the screenshot workflow below with no manual `npx playwright install`. Otherwise, Node 22 and npm are the canonical toolchain (`.nvmrc` at the repo root pins it).
 
 ```bash
 npm install                       # root install wires the apps/ui workspace too
@@ -24,14 +24,24 @@ all pass:
 
 ```bash
 npm run lint --workspace=apps/ui && npm run format:check --workspace=apps/ui
-npm run typecheck --workspace=apps/ui
+npm run typecheck --workspace=apps/ui  # auto-builds packages/client first (pretypecheck) -- no separate step needed
 npm test --workspace=apps/ui
+npm run test:e2e --workspace=apps/ui   # needs a Chromium browser: npx playwright install --with-deps chromium (once)
 npm run build --workspace=apps/ui
 ```
 
 If lint flags formatting, run `npm run format --workspace=apps/ui`. Prettier is the
 single source of truth for style and is enforced through ESLint's `prettier/prettier`
 rule — don't hand-format.
+
+The responsive-overflow E2E check (`tests/e2e/responsive-overflow.spec.ts`) replays
+recorded API traffic (`tests/e2e/har/*.har`) instead of hitting live production data, so
+it stays deterministic regardless of live chain state. If your PR adds a new API call on
+one of the checked routes (`/`, `/subnets/1`, `/endpoints`, `/status`, `/settings`,
+`/explorer`), re-record the fixtures against a running dev server:
+`npm run test:e2e:record-har --workspace=apps/ui`. A stale HAR still passes (unmatched
+requests fall back to live data) but re-recording keeps the check fully offline-capable
+and avoids masking a real layout change behind stale fixture data.
 
 CI also gzip-measures the initial client JS for a cold `/` visit against a bundle-size
 budget — keep new dependencies/imports lean.

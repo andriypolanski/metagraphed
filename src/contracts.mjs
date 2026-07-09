@@ -1020,6 +1020,12 @@ export const PUBLIC_ARTIFACTS = [
     "SubnetStakeFlowArtifact",
   ),
   artifact(
+    "subnet-alpha-volume",
+    "/metagraph/subnets/{netuid}/volume.json",
+    "Rolling 24h buy/sell alpha volume for one subnet (#4339/8.1): unsigned totals (never netted) in both alpha and TAO for StakeAdded (buy) vs StakeRemoved (sell), plus event counts, summed live from the same account_events stream as /api/v1/subnets/{netuid}/stake-flow (no static file). Also carries a buy/sell sentiment indicator (#4339/8.2) purely derived from the alpha totals: net_volume_alpha, a bounded sentiment_ratio, and a bullish/bearish/neutral label. Fixed 24h window, not OHLC/price data (#2589's trader-feature fence).",
+    "SubnetAlphaVolumeArtifact",
+  ),
+  artifact(
     "subnet-movers",
     "/metagraph/subnets/movers.json",
     "Cross-subnet momentum leaderboard: every subnet ranked by its change in stake, emission, validator, and neuron count between a window's start and end snapshots, with each subnet's share of network stake/emission and a network aggregate summary, computed live from the neuron_daily D1 rollup at /api/v1/subnets/movers (no static file).",
@@ -1030,6 +1036,12 @@ export const PUBLIC_ARTIFACTS = [
     "/metagraph/validators.json",
     "Network-wide validator/operator leaderboard: validator-permit identities grouped across all current subnet memberships and ranked by subnet footprint, UID footprint, validator trust, or cross-subnet stake/emission totals, computed live from the neurons D1 tier at /api/v1/validators (no static file).",
     "GlobalValidatorsArtifact",
+  ),
+  artifact(
+    "accounts-list",
+    "/metagraph/accounts.json",
+    "Site-wide accounts leaderboard: every currently-registered hotkey (miners included, not just validator_permit=1 ones) grouped across all current subnet memberships and ranked by subnet/UID footprint, cross-subnet stake/emission totals, or last activity, computed live from the neurons D1 tier at /api/v1/accounts (no static file). The collection-level counterpart to /api/v1/validators.",
+    "AccountsListArtifact",
   ),
   artifact(
     "validator-detail",
@@ -1060,6 +1072,18 @@ export const PUBLIC_ARTIFACTS = [
     "/metagraph/subnets/{netuid}/neurons/{uid}.json",
     "A single neuron's metagraph state by UID, served live from the neurons D1 tier at /api/v1/subnets/{netuid}/neurons/{uid} (no static file).",
     "NeuronDetailArtifact",
+  ),
+  artifact(
+    "subnet-hyperparameters",
+    "/metagraph/subnets/{netuid}/hyperparameters.json",
+    "One subnet's consensus, economic, and governance hyperparameters (kappa, weight/activity settings, burn cost, liquid alpha, commit-reveal, yuma version, and more), refreshed daily and served live from the subnet_hyperparams D1 tier at /api/v1/subnets/{netuid}/hyperparameters (no static file).",
+    "SubnetHyperparametersArtifact",
+  ),
+  artifact(
+    "subnet-hyperparameters-history",
+    "/metagraph/subnets/{netuid}/hyperparameters/history.json",
+    "Append-only hyperparameter-change timeline for one subnet (subnet_hyperparams field snapshots on change), served live from the subnet_hyperparams_history D1 tier at /api/v1/subnets/{netuid}/hyperparameters/history (no static file). Forward-only.",
+    "SubnetHyperparamsHistoryArtifact",
   ),
   artifact(
     "subnet-validators",
@@ -1154,7 +1178,7 @@ export const PUBLIC_ARTIFACTS = [
   artifact(
     "account-stake-moves",
     "/metagraph/accounts/{ss58}/stake-moves.json",
-    "One account's stake-movement (re-delegation) footprint per subnet over a recent window (7d/30d/90d): each subnet's StakeMoved count with the first/last movement timestamps, plus account totals, an HHI concentration of where its re-delegation churn is focused, and the dominant subnet — summed live from the account_events D1 tier at /api/v1/accounts/{ss58}/stake-moves (no static file). The account-level companion to /api/v1/chain/stake-moves and /api/v1/subnets/{netuid}/stake-moves, distinct from net capital flow in /api/v1/accounts/{ss58}/stake-flow.",
+    "One account's stake-movement (re-delegation) footprint per subnet over a recent window (7d/30d/90d): each subnet's StakeMoved count with the first/last movement timestamps and the alpha price on the day of the most recent move (from the daily subnet_snapshots rollup), plus account totals, an HHI concentration of where its re-delegation churn is focused, and the dominant subnet — summed live from the account_events D1 tier at /api/v1/accounts/{ss58}/stake-moves (no static file). The account-level companion to /api/v1/chain/stake-moves and /api/v1/subnets/{netuid}/stake-moves, distinct from net capital flow in /api/v1/accounts/{ss58}/stake-flow.",
     "AccountStakeMovesArtifact",
   ),
   artifact(
@@ -1206,10 +1230,28 @@ export const PUBLIC_ARTIFACTS = [
     "AccountPortfolioArtifact",
   ),
   artifact(
+    "account-subnet-position-history",
+    "/metagraph/accounts/{ss58}/subnets/{netuid}/history.json",
+    "One wallet's position on one subnet over time (the 'Alpha Holdings chart'): one point per snapshot_date with the position's economics (stake, emission, rank, trust, incentive, dividends, coldkey, role) and yield, served live from the account_position_daily D1 rollup tier at /api/v1/accounts/{ss58}/subnets/{netuid}/history (no static file).",
+    "AccountPositionHistoryArtifact",
+  ),
+  artifact(
     "account-balance",
     "/metagraph/accounts/{ss58}/balance.json",
     "Live TAO balance (free+reserved, in TAO) for a finney account, queried from the RPC at request time with 60s KV cache. balance_tao is null on RPC failure. (#1818)",
     "AccountBalanceArtifact",
+  ),
+  artifact(
+    "sudo-key",
+    "/metagraph/sudo/key.json",
+    "The current Sudo::Key holder (#4310/2.4, re-scoped from the original Senate/Council membership framing — subtensor has no such pallet), queried from the finney RPC at request time with 1h KV cache (the key changes extremely rarely). hotkey is null on RPC failure or an unset sudo key.",
+    "SudoKeyArtifact",
+  ),
+  artifact(
+    "subnet-recycled",
+    "/metagraph/subnets/{netuid}/recycled.json",
+    "Live cumulative TAO recycled for registration on one subnet (#4339/8.4), queried from the chain's own RAORecycledForRegistration storage map at request time with 600s KV cache — not an account_events/log-layer aggregation (empirically confirmed the burn amount isn't captured by any ingested event or extrinsic field). recycled_tao is null on RPC failure; a subnet with zero registrations reads back a real 0.",
+    "SubnetRecycledArtifact",
   ),
   artifact(
     "blocks-feed",
@@ -1270,6 +1312,24 @@ export const PUBLIC_ARTIFACTS = [
     "/metagraph/extrinsics/{hash}.json",
     "Per-extrinsic detail (by 0x extrinsic_hash OR the composite <block_number>-<extrinsic_index> id) for the block explorer (#1345/#1848), served live from the first-party extrinsics D1 tier at /api/v1/extrinsics/{hash} (no static file).",
     "ExtrinsicDetailArtifact",
+  ),
+  artifact(
+    "sudo-calls",
+    "/metagraph/sudo.json",
+    "The root-origin (Sudo pallet) call table (#4310/2.2) — subtensor has no Council/Senate, only Sudo, so this is the extrinsics feed hardcoded to call_module='Sudo'. Served live from the first-party extrinsics D1 tier at /api/v1/sudo; pass ?format=csv to download the filtered rows as CSV (no static file).",
+    "ExtrinsicsFeedArtifact",
+  ),
+  artifact(
+    "governance-config-changes",
+    "/metagraph/governance/config-changes.json",
+    "Subtensor's own root-origin hyperparameter/network-config change feed (#4310/2.3, re-scoped from the original Council/Senate framing — subtensor has no such pallet) — the extrinsics feed hardcoded to call_module='AdminUtils'. Served live from the first-party extrinsics D1 tier at /api/v1/governance/config-changes; pass ?format=csv to download the filtered rows as CSV (no static file).",
+    "ExtrinsicsFeedArtifact",
+  ),
+  artifact(
+    "runtime-versions",
+    "/metagraph/runtime.json",
+    "The spec-version transition timeline (#4316/3.1) — the earliest known block at each distinct runtime spec_version, ascending by block_number — computed live from the first-party blocks D1 tier at /api/v1/runtime (no static file).",
+    "RuntimeVersionsArtifact",
   ),
   artifact(
     "chain-activity",
@@ -2211,6 +2271,17 @@ export const API_ROUTES = [
     [{ name: "netuid", schema: { type: "integer", minimum: 0 } }],
   ),
   route(
+    "subnet-alpha-volume",
+    "GET",
+    "/api/v1/subnets/{netuid}/volume",
+    "/metagraph/subnets/{netuid}/volume.json",
+    "Fetch the rolling 24h buy/sell alpha volume for one subnet: unsigned totals (never netted) in both alpha and TAO for StakeAdded (buy) vs StakeRemoved (sell), plus event counts, summed live from the same account_events stream as GET /api/v1/subnets/{netuid}/stake-flow. Also returns a buy/sell sentiment indicator derived from the alpha totals: net_volume_alpha, a bounded sentiment_ratio, and a bullish/bearish/neutral label. Fixed 24h window, no query params — a canonical market-depth figure, not OHLC/price data.",
+    "short",
+    ["subnets", "analytics"],
+    [],
+    [{ name: "netuid", schema: { type: "integer", minimum: 0 } }],
+  ),
+  route(
     "subnet-movers",
     "GET",
     "/api/v1/subnets/movers",
@@ -2258,6 +2329,37 @@ export const API_ROUTES = [
             "total_emission",
             "total_stake",
             "uid_count",
+          ],
+        },
+      },
+      {
+        name: "limit",
+        schema: { type: "integer", minimum: 1, maximum: 100 },
+      },
+    ]),
+    [],
+  ),
+  route(
+    "accounts-list",
+    "GET",
+    "/api/v1/accounts",
+    "/metagraph/accounts.json",
+    "Fetch the site-wide accounts leaderboard: every currently-registered hotkey (miners included, not just validator_permit=1 ones) grouped across all current subnet memberships, with cross-subnet stake/emission totals, stake dominance, a validator/miner UID breakdown, and top membership rows. Sort by total_stake (default), total_emission, subnet_count, uid_count, validator_count, stake_dominance, or last_active; limit caps the list (default 20, max 100). Computed live from the neurons D1 tier. No 'Free'/spendable-balance or 'Total' column — no balance-tracking tier exists to source them from account_events/neurons.",
+    "short",
+    ["accounts", "analytics"],
+    csvRouteQuery([
+      {
+        name: "sort",
+        schema: {
+          type: "string",
+          enum: [
+            "total_stake",
+            "total_emission",
+            "subnet_count",
+            "uid_count",
+            "validator_count",
+            "stake_dominance",
+            "last_active",
           ],
         },
       },
@@ -2347,6 +2449,32 @@ export const API_ROUTES = [
       { name: "netuid", schema: { type: "integer", minimum: 0 } },
       { name: "uid", schema: { type: "integer", minimum: 0 } },
     ],
+  ),
+  route(
+    "subnet-hyperparameters",
+    "GET",
+    "/api/v1/subnets/{netuid}/hyperparameters",
+    "/metagraph/subnets/{netuid}/hyperparameters.json",
+    "Fetch one subnet's consensus, economic, and governance hyperparameters (kappa, weight/activity settings, burn cost, liquid alpha, commit-reveal, yuma version, and more), refreshed daily and computed live from the subnet_hyperparams D1 tier.",
+    "short",
+    ["subnets", "analytics"],
+    [],
+    [{ name: "netuid", schema: { type: "integer", minimum: 0 } }],
+  ),
+  route(
+    "subnet-hyperparameters-history",
+    "GET",
+    "/api/v1/subnets/{netuid}/hyperparameters/history",
+    "/metagraph/subnets/{netuid}/hyperparameters/history.json",
+    "Fetch the append-only hyperparameter-change timeline for one subnet (#4309): each entry is a subnet_hyperparams snapshot recorded when any hyperparameter changed. Forward-only (no pre-feature history). Newest first; ?limit (<=1000) / ?offset, or ?cursor= for stable keyset paging.",
+    "short",
+    ["subnets", "analytics"],
+    [
+      { name: "limit", schema: { type: "integer", minimum: 1, maximum: 1000 } },
+      { name: "offset", schema: { type: "integer", minimum: 0 } },
+      { name: "cursor", schema: { type: "string" } },
+    ],
+    [{ name: "netuid", schema: { type: "integer", minimum: 0 } }],
   ),
   route(
     "subnet-validators",
@@ -2611,7 +2739,7 @@ export const API_ROUTES = [
     "GET",
     "/api/v1/accounts/{ss58}/stake-moves",
     "/metagraph/accounts/{ss58}/stake-moves.json",
-    "Fetch one account's stake-movement (re-delegation) footprint per subnet over a recent window (7d/30d/90d): each subnet's StakeMoved count with the first and last movement timestamps, plus account totals, an HHI concentration of where its re-delegation churn is focused, and the dominant subnet — summed live from the account_events D1 tier. The account-level companion to GET /api/v1/chain/stake-moves and GET /api/v1/subnets/{netuid}/stake-moves, distinct from net capital flow in GET /api/v1/accounts/{ss58}/stake-flow.",
+    "Fetch one account's stake-movement (re-delegation) footprint per subnet over a recent window (7d/30d/90d): each subnet's StakeMoved count with the first and last movement timestamps and the alpha price on the day of the most recent move (from the daily subnet_snapshots rollup), plus account totals, an HHI concentration of where its re-delegation churn is focused, and the dominant subnet — summed live from the account_events D1 tier. The account-level companion to GET /api/v1/chain/stake-moves and GET /api/v1/subnets/{netuid}/stake-moves, distinct from net capital flow in GET /api/v1/accounts/{ss58}/stake-flow.",
     "short",
     ["accounts", "analytics"],
     [
@@ -2741,6 +2869,25 @@ export const API_ROUTES = [
     [{ name: "ss58", schema: { type: "string" } }],
   ),
   route(
+    "account-subnet-position-history",
+    "GET",
+    "/api/v1/accounts/{ss58}/subnets/{netuid}/history",
+    "/metagraph/accounts/{ss58}/subnets/{netuid}/history.json",
+    "Fetch one wallet's position on one subnet over time (the 'Alpha Holdings chart'): one point per snapshot_date with the position's economics (stake, emission, rank, trust, incentive, dividends, coldkey, role) and yield, computed live from the account_position_daily D1 rollup tier. ?window=7d|30d|90d|1y|all.",
+    "short",
+    ["accounts", "subnets", "analytics"],
+    [
+      {
+        name: "window",
+        schema: { type: "string", enum: ["7d", "30d", "90d", "1y", "all"] },
+      },
+    ],
+    [
+      { name: "ss58", schema: { type: "string" } },
+      { name: "netuid", schema: { type: "integer", minimum: 0 } },
+    ],
+  ),
+  route(
     "account-balance",
     "GET",
     "/api/v1/accounts/{ss58}/balance",
@@ -2750,6 +2897,28 @@ export const API_ROUTES = [
     ["accounts"],
     [],
     [{ name: "ss58", schema: { type: "string" } }],
+  ),
+  route(
+    "sudo-key",
+    "GET",
+    "/api/v1/sudo/key",
+    "/metagraph/sudo/key.json",
+    "Fetch the current Sudo::Key holder, queried from the finney RPC at request time with 1h KV cache (re-scoped from the original Senate/Council membership framing — subtensor has no such pallet, #4310). hotkey is null on RPC failure or an unset sudo key.",
+    "short",
+    ["accounts"],
+    [],
+    [],
+  ),
+  route(
+    "subnet-recycled",
+    "GET",
+    "/api/v1/subnets/{netuid}/recycled",
+    "/metagraph/subnets/{netuid}/recycled.json",
+    "Fetch the live cumulative TAO recycled for registration on one subnet, queried from the chain's own RAORecycledForRegistration storage map at request time with 600s KV cache. recycled_tao is null on RPC failure; a subnet with zero registrations reads back a real 0.",
+    "short",
+    ["subnets"],
+    [],
+    [{ name: "netuid", schema: { type: "integer", minimum: 0 } }],
   ),
   route(
     "blocks-feed",
@@ -2913,6 +3082,61 @@ export const API_ROUTES = [
     ["extrinsics", "analytics"],
     [],
     [{ name: "hash", schema: { type: "string" } }],
+  ),
+  route(
+    "sudo-calls",
+    "GET",
+    "/api/v1/sudo",
+    "/metagraph/sudo.json",
+    "Fetch the root-origin (Sudo pallet) call table, newest first — subtensor has no Council/Senate, so this is the extrinsics feed hardcoded to call_module='Sudo'. ?limit (<=100) / ?offset (or ?cursor= for stable keyset paging) and a conjunctive filter set: ?block=<n>, ?call_function=, ?success=true|false, ?block_start/?block_end (block range), ?from/?to (observed_at epoch-ms range). Pass ?format=csv to download the filtered rows as CSV. Computed live from the first-party extrinsics D1 tier (#4310/2.2).",
+    "short",
+    ["extrinsics", "analytics"],
+    csvRouteQuery([
+      { name: "limit", schema: { type: "integer", minimum: 1, maximum: 100 } },
+      { name: "offset", schema: { type: "integer", minimum: 0 } },
+      { name: "cursor", schema: { type: "string" } },
+      { name: "block", schema: { type: "integer", minimum: 0 } },
+      { name: "call_function", schema: { type: "string" } },
+      { name: "success", schema: { type: "string", enum: ["true", "false"] } },
+      { name: "block_start", schema: { type: "integer", minimum: 0 } },
+      { name: "block_end", schema: { type: "integer", minimum: 0 } },
+      { name: "from", schema: { type: "integer", minimum: 0 } },
+      { name: "to", schema: { type: "integer", minimum: 0 } },
+    ]),
+    [],
+  ),
+  route(
+    "governance-config-changes",
+    "GET",
+    "/api/v1/governance/config-changes",
+    "/metagraph/governance/config-changes.json",
+    "Fetch subtensor's own root-origin hyperparameter/network-config change feed, newest first — the extrinsics feed hardcoded to call_module='AdminUtils' (re-scoped from the original Council/Senate framing; subtensor has no such pallet). ?limit (<=100) / ?offset (or ?cursor= for stable keyset paging) and a conjunctive filter set: ?block=<n>, ?call_function= (e.g. sudo_set_tempo), ?success=true|false, ?block_start/?block_end (block range), ?from/?to (observed_at epoch-ms range). Pass ?format=csv to download the filtered rows as CSV. Computed live from the first-party extrinsics D1 tier (#4310/2.3).",
+    "short",
+    ["extrinsics", "analytics"],
+    csvRouteQuery([
+      { name: "limit", schema: { type: "integer", minimum: 1, maximum: 100 } },
+      { name: "offset", schema: { type: "integer", minimum: 0 } },
+      { name: "cursor", schema: { type: "string" } },
+      { name: "block", schema: { type: "integer", minimum: 0 } },
+      { name: "call_function", schema: { type: "string" } },
+      { name: "success", schema: { type: "string", enum: ["true", "false"] } },
+      { name: "block_start", schema: { type: "integer", minimum: 0 } },
+      { name: "block_end", schema: { type: "integer", minimum: 0 } },
+      { name: "from", schema: { type: "integer", minimum: 0 } },
+      { name: "to", schema: { type: "integer", minimum: 0 } },
+    ]),
+    [],
+  ),
+  route(
+    "runtime-versions",
+    "GET",
+    "/api/v1/runtime",
+    "/metagraph/runtime.json",
+    "Fetch the spec-version transition timeline — the earliest known block at each distinct runtime spec_version, ascending by block_number. No query params: a single aggregate over the whole retained blocks window. spec_version is best-effort/nullable and wasn't tracked before 2026-06-25, so coverage_from_block/coverage_from_at bound what this endpoint can see. Computed live from the first-party blocks D1 tier (#4316/3.1).",
+    "short",
+    ["blocks", "analytics"],
+    [],
+    [],
   ),
   route(
     "chain-activity",
@@ -4022,6 +4246,12 @@ function csvExampleForRoute(entry) {
       'hk_sample,ck_sample,1,3,3,1234.5,10.25,0.12,0.98,0.99,2026-07-03T00:00:00.000Z,8454388,"[{""netuid"":1,""uid"":0}]"',
     ].join("\r\n");
   }
+  if (entry.id === "accounts-list") {
+    return [
+      "hotkey,coldkey,coldkey_count,subnet_count,uid_count,validator_count,miner_count,total_stake_tao,total_emission_tao,stake_dominance,latest_captured_at,latest_block_number,subnets",
+      'hk_sample,ck_sample,1,3,3,1,2,1234.5,10.25,0.12,2026-07-03T00:00:00.000Z,8454388,"[{""netuid"":1,""uid"":0}]"',
+    ].join("\r\n");
+  }
   if (entry.id === "subnet-metagraph" || entry.id === "subnet-validators") {
     return [
       "uid,hotkey,coldkey,active,validator_permit,rank,trust,validator_trust,consensus,incentive,dividends,emission_tao,stake_tao,registered_at_block,is_immunity_period,axon",
@@ -4044,6 +4274,18 @@ function csvExampleForRoute(entry) {
     return [
       "extrinsic_id,block_number,signer,call_module,call_function,success",
       "8454388-2,8454388,5Signer,SubtensorModule,add_stake,true",
+    ].join("\r\n");
+  }
+  if (entry.id === "sudo-calls") {
+    return [
+      "extrinsic_id,block_number,signer,call_module,call_function,success",
+      "8454388-1,8454388,5SudoKey,Sudo,sudo,true",
+    ].join("\r\n");
+  }
+  if (entry.id === "governance-config-changes") {
+    return [
+      "extrinsic_id,block_number,extrinsic_index,extrinsic_hash,signer,call_module,call_function,success,fee_tao,tip_tao,observed_at",
+      "8454388-3,8454388,3,0xhash_sample,5AdminKey,AdminUtils,sudo_set_tempo,true,0.000123,0,2026-07-03T00:00:00.000Z",
     ].join("\r\n");
   }
   if (entry.id === "chain-activity") {

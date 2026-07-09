@@ -14,6 +14,7 @@ import type {
   AgentCatalogService,
   AgentReadiness,
   AgentCatalogBlocker,
+  AskAnswerData,
   BulkHealthTrends,
   BulkHealthTrendSubnet,
   BulkHealthTrendPoint,
@@ -30,6 +31,8 @@ import type {
   AccountAxonRemovals,
   AccountAxonRemovalsSubnet,
   AccountDeregistrations,
+  AccountRegistrations,
+  AccountRegistrationsSubnet,
   AccountDeregistrationsSubnet,
   AccountWeightSetters,
   AccountWeightSettersSubnet,
@@ -43,6 +46,8 @@ import type {
   AccountEventsPage,
   AccountHistory,
   AccountPortfolio,
+  AccountStakeMoves,
+  AccountStakeMovesSubnet,
   AccountRegistration,
   AccountSubnets,
   AccountSummary,
@@ -51,12 +56,17 @@ import type {
   Block,
   ChainActivity,
   ChainActivityDay,
+  EconomicsTrends,
+  EconomicsTrendsDay,
   ChainCalls,
   ChainStakeFlow,
   ChainStakeFlowDistribution,
   ChainStakeFlowNetwork,
   ChainStakeFlowSubnet,
   ChainStakeMoves,
+  ChainTurnover,
+  ChainTurnoverNetwork,
+  ChainTurnoverSubnet,
   ChainStakeMovesDistribution,
   ChainStakeMovesNetwork,
   ChainStakeMovesSubnet,
@@ -77,6 +87,7 @@ import type {
   ChainSignerEntry,
   Extrinsic,
   ExtrinsicCallArg,
+  SudoKey,
   Transfer,
   Candidate,
   Compare,
@@ -103,6 +114,8 @@ import type {
   GlobalIncident,
   GlobalIncidents,
   GlobalIncidentSurface,
+  IncidentsFeed,
+  FeedItem,
   HealthState,
   HealthStatus,
   HealthSummary,
@@ -119,6 +132,9 @@ import type {
   Provider,
   ProviderEndpointSummary,
   RpcPool,
+  RpcEndpoint,
+  RpcEndpointsData,
+  RpcEndpointsSummary,
   RpcUsage,
   SchemaInfo,
   SemanticSearchResponse,
@@ -131,6 +147,8 @@ import type {
   SubnetEconomics,
   SubnetHistory,
   SubnetHistoryPoint,
+  SubnetHyperparameters,
+  SubnetHyperparametersDetail,
   SubnetIdentityHistory,
   SubnetWeightSetter,
   SubnetWeightSetters,
@@ -141,6 +159,7 @@ import type {
   SubnetNeuronHistoryPoint,
   SubnetStakeTransfers,
   SubnetRegistrations,
+  SubnetStakeFlow,
   SubnetMovers,
   SubnetMover,
   MetagraphNeuron,
@@ -150,6 +169,11 @@ import type {
   GlobalValidators,
   GlobalValidatorSort,
   GlobalValidatorSubnet,
+  ValidatorDetail,
+  ValidatorDetailSubnet,
+  ValidatorNominatorEntry,
+  ValidatorHistory,
+  ValidatorHistoryPoint,
   SubnetNeuronSnapshot,
   ConcentrationMetrics,
   ScoreDistribution,
@@ -164,6 +188,7 @@ import type {
   YieldHistoryPoint,
   SubnetYieldHistory,
   SubnetProfile,
+  SubnetOverview,
   Surface,
   SurfaceLatencyPercentiles,
   SurfaceSla,
@@ -203,12 +228,15 @@ const MAX_EXTRINSIC_COLLECTION_ENTRIES = 64;
 const MAX_EXTRINSIC_STRING_LENGTH = 2_000;
 const MAX_ACCOUNT_REGISTRATIONS = 100;
 const MAX_ACCOUNT_POSITIONS = 256;
+const MAX_ACCOUNT_STAKE_MOVES_SUBNETS = 128;
 const MAX_ACCOUNT_HISTORY_DAYS = 180;
 const MAX_ACCOUNT_DAY_EVENT_KINDS = 32;
 const MAX_CHAIN_ACTIVITY_DAYS = 31;
+const MAX_ECONOMICS_TRENDS_DAYS = 31;
 const MAX_CHAIN_CALLS = 12;
 const MAX_STAKE_FLOW_SUBNETS = 24;
 const MAX_STAKE_MOVES_SUBNETS = 24;
+const MAX_TURNOVER_SUBNETS = 24;
 // The endpoint returns the top 100 pallet.method groups, busiest first.
 const MAX_CHAIN_EVENT_GROUPS = 100;
 const DEFAULT_CHAIN_EVENT_BLOCKS = 1000;
@@ -273,6 +301,8 @@ function normalizeEconomicsSubnets(value: unknown): SubnetEconomics[] {
         max_stake_tao: optionalNumber(item.max_stake_tao),
         subnet_volume_tao: optionalNumber(item.subnet_volume_tao),
         registration_cost_tao: optionalNumber(item.registration_cost_tao),
+        alpha_market_cap_tao: optionalNumber(item.alpha_market_cap_tao),
+        alpha_fdv_tao: optionalNumber(item.alpha_fdv_tao),
         registration_allowed: booleanValue(item.registration_allowed),
       } satisfies SubnetEconomics,
     ];
@@ -2011,6 +2041,60 @@ export const extrinsicQuery = (hash: string) =>
     staleTime: STALE_SHORT,
   });
 
+/** Root-origin (Sudo) calls — the extrinsics feed hardcoded to call_module='Sudo' (#4310/2.2). */
+export const sudoCallsQuery = (params?: QueryParams) =>
+  queryOptions({
+    queryKey: k("sudo-calls", params ?? {}),
+    queryFn: async ({ signal }) => {
+      const res = await fetchList<unknown>("/api/v1/sudo", "extrinsics", params, signal);
+      const data = res.data.flatMap((row) => {
+        const x = normalizeExtrinsic(row);
+        return x ? [x] : [];
+      });
+      return { ...res, data } as ApiResult<Extrinsic[]>;
+    },
+    staleTime: STALE_SHORT,
+  });
+
+/** AdminUtils config-change feed — the extrinsics feed hardcoded to call_module='AdminUtils' (#4310/2.3). */
+export const governanceConfigChangesQuery = (params?: QueryParams) =>
+  queryOptions({
+    queryKey: k("governance-config-changes", params ?? {}),
+    queryFn: async ({ signal }) => {
+      const res = await fetchList<unknown>(
+        "/api/v1/governance/config-changes",
+        "extrinsics",
+        params,
+        signal,
+      );
+      const data = res.data.flatMap((row) => {
+        const x = normalizeExtrinsic(row);
+        return x ? [x] : [];
+      });
+      return { ...res, data } as ApiResult<Extrinsic[]>;
+    },
+    staleTime: STALE_SHORT,
+  });
+
+/** Current Sudo::Key holder, queried live from finney RPC (#4310/2.4). Rarely changes. */
+export const sudoKeyQuery = () =>
+  queryOptions({
+    queryKey: k("sudo-key"),
+    queryFn: async ({ signal }) => {
+      const res = await apiFetch<unknown>("/api/v1/sudo/key", { signal });
+      const d = isRecord(res.data) ? res.data : {};
+      return {
+        data: {
+          hotkey: firstString(d.hotkey) ?? null,
+          queried_at: firstString(d.queried_at) ?? null,
+        } as SudoKey,
+        meta: res.meta,
+        url: res.url,
+      } as ApiResult<SudoKey>;
+    },
+    staleTime: STALE_LONG,
+  });
+
 // Account explorer — cross-subnet activity for one hotkey/coldkey ss58. The
 // /api/v1/accounts/{ss58} summary bundles the aggregate, registrations, and a
 // recent-events sample (schema-stable zero for a cold/unknown account, never an
@@ -2394,6 +2478,50 @@ export const accountSubnetsQuery = (ss58: string) =>
 // #3491: the economics-rich companion to accountSubnetsQuery — every neuron
 // position under this hotkey with stake/emission/yield, plus wallet aggregates.
 // Non-blocking on the entity page; a cold wallet returns an empty positions[].
+function normalizeAccountStakeMovesSubnet(raw: unknown): AccountStakeMovesSubnet | null {
+  if (!isRecord(raw)) return null;
+  const netuid = coerceFiniteNumber(raw.netuid);
+  if (netuid == null) return null;
+  return {
+    netuid,
+    movements: coerceFiniteNumber(raw.movements) ?? 0,
+    first_moved_at: firstString(raw.first_moved_at) ?? null,
+    last_moved_at: firstString(raw.last_moved_at) ?? null,
+  };
+}
+
+export const accountStakeMovesQuery = (ss58: string) =>
+  queryOptions({
+    queryKey: k("account-stake-moves", ss58),
+    queryFn: async ({ signal }) => {
+      const res = await apiFetch<unknown>(`/api/v1/accounts/${ss58PathSegment(ss58)}/stake-moves`, {
+        params: { window: "30d" },
+        signal,
+      });
+      const d = isRecord(res.data) ? res.data : {};
+      const subnets = Array.isArray(d.subnets)
+        ? d.subnets.slice(0, MAX_ACCOUNT_STAKE_MOVES_SUBNETS).flatMap((row) => {
+            const n = normalizeAccountStakeMovesSubnet(row);
+            return n ? [n] : [];
+          })
+        : [];
+      return {
+        data: {
+          ss58: firstString(d.address) ?? ss58,
+          window: firstString(d.window) ?? "30d",
+          total_movements: firstFiniteNumber(d.total_movements) ?? 0,
+          subnet_count: firstFiniteNumber(d.subnet_count) ?? subnets.length,
+          concentration: firstFiniteNumber(d.concentration) ?? null,
+          dominant_netuid: firstFiniteNumber(d.dominant_netuid) ?? null,
+          subnets,
+        } as AccountStakeMoves,
+        meta: res.meta,
+        url: res.url,
+      } as ApiResult<AccountStakeMoves>;
+    },
+    staleTime: STALE_MED,
+  });
+
 export const accountPortfolioQuery = (ss58: string) =>
   queryOptions({
     queryKey: k("account-portfolio", ss58),
@@ -2475,6 +2603,59 @@ export const accountAxonRemovalsQuery = (ss58: string, window = "30d") =>
       );
       return {
         data: normalizeAccountAxonRemovals(ss58, res.data),
+        meta: res.meta,
+        url: res.url,
+      };
+    },
+    staleTime: STALE_MED,
+  });
+
+function normalizeAccountRegistrationsSubnet(raw: unknown): AccountRegistrationsSubnet | null {
+  if (!isRecord(raw)) return null;
+  const netuid = firstFiniteNumber(raw.netuid);
+  if (netuid == null) return null;
+  return {
+    netuid,
+    registrations: firstFiniteNumber(raw.registrations) ?? 0,
+    first_registered_at: firstString(raw.first_registered_at) ?? null,
+    last_registered_at: firstString(raw.last_registered_at) ?? null,
+  };
+}
+
+// Per-account registration (NeuronRegistered) footprint over a 7d/30d/90d window
+// (#3730). A flat summary card — total registrations + distinct subnets — from the
+// account_events NeuronRegistered stream. Coerces defensively: counts fall through
+// to 0 and concentration to null on a cold store or junk.
+export function normalizeAccountRegistrations(ss58: string, raw: unknown): AccountRegistrations {
+  const rec = isRecord(raw) ? raw : {};
+  const subnets = Array.isArray(rec.subnets)
+    ? rec.subnets.flatMap((row) => {
+        const normalized = normalizeAccountRegistrationsSubnet(row);
+        return normalized ? [normalized] : [];
+      })
+    : [];
+  return {
+    schema_version: firstFiniteNumber(rec.schema_version) ?? 1,
+    address: firstString(rec.address) ?? ss58,
+    window: firstString(rec.window) ?? null,
+    total_registrations: firstFiniteNumber(rec.total_registrations) ?? 0,
+    subnet_count: firstFiniteNumber(rec.subnet_count) ?? subnets.length,
+    concentration: firstFiniteNumber(rec.concentration) ?? null,
+    dominant_netuid: firstFiniteNumber(rec.dominant_netuid) ?? null,
+    subnets,
+  };
+}
+
+export const accountRegistrationsQuery = (ss58: string, window = "30d") =>
+  queryOptions({
+    queryKey: k("account-registrations", ss58, window),
+    queryFn: async ({ signal }) => {
+      const res = await apiFetch<Partial<AccountRegistrations>>(
+        `/api/v1/accounts/${ss58PathSegment(ss58)}/registrations`,
+        { params: { window }, signal },
+      );
+      return {
+        data: normalizeAccountRegistrations(ss58, res.data),
         meta: res.meta,
         url: res.url,
       };
@@ -2724,6 +2905,27 @@ function normalizeChainActivityDay(raw: unknown): ChainActivityDay | null {
   };
 }
 
+// #3365: network-wide economics rollup day. Distinct source (subnet_snapshots)
+// from the chain-indexer days above, so only `snapshot_date` is required —
+// every metric is independently null-able (a day can have subnets reporting
+// counts but no price, etc.), mirroring the backend's per-metric null-safety.
+function normalizeEconomicsTrendsDay(raw: unknown): EconomicsTrendsDay | null {
+  if (!isRecord(raw)) return null;
+  const snapshotDate = firstString(raw.snapshot_date);
+  const subnetCount = coerceFiniteNumber(raw.subnet_count);
+  if (!snapshotDate || subnetCount == null) return null;
+  return {
+    snapshot_date: snapshotDate,
+    subnet_count: subnetCount,
+    total_stake_tao: coerceFiniteNumber(raw.total_stake_tao) ?? null,
+    alpha_price_tao_weighted: coerceFiniteNumber(raw.alpha_price_tao_weighted) ?? null,
+    alpha_price_tao_median: coerceFiniteNumber(raw.alpha_price_tao_median) ?? null,
+    validator_count: coerceFiniteNumber(raw.validator_count) ?? null,
+    miner_count: coerceFiniteNumber(raw.miner_count) ?? null,
+    mean_emission_share: coerceFiniteNumber(raw.mean_emission_share) ?? null,
+  };
+}
+
 function normalizeChainCallEntry(raw: unknown): ChainCallEntry | null {
   if (!isRecord(raw)) return null;
   const callModule = firstString(raw.call_module);
@@ -2833,6 +3035,34 @@ export const chainActivityQuery = (window: ChainWindow = "7d") =>
         meta: res.meta,
         url: res.url,
       } as ApiResult<ChainActivity>;
+    },
+    staleTime: STALE_SHORT,
+  });
+
+// #3365: network-wide economics rollup (GET /api/v1/economics/trends), a distinct
+// data source (subnet_snapshots) from the chain-indexer series above. The endpoint
+// itself accepts a wider window vocabulary (7d/30d/90d/1y/all); this reuses
+// ChainWindow ("7d" | "30d") to match the explorer page's existing window toggle
+// rather than introducing a second, unused range.
+export const economicsTrendsQuery = (window: ChainWindow = "7d") =>
+  queryOptions({
+    queryKey: k("economics-trends", window),
+    queryFn: async ({ signal }) => {
+      const res = await apiFetch<unknown>("/api/v1/economics/trends", {
+        params: { window },
+        signal,
+      });
+      const d = isRecord(res.data) ? res.data : {};
+      return {
+        data: {
+          schema_version: 1,
+          window: firstString(d.window) ?? window,
+          day_count: firstFiniteNumber(d.day_count) ?? 0,
+          days: normalizeChainRows(d.days, MAX_ECONOMICS_TRENDS_DAYS, normalizeEconomicsTrendsDay),
+        } as EconomicsTrends,
+        meta: res.meta,
+        url: res.url,
+      } as ApiResult<EconomicsTrends>;
     },
     staleTime: STALE_SHORT,
   });
@@ -3231,6 +3461,64 @@ export const chainStakeMovesQuery = (window: ChainWindow = "7d") =>
     staleTime: STALE_SHORT,
   });
 
+function normalizeChainTurnoverNetwork(raw: unknown): ChainTurnoverNetwork | null {
+  if (!isRecord(raw)) return null;
+  return {
+    validators_start: coerceFiniteNumber(raw.validators_start) ?? 0,
+    validators_end: coerceFiniteNumber(raw.validators_end) ?? 0,
+    validators_entered: coerceFiniteNumber(raw.validators_entered) ?? 0,
+    validators_exited: coerceFiniteNumber(raw.validators_exited) ?? 0,
+    validator_retention: coerceFiniteNumber(raw.validator_retention) ?? null,
+    stability_score: coerceFiniteNumber(raw.stability_score) ?? null,
+  };
+}
+
+function normalizeChainTurnoverSubnet(raw: unknown): ChainTurnoverSubnet | null {
+  if (!isRecord(raw)) return null;
+  const netuid = coerceFiniteNumber(raw.netuid);
+  if (netuid == null) return null;
+  return {
+    netuid,
+    validators_start: coerceFiniteNumber(raw.validators_start) ?? 0,
+    validators_end: coerceFiniteNumber(raw.validators_end) ?? 0,
+    validators_entered: coerceFiniteNumber(raw.validators_entered) ?? 0,
+    validators_exited: coerceFiniteNumber(raw.validators_exited) ?? 0,
+    validator_retention: coerceFiniteNumber(raw.validator_retention) ?? null,
+    stability_score: coerceFiniteNumber(raw.stability_score) ?? null,
+  };
+}
+
+export const chainTurnoverQuery = (window: ChainWindow = "7d") =>
+  queryOptions({
+    queryKey: k("chain-turnover", window),
+    queryFn: async ({ signal }) => {
+      const res = await apiFetch<unknown>("/api/v1/chain/turnover", {
+        params: { window },
+        signal,
+      });
+      const d = isRecord(res.data) ? res.data : {};
+      return {
+        data: {
+          schema_version: 1,
+          window,
+          start_date: firstString(d.start_date) ?? null,
+          end_date: firstString(d.end_date) ?? null,
+          comparable: d.comparable === true,
+          subnet_count: firstFiniteNumber(d.subnet_count) ?? 0,
+          network: normalizeChainTurnoverNetwork(d.network),
+          subnets: normalizeChainRows(
+            d.subnets,
+            MAX_TURNOVER_SUBNETS,
+            normalizeChainTurnoverSubnet,
+          ),
+        } as ChainTurnover,
+        meta: res.meta,
+        url: res.url,
+      } as ApiResult<ChainTurnover>;
+    },
+    staleTime: STALE_SHORT,
+  });
+
 const READINESS_COMPONENT_KEYS = [
   "has_callable_api",
   "callable_now",
@@ -3454,6 +3742,36 @@ export const subnetHealthQuery = (netuid: number) =>
  * newest first, from the account_events tier filtered by netuid. Schema-stable
  * zero for a cold/unknown subnet.
  */
+// #3342: per-subnet stake-flow scorecard — net capital movement (staked in /
+// unstaked out / signed net) over the window. A cold store returns all-zero
+// totals (never 404); the normalizer coerces every numeric to 0, never NaN.
+export function normalizeSubnetStakeFlow(netuid: number, raw: unknown): SubnetStakeFlow {
+  const d = isRecord(raw) ? raw : {};
+  return {
+    schema_version: firstFiniteNumber(d.schema_version) ?? 1,
+    netuid: firstFiniteNumber(d.netuid) ?? netuid,
+    window: firstString(d.window) ?? "30d",
+    total_staked_tao: coerceFiniteNumber(d.total_staked_tao) ?? 0,
+    total_unstaked_tao: coerceFiniteNumber(d.total_unstaked_tao) ?? 0,
+    net_flow_tao: coerceFiniteNumber(d.net_flow_tao) ?? 0,
+    stake_events: firstFiniteNumber(d.stake_events) ?? 0,
+    unstake_events: firstFiniteNumber(d.unstake_events) ?? 0,
+  };
+}
+
+export const subnetStakeFlowQuery = (netuid: number, window = "30d") =>
+  queryOptions({
+    queryKey: k("subnet-stake-flow", netuid, window),
+    queryFn: async ({ signal }) => {
+      const res = await apiFetch<Partial<SubnetStakeFlow>>(`/api/v1/subnets/${netuid}/stake-flow`, {
+        params: { window },
+        signal,
+      });
+      return { data: normalizeSubnetStakeFlow(netuid, res.data), meta: res.meta, url: res.url };
+    },
+    staleTime: STALE_MED,
+  });
+
 export const subnetEventsQuery = (netuid: number) =>
   queryOptions({
     queryKey: k("subnet-events", netuid),
@@ -3623,6 +3941,71 @@ export const subnetUptimeQuery = (netuid: number, window = "90d") =>
         signal,
       });
       return { data: normalizeUptime(res.data), meta: res.meta, url: res.url };
+    },
+    staleTime: STALE_MED,
+  });
+
+// One subnet's consensus/economic/governance hyperparameters (#4307/1.4),
+// refreshed daily from the subnet_hyperparams D1 tier. Cold/absent snapshot ->
+// hyperparameters: null, never an error.
+function normalizeSubnetHyperparameters(raw: unknown): SubnetHyperparameters | null {
+  if (!isRecord(raw)) return null;
+  return {
+    kappa_ratio: firstFiniteNumber(raw.kappa_ratio) ?? null,
+    immunity_period: firstFiniteNumber(raw.immunity_period) ?? null,
+    min_allowed_weights: firstFiniteNumber(raw.min_allowed_weights) ?? null,
+    max_weight_limit_ratio: firstFiniteNumber(raw.max_weight_limit_ratio) ?? null,
+    tempo: firstFiniteNumber(raw.tempo) ?? null,
+    weights_version: firstFiniteNumber(raw.weights_version) ?? null,
+    weights_rate_limit: firstFiniteNumber(raw.weights_rate_limit) ?? null,
+    activity_cutoff: firstFiniteNumber(raw.activity_cutoff) ?? null,
+    activity_cutoff_factor: firstFiniteNumber(raw.activity_cutoff_factor) ?? null,
+    registration_allowed: booleanValue(raw.registration_allowed) ?? false,
+    target_regs_per_interval: firstFiniteNumber(raw.target_regs_per_interval) ?? null,
+    min_burn_tao: firstFiniteNumber(raw.min_burn_tao) ?? null,
+    max_burn_tao: firstFiniteNumber(raw.max_burn_tao) ?? null,
+    burn_half_life: firstFiniteNumber(raw.burn_half_life) ?? null,
+    burn_increase_mult: firstFiniteNumber(raw.burn_increase_mult) ?? null,
+    bonds_moving_avg_raw: firstFiniteNumber(raw.bonds_moving_avg_raw) ?? null,
+    max_regs_per_block: firstFiniteNumber(raw.max_regs_per_block) ?? null,
+    serving_rate_limit: firstFiniteNumber(raw.serving_rate_limit) ?? null,
+    max_validators: firstFiniteNumber(raw.max_validators) ?? null,
+    commit_reveal_period: firstFiniteNumber(raw.commit_reveal_period) ?? null,
+    commit_reveal_enabled: booleanValue(raw.commit_reveal_enabled) ?? false,
+    alpha_high_ratio: firstFiniteNumber(raw.alpha_high_ratio) ?? null,
+    alpha_low_ratio: firstFiniteNumber(raw.alpha_low_ratio) ?? null,
+    liquid_alpha_enabled: booleanValue(raw.liquid_alpha_enabled) ?? false,
+    alpha_sigmoid_steepness: firstFiniteNumber(raw.alpha_sigmoid_steepness) ?? null,
+    yuma_version: firstFiniteNumber(raw.yuma_version) ?? null,
+    subnet_is_active: booleanValue(raw.subnet_is_active) ?? false,
+    transfers_enabled: booleanValue(raw.transfers_enabled) ?? false,
+    bonds_reset_enabled: booleanValue(raw.bonds_reset_enabled) ?? false,
+    user_liquidity_enabled: booleanValue(raw.user_liquidity_enabled) ?? false,
+    owner_cut_enabled: booleanValue(raw.owner_cut_enabled) ?? false,
+    owner_cut_auto_lock_enabled: booleanValue(raw.owner_cut_auto_lock_enabled) ?? false,
+    min_childkey_take_ratio: firstFiniteNumber(raw.min_childkey_take_ratio) ?? null,
+  };
+}
+
+export const subnetHyperparametersQuery = (netuid: number) =>
+  queryOptions({
+    queryKey: k("subnet-hyperparameters", netuid),
+    queryFn: async ({ signal }) => {
+      const res = await apiFetch<unknown>(`/api/v1/subnets/${netuid}/hyperparameters`, {
+        signal,
+      });
+      const d = isRecord(res.data) ? res.data : {};
+      return {
+        data: {
+          schema_version: firstFiniteNumber(d.schema_version) ?? undefined,
+          netuid,
+          captured_at: firstString(d.captured_at) ?? null,
+          block_number: firstFiniteNumber(d.block_number) ?? null,
+          hyperparameters: normalizeSubnetHyperparameters(d.hyperparameters),
+        } as SubnetHyperparametersDetail,
+        meta: res.meta,
+        url: res.url,
+      } as ApiResult<SubnetHyperparametersDetail>;
     },
     staleTime: STALE_MED,
   });
@@ -4435,6 +4818,150 @@ export const validatorsQuery = ({
         meta: res.meta,
         url: res.url,
       } as ApiResult<GlobalValidators>;
+    },
+    staleTime: STALE_SHORT,
+  });
+
+function normalizeValidatorDetailSubnet(raw: unknown): ValidatorDetailSubnet | null {
+  if (!isRecord(raw)) return null;
+  const netuid = firstFiniteNumber(raw.netuid);
+  const uid = firstFiniteNumber(raw.uid);
+  if (netuid == null || uid == null) return null;
+  return {
+    netuid,
+    uid,
+    hotkey: firstString(raw.hotkey) ?? null,
+    coldkey: firstString(raw.coldkey) ?? null,
+    active: booleanValue(raw.active) ?? null,
+    validator_permit: booleanValue(raw.validator_permit) ?? false,
+    rank: firstFiniteNumber(raw.rank) ?? null,
+    trust: firstFiniteNumber(raw.trust) ?? null,
+    validator_trust: firstFiniteNumber(raw.validator_trust) ?? null,
+    consensus: firstFiniteNumber(raw.consensus) ?? null,
+    incentive: firstFiniteNumber(raw.incentive) ?? null,
+    dividends: firstFiniteNumber(raw.dividends) ?? null,
+    emission_tao: firstFiniteNumber(raw.emission_tao) ?? null,
+    stake_tao: firstFiniteNumber(raw.stake_tao) ?? null,
+    registered_at_block: firstFiniteNumber(raw.registered_at_block) ?? null,
+    is_immunity_period: booleanValue(raw.is_immunity_period) ?? null,
+    axon: firstString(raw.axon) ?? null,
+  };
+}
+
+/** Cross-subnet validator detail — a validator's rows joined across every subnet
+ * they operate in (#4335/7.1). Schema-stable: a cold/unknown hotkey resolves to
+ * a zeroed aggregate rather than an error, so this never throws on a bad hotkey. */
+export const validatorDetailQuery = (hotkey: string) =>
+  queryOptions({
+    queryKey: k("validator-detail", hotkey),
+    queryFn: async ({ signal }) => {
+      const res = await apiFetch<unknown>(`/api/v1/validators/${ss58PathSegment(hotkey)}`, {
+        signal,
+      });
+      const d = isRecord(res.data) ? res.data : {};
+      const subnets = Array.isArray(d.subnets)
+        ? d.subnets.flatMap((row) => {
+            const s = normalizeValidatorDetailSubnet(row);
+            return s ? [s] : [];
+          })
+        : [];
+      return {
+        data: {
+          hotkey: firstString(d.hotkey) ?? hotkey,
+          coldkey: firstString(d.coldkey) ?? null,
+          coldkey_count: firstFiniteNumber(d.coldkey_count) ?? 0,
+          subnet_count: firstFiniteNumber(d.subnet_count) ?? 0,
+          total_stake_tao: firstFiniteNumber(d.total_stake_tao) ?? 0,
+          total_emission_tao: firstFiniteNumber(d.total_emission_tao) ?? 0,
+          avg_validator_trust: firstFiniteNumber(d.avg_validator_trust) ?? null,
+          max_validator_trust: firstFiniteNumber(d.max_validator_trust) ?? null,
+          captured_at: firstString(d.captured_at) ?? null,
+          block_number: firstFiniteNumber(d.block_number) ?? null,
+          subnets,
+        } as ValidatorDetail,
+        meta: res.meta,
+        url: res.url,
+      } as ApiResult<ValidatorDetail>;
+    },
+    staleTime: STALE_SHORT,
+  });
+
+function normalizeValidatorNominator(raw: unknown): ValidatorNominatorEntry | null {
+  if (!isRecord(raw)) return null;
+  const coldkey = firstString(raw.coldkey);
+  if (!coldkey) return null;
+  return {
+    coldkey,
+    staked_tao: firstFiniteNumber(raw.staked_tao) ?? 0,
+    unstaked_tao: firstFiniteNumber(raw.unstaked_tao) ?? 0,
+    net_staked_tao: firstFiniteNumber(raw.net_staked_tao) ?? 0,
+    gross_staked_tao: firstFiniteNumber(raw.gross_staked_tao) ?? 0,
+    event_count: firstFiniteNumber(raw.event_count) ?? 0,
+    last_observed_at: firstString(raw.last_observed_at) ?? null,
+  };
+}
+
+/** Nominator list + search for one validator, derived from stake-delegation
+ * account_events (#4336/7.2). Offset-paginated, newest/largest-first per `sort`. */
+export const validatorNominatorsQuery = (hotkey: string, params?: QueryParams) =>
+  queryOptions({
+    queryKey: k("validator-nominators", hotkey, params ?? {}),
+    queryFn: async ({ signal }) => {
+      const res = await fetchList<unknown>(
+        `/api/v1/validators/${ss58PathSegment(hotkey)}/nominators`,
+        "nominators",
+        params,
+        signal,
+      );
+      const data = res.data.flatMap((row) => {
+        const n = normalizeValidatorNominator(row);
+        return n ? [n] : [];
+      });
+      return { ...res, data } as ApiResult<ValidatorNominatorEntry[]>;
+    },
+    staleTime: STALE_SHORT,
+  });
+
+function normalizeValidatorHistoryPoint(raw: unknown): ValidatorHistoryPoint | null {
+  if (!isRecord(raw)) return null;
+  const snapshotDate = firstString(raw.snapshot_date);
+  if (!snapshotDate) return null;
+  return {
+    snapshot_date: snapshotDate,
+    subnet_count: firstFiniteNumber(raw.subnet_count) ?? null,
+    total_stake_tao: firstFiniteNumber(raw.total_stake_tao) ?? null,
+    total_emission_tao: firstFiniteNumber(raw.total_emission_tao) ?? null,
+    rewards_per_1000_tao: firstFiniteNumber(raw.rewards_per_1000_tao) ?? null,
+  };
+}
+
+/** Daily staked-over-time + rewards-per-1000-TAO series for one validator,
+ * reusing the neuron_daily rollup (#4337/7.3). */
+export const validatorHistoryQuery = (hotkey: string, window: string) =>
+  queryOptions({
+    queryKey: k("validator-history", hotkey, window),
+    queryFn: async ({ signal }) => {
+      const res = await apiFetch<unknown>(`/api/v1/validators/${ss58PathSegment(hotkey)}/history`, {
+        params: { window },
+        signal,
+      });
+      const d = isRecord(res.data) ? res.data : {};
+      const points = Array.isArray(d.points)
+        ? d.points.flatMap((row) => {
+            const p = normalizeValidatorHistoryPoint(row);
+            return p ? [p] : [];
+          })
+        : [];
+      return {
+        data: {
+          hotkey: firstString(d.hotkey) ?? hotkey,
+          window: firstString(d.window) ?? null,
+          point_count: firstFiniteNumber(d.point_count) ?? points.length,
+          points,
+        } as ValidatorHistory,
+        meta: res.meta,
+        url: res.url,
+      } as ApiResult<ValidatorHistory>;
     },
     staleTime: STALE_SHORT,
   });
@@ -5294,6 +5821,41 @@ export const rpcPoolsQuery = () =>
     staleTime: STALE_MED,
   });
 
+function normalizeRpcEndpoint(raw: unknown): RpcEndpoint | undefined {
+  if (!isRecord(raw)) return undefined;
+  const id = asString(raw.id);
+  if (!id) return undefined;
+  return { ...(raw as object), id } as RpcEndpoint;
+}
+
+function normalizeRpcEndpointsSummary(raw: unknown): RpcEndpointsSummary | null {
+  return isRecord(raw) ? (raw as RpcEndpointsSummary) : null;
+}
+
+// /api/v1/rpc/endpoints — the base-layer Subtensor RPC/WSS registry
+// (RpcEndpointsArtifact: a summary rollup alongside the endpoint list).
+// Unlike the other `fetchList`-based queries on this page, this artifact's
+// `summary` sibling field would be silently dropped by `fetchList` (which
+// only extracts the keyed array) — verified live: `summary` lives in the
+// artifact body next to `endpoints`, not in the response envelope's `meta`
+// (only `generated_at` round-trips through `meta`, matching `rpcPoolsQuery`'s
+// `data.meta?.generated_at` freshness read). So this unwraps the keyed
+// object itself, mirroring `fetchList`'s own array-extraction, to keep both.
+export const rpcEndpointsQuery = () =>
+  queryOptions({
+    queryKey: k("rpc-endpoints"),
+    queryFn: async ({ signal }): Promise<ApiResult<RpcEndpointsData>> => {
+      const res = await apiFetch<unknown>("/api/v1/rpc/endpoints", { signal });
+      const body = isRecord(res.data) ? res.data : {};
+      const endpoints = Array.isArray(body.endpoints)
+        ? body.endpoints.map(normalizeRpcEndpoint).filter((e): e is RpcEndpoint => e != null)
+        : [];
+      const summary = normalizeRpcEndpointsSummary(body.summary);
+      return { ...res, data: { endpoints, summary } };
+    },
+    staleTime: STALE_MED,
+  });
+
 // /api/v1/rpc/usage returns a single analytics object (not a list), like the
 // global incident ledger. Cold/unmigrated D1 already yields a schema-stable
 // zeroed payload server-side; this normaliser just hardens against missing
@@ -5464,6 +6026,23 @@ export const agentResourcesQuery = () =>
     staleTime: STALE_MED,
   });
 
+// POST /api/v1/ask — grounded Q&A over the registry. User-triggered on submit,
+// not a passive fetch-on-mount GET, so this is a plain typed helper for a
+// component's own useMutation to call (see ask-box.tsx), not a
+// queryOptions/useSuspenseQuery pair — matching the verify-surface-button.tsx
+// imperative-POST precedent.
+export async function askQuestion(question: string, signal?: AbortSignal): Promise<AskAnswerData> {
+  const res = await apiFetch<AskAnswerData>("/api/v1/ask", {
+    init: {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ question }),
+    },
+    signal,
+  });
+  return res.data;
+}
+
 export const endpointIncidentsQuery = () =>
   queryOptions({
     queryKey: k("endpoint-incidents"),
@@ -5493,6 +6072,59 @@ export const globalIncidentsQuery = (window: string) =>
     },
     staleTime: STALE_SHORT,
   });
+
+/**
+ * Incidents JSON Feed (/api/v1/feeds/incidents.json) — machine-readable
+ * subscription stream for probe-detected downtime across subnet surfaces.
+ */
+export const incidentsFeedQuery = () =>
+  queryOptions({
+    queryKey: k("feeds", "incidents"),
+    queryFn: async ({ signal }) => {
+      const res = await apiFetch<unknown>("/api/v1/feeds/incidents.json", { signal });
+      return { ...res, data: normalizeIncidentsFeed(res.data) } as ApiResult<IncidentsFeed>;
+    },
+    staleTime: STALE_MED,
+  });
+
+function normalizeFeedItem(raw: unknown): FeedItem | undefined {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : undefined;
+  if (!r) return undefined;
+  const id = pickStr(r.id);
+  if (!id) return undefined;
+  const tags = Array.isArray(r.tags)
+    ? r.tags.flatMap((tag) => {
+        const s = pickStr(tag);
+        return s ? [s] : [];
+      })
+    : [];
+  return {
+    id,
+    url: pickStr(r.url),
+    title: pickStr(r.title),
+    content_text: pickStr(r.content_text),
+    date_published: pickStr(r.date_published) ?? null,
+    tags: tags.length > 0 ? tags : undefined,
+  };
+}
+
+function normalizeIncidentsFeed(raw: unknown): IncidentsFeed {
+  const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const items = Array.isArray(r.items)
+    ? r.items.flatMap((item) => {
+        const normalized = normalizeFeedItem(item);
+        return normalized ? [normalized] : [];
+      })
+    : [];
+  return {
+    version: pickStr(r.version),
+    title: pickStr(r.title),
+    home_page_url: pickStr(r.home_page_url),
+    feed_url: pickStr(r.feed_url),
+    description: pickStr(r.description),
+    items,
+  };
+}
 
 function finiteNumber(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -5949,6 +6581,45 @@ export const subnetGapsQuery = (netuid: number) =>
       const data = normalizeSubnetGaps(res.data);
       if (!data) throw new Error("Invalid subnet gaps response");
       return { ...res, data };
+    },
+    staleTime: STALE_MED,
+  });
+
+// The composed SubnetOverviewArtifact's sub-objects (profile/health/curation/
+// gaps) are already reviewed, schema-valid payloads in their own right — this
+// only needs enough fidelity to render the summary strip (#3346), not a full
+// re-typed mirror of each sub-schema, so profile/health/curation/gaps pass
+// through as loose records (matching the existing SubnetOverview interface).
+export function normalizeSubnetOverview(raw: unknown, netuid: number): SubnetOverview {
+  const root = isRecord(raw) ? raw : {};
+  const counts = isRecord(root.counts) ? root.counts : {};
+  return {
+    netuid: optionalNumber(root.netuid) ?? netuid,
+    name: optionalString(root.name),
+    slug: optionalString(root.slug),
+    status: optionalString(root.status),
+    profile: isRecord(root.profile) ? root.profile : undefined,
+    health: isRecord(root.health) ? root.health : undefined,
+    curation: isRecord(root.curation) ? root.curation : undefined,
+    gaps: isRecord(root.gaps) ? root.gaps : undefined,
+    gap_priorities: Array.isArray(root.gap_priorities) ? root.gap_priorities : [],
+    counts: {
+      surfaces: optionalNumber(counts.surfaces) ?? 0,
+      endpoints: optionalNumber(counts.endpoints) ?? 0,
+      candidates: optionalNumber(counts.candidates) ?? 0,
+    },
+  };
+}
+
+export const subnetOverviewQuery = (netuid: number) =>
+  queryOptions({
+    queryKey: k("subnet-overview", netuid),
+    queryFn: async ({ signal }) => {
+      const res = await apiFetch<unknown>(`/api/v1/subnets/${netuid}/overview`, { signal });
+      return {
+        ...res,
+        data: normalizeSubnetOverview(res.data, netuid),
+      } as ApiResult<SubnetOverview>;
     },
     staleTime: STALE_MED,
   });

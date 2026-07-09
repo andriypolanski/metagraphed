@@ -12,6 +12,7 @@ import { QueryErrorBoundary } from "@/components/metagraphed/error-boundary";
 import { validatorsQuery } from "@/lib/metagraphed/queries";
 import { formatNumber, isStaleFreshness } from "@/lib/metagraphed/format";
 import { shortHash } from "@/lib/metagraphed/blocks";
+import { ValidatorSubnetHeatmap } from "@/components/metagraphed/charts/validator-subnet-heatmap";
 import { taoCompact } from "@/components/metagraphed/neuron-table";
 import type { GlobalValidatorSort } from "@/lib/metagraphed/types";
 
@@ -89,6 +90,13 @@ function ValidatorsPage() {
           />
         </Suspense>
       </QueryErrorBoundary>
+      <div className="mt-6" id="validator-subnet-heatmap">
+        <QueryErrorBoundary>
+          <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+            <ValidatorSubnetHeatmap />
+          </Suspense>
+        </QueryErrorBoundary>
+      </div>
       <ApiSourceFooter paths={["/api/v1/validators"]} />
     </AppShell>
   );
@@ -168,8 +176,8 @@ function ValidatorsTable({
                 <tr key={v.hotkey} className="hover:bg-surface/40">
                   <td className="px-3 py-2 font-mono text-[11px]">
                     <Link
-                      to="/accounts/$ss58"
-                      params={{ ss58: v.hotkey }}
+                      to="/validators/$hotkey"
+                      params={{ hotkey: v.hotkey }}
                       className="text-ink-strong hover:text-accent hover:underline"
                       title={v.hotkey}
                     >
