@@ -2678,6 +2678,68 @@ export interface ChainWeights {
   subnets: ChainWeightsSubnet[];
 }
 
+/** One subnet's row on the network-wide axon-serving leaderboard (#3463). */
+export interface ChainServingSubnet {
+  netuid: number;
+  distinct_servers: number;
+  announcements: number;
+  announcements_per_server: number | null;
+}
+
+/** Network-wide axon-serving rollup from GET /api/v1/chain/serving. */
+export interface ChainServingNetwork {
+  distinct_servers: number;
+  announcements: number;
+  announcements_per_server: number | null;
+}
+
+/**
+ * Network-wide axon-serving activity over a 7d/30d window (#3463), from
+ * GET /api/v1/chain/serving — subnets ranked by AxonServed announcement volume,
+ * plus the true network-wide distinct-server rollup and intensity distribution.
+ * Zeroed when cold.
+ */
+export interface ChainServing {
+  schema_version: number;
+  window: string | null;
+  observed_at: string | null;
+  subnet_count: number;
+  network: ChainServingNetwork;
+  intensity_distribution: ChainIntensityDistribution | null;
+  subnets: ChainServingSubnet[];
+}
+
+/** One subnet's row on the network-wide Prometheus-telemetry leaderboard (#3463). */
+export interface ChainPrometheusSubnet {
+  netuid: number;
+  distinct_exporters: number;
+  announcements: number;
+  announcements_per_exporter: number | null;
+}
+
+/** Network-wide Prometheus-telemetry rollup from GET /api/v1/chain/prometheus. */
+export interface ChainPrometheusNetwork {
+  distinct_exporters: number;
+  announcements: number;
+  announcements_per_exporter: number | null;
+}
+
+/**
+ * Network-wide Prometheus-endpoint telemetry over a 7d/30d window (#3463), from
+ * GET /api/v1/chain/prometheus — subnets ranked by PrometheusServed announcement
+ * volume, plus the true network-wide distinct-exporter rollup and intensity
+ * distribution. Zeroed when cold.
+ */
+export interface ChainPrometheus {
+  schema_version: number;
+  window: string | null;
+  observed_at: string | null;
+  subnet_count: number;
+  network: ChainPrometheusNetwork;
+  intensity_distribution: ChainIntensityDistribution | null;
+  subnets: ChainPrometheusSubnet[];
+}
+
 /** One subnet's row on the network-wide neuron-registration leaderboard (#3465). */
 export interface ChainRegistrationsSubnet {
   netuid: number;

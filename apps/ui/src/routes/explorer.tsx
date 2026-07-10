@@ -25,6 +25,8 @@ import {
   chainSignersQuery,
   chainWeightSettersQuery,
   chainRegistrationsQuery,
+  chainServingQuery,
+  chainPrometheusQuery,
   chainStakeFlowQuery,
   chainStakeMovesQuery,
   chainTurnoverQuery,
@@ -47,6 +49,8 @@ import type {
   EconomicsTrends,
   ChainAxonRemovals,
   ChainRegistrations,
+  ChainServing,
+  ChainPrometheus,
   ChainTransfers,
 } from "@/lib/metagraphed/types";
 
@@ -110,6 +114,8 @@ function ExplorerPage() {
           "/api/v1/chain/signers",
           "/api/v1/chain/weights/setters",
           "/api/v1/chain/registrations",
+          "/api/v1/chain/serving",
+          "/api/v1/chain/prometheus",
           "/api/v1/chain/stake-flow",
           "/api/v1/chain/stake-moves",
           "/api/v1/chain/turnover",
@@ -516,6 +522,173 @@ function StakeMovesSection({ moves }: { moves: ChainStakeMoves }) {
           in the busiest subnet, across {formatNumber(dist.count)} subnets.
         </p>
       ) : null}
+    </section>
+  );
+}
+
+/**
+ * #3463: network-wide axon-serving and Prometheus-telemetry leaderboards side
+ * by side — which subnets are actively announcing operational endpoints. The
+ * wrapping section leaves room for #3464's axon-removals panel to slot in later.
+ */
+function NetworkOperationsSection({
+  serving,
+  prometheus,
+}: {
+  serving: ChainServing;
+  prometheus: ChainPrometheus;
+}) {
+  return (
+    <section>
+      <h2 className="mb-6 font-mono text-[11px] uppercase tracking-[0.18em] text-ink-muted">
+        Network operations
+      </h2>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ChainServingLeaderboard board={serving} />
+        <ChainPrometheusLeaderboard board={prometheus} />
+      </div>
+    </section>
+  );
+}
+
+function ChainServingLeaderboard({ board }: { board: ChainServing }) {
+  const net = board.network;
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-muted">
+          Axon serving
+        </h3>
+        <span className="font-mono text-[11px] text-ink-muted">
+          {formatNumber(board.subnet_count)} subnets
+        </span>
+      </div>
+
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StakeFlowMetric label="Announcements" value={formatNumber(net.announcements)} />
+        <StakeFlowMetric label="Distinct servers" value={formatNumber(net.distinct_servers)} />
+        <StakeFlowMetric
+          label="Per server"
+          value={
+            net.announcements_per_server != null ? net.announcements_per_server.toFixed(2) : "—"
+          }
+        />
+      </div>
+
+      {board.subnets.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr>
+                <th className={TH}>Subnet</th>
+                <th className={`${TH} text-right`}>Announcements</th>
+                <th className={`${TH} text-right`}>Distinct servers</th>
+                <th className={`${TH} text-right`}>Per server</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {board.subnets.map((s) => (
+                <tr key={s.netuid} className="hover:bg-surface/40">
+                  <td className="px-4 py-2 font-mono text-[11px]">
+                    <Link
+                      to="/subnets/$netuid"
+                      params={{ netuid: s.netuid }}
+                      className="text-ink-strong hover:text-accent hover:underline"
+                    >
+                      SN{s.netuid}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono text-[11px] tabular-nums text-ink">
+                    {formatNumber(s.announcements)}
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono text-[11px] tabular-nums text-ink-muted">
+                    {formatNumber(s.distinct_servers)}
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono text-[11px] tabular-nums text-ink-muted">
+                    {s.announcements_per_server != null
+                      ? s.announcements_per_server.toFixed(2)
+                      : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyState title="No serving activity in this window yet." />
+      )}
+    </section>
+  );
+}
+
+function ChainPrometheusLeaderboard({ board }: { board: ChainPrometheus }) {
+  const net = board.network;
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-muted">
+          Prometheus telemetry
+        </h3>
+        <span className="font-mono text-[11px] text-ink-muted">
+          {formatNumber(board.subnet_count)} subnets
+        </span>
+      </div>
+
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StakeFlowMetric label="Announcements" value={formatNumber(net.announcements)} />
+        <StakeFlowMetric label="Distinct exporters" value={formatNumber(net.distinct_exporters)} />
+        <StakeFlowMetric
+          label="Per exporter"
+          value={
+            net.announcements_per_exporter != null ? net.announcements_per_exporter.toFixed(2) : "—"
+          }
+        />
+      </div>
+
+      {board.subnets.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr>
+                <th className={TH}>Subnet</th>
+                <th className={`${TH} text-right`}>Announcements</th>
+                <th className={`${TH} text-right`}>Distinct exporters</th>
+                <th className={`${TH} text-right`}>Per exporter</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {board.subnets.map((s) => (
+                <tr key={s.netuid} className="hover:bg-surface/40">
+                  <td className="px-4 py-2 font-mono text-[11px]">
+                    <Link
+                      to="/subnets/$netuid"
+                      params={{ netuid: s.netuid }}
+                      className="text-ink-strong hover:text-accent hover:underline"
+                    >
+                      SN{s.netuid}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono text-[11px] tabular-nums text-ink">
+                    {formatNumber(s.announcements)}
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono text-[11px] tabular-nums text-ink-muted">
+                    {formatNumber(s.distinct_exporters)}
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono text-[11px] tabular-nums text-ink-muted">
+                    {s.announcements_per_exporter != null
+                      ? s.announcements_per_exporter.toFixed(2)
+                      : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyState title="No Prometheus telemetry in this window yet." />
+      )}
     </section>
   );
 }
@@ -976,6 +1149,8 @@ function ExplorerDashboard() {
     { data: signersRes },
     { data: weightSettersRes },
     { data: registrationsRes },
+    { data: servingRes },
+    { data: prometheusRes },
     { data: stakeFlowRes },
     { data: stakeMovesRes },
     { data: turnoverRes },
@@ -992,6 +1167,8 @@ function ExplorerDashboard() {
       chainSignersQuery(win),
       chainWeightSettersQuery(win),
       chainRegistrationsQuery(win),
+      chainServingQuery(win),
+      chainPrometheusQuery(win),
       chainStakeFlowQuery(win),
       chainStakeMovesQuery(win),
       chainTurnoverQuery(win),
@@ -1008,6 +1185,8 @@ function ExplorerDashboard() {
   const signers = signersRes.data;
   const weightSetters = weightSettersRes.data;
   const registrations = registrationsRes.data;
+  const serving = servingRes.data;
+  const prometheus = prometheusRes.data;
   const stakeFlow = stakeFlowRes.data;
   const stakeMoves = stakeMovesRes.data;
   const turnover = turnoverRes.data;
@@ -1376,6 +1555,8 @@ function ExplorerDashboard() {
           )}
         </section>
       </div>
+
+      <NetworkOperationsSection serving={serving} prometheus={prometheus} />
 
       <TransferPairsSection win={win} />
 
