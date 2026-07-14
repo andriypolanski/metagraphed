@@ -939,7 +939,7 @@
     {
       "content_type": "application/json",
       "contract_version": "2026-07-03.2",
-      "description": "Connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus coldkey-delegated nominator holdings, each with spot mark and simulated exit value, served at /api/v1/accounts/{ss58}/wallet-positions (no static file).",
+      "description": "Connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus delegated nominator holdings, each with spot mark and simulated exit value, served at /api/v1/accounts/{ss58}/wallet-positions (no static file).",
       "id": "wallet-positions",
       "path": "/metagraph/accounts/{ss58}/wallet-positions.json",
       "schema_ref": "#/components/schemas/WalletPositionsArtifact",

@@ -1,5 +1,5 @@
 // Connected-wallet positions (#5243): merges hotkey-owned portfolio rows with
-// coldkey-delegated nominator holdings (#5233), enriched with spot mark and a
+// delegated nominator holdings (#5233), enriched with spot mark and a
 // simulated exit value (constant-product unstake quote when pool reserves are
 // known; otherwise a 5% slippage band on alpha subnets per ADR 0018 — root
 // netuid 0 is exempt). Pure shaping; the Worker adds the REST envelope.

@@ -2248,8 +2248,7 @@ export function normalizeWalletPosition(raw: unknown): WalletPosition | null {
     hotkey: firstString(raw.hotkey) ?? null,
     delegated_hotkey: firstString(raw.delegated_hotkey) ?? null,
     uid: firstFiniteNumber(raw.uid) ?? null,
-    role:
-      role === "validator" || role === "miner" || role === "nominator" ? role : null,
+    role: role === "validator" || role === "miner" || role === "nominator" ? role : null,
     active: booleanValue(raw.active) ?? false,
     stake_tao: firstFiniteNumber(raw.stake_tao) ?? null,
     share_fraction: firstFiniteNumber(raw.share_fraction) ?? null,

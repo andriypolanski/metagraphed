@@ -1244,7 +1244,7 @@ export const PUBLIC_ARTIFACTS = [
   artifact(
     "wallet-positions",
     "/metagraph/accounts/{ss58}/wallet-positions.json",
-    "Connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus coldkey-delegated nominator holdings, each with spot mark and simulated exit value, served at /api/v1/accounts/{ss58}/wallet-positions (no static file).",
+    "Connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus delegated nominator holdings, each with spot mark and simulated exit value, served at /api/v1/accounts/{ss58}/wallet-positions (no static file).",
     "WalletPositionsArtifact",
   ),
   artifact(
@@ -2931,7 +2931,7 @@ export const API_ROUTES = [
     "GET",
     "/api/v1/accounts/{ss58}/wallet-positions",
     "/metagraph/accounts/{ss58}/wallet-positions.json",
-    "Fetch connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus coldkey-delegated nominator holdings, each with spot mark and simulated exit value.",
+    "Fetch connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus delegated nominator holdings, each with spot mark and simulated exit value.",
     "short",
     ["accounts", "analytics"],
     [],

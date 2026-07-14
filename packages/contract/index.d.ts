@@ -385,7 +385,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Fetch connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus coldkey-delegated nominator holdings, each with spot mark and simulated exit value. */
+        /** Fetch connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus delegated nominator holdings, each with spot mark and simulated exit value. */
         get: operations["walletPositions"];
         put?: never;
         post?: never;
@@ -7882,7 +7882,7 @@ export interface components {
             url: string;
             verified_at: string;
         };
-        /** @description One connected-wallet position (#5243): validator-own neuron stake and/or coldkey-delegated nominator stake on a subnet, with spot mark and simulated exit value. */
+        /** @description One connected-wallet position (#5243): validator-own neuron stake and/or delegated nominator stake on a subnet, with spot mark and simulated exit value. */
         WalletPosition: {
             active: boolean;
             alpha_amount?: number | null;
@@ -7905,7 +7905,7 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /** @description Connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus coldkey-delegated nominator holdings, each enriched with spot mark and simulated exit value. Merges /portfolio (hotkey-scoped) with /positions (nominator-scoped, #5233). Served live at /api/v1/accounts/{ss58}/wallet-positions (no static file). */
+        /** @description Connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus delegated nominator holdings, each enriched with spot mark and simulated exit value. Merges /portfolio (hotkey-scoped) with /positions (nominator-scoped, #5233). Served live at /api/v1/accounts/{ss58}/wallet-positions (no static file). */
         WalletPositionsArtifact: {
             /** Format: date-time */
             captured_at: string | null;

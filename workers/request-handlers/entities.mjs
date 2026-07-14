@@ -3109,8 +3109,8 @@ export async function handleAccountPositions(request, env, ss58) {
 }
 
 // GET /api/v1/accounts/{ss58}/wallet-positions (#5243): connected-wallet
-// cross-subnet positions — validator-owned neuron rows plus coldkey-delegated
-// nominator holdings, each enriched with spot mark and simulated exit value.
+// cross-subnet positions — validator-owned neuron rows plus delegated nominator
+// holdings, each enriched with spot mark and simulated exit value.
 // Merges /portfolio with /positions (#5233). Postgres-only; reuses
 // METAGRAPH_NEURONS_SOURCE like handleAccountPositions.
 export async function handleWalletPositions(request, env, ss58) {

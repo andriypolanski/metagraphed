@@ -82,12 +82,9 @@ describe("accountWalletPositionsQuery", () => {
     const opts = accountWalletPositionsQuery(ALICE);
     const result = await opts.queryFn!({ signal: new AbortController().signal } as never);
 
-    expect(mockedApiFetch).toHaveBeenCalledWith(
-      `/api/v1/accounts/${ALICE}/wallet-positions`,
-      {
-        signal: expect.any(AbortSignal),
-      },
-    );
+    expect(mockedApiFetch).toHaveBeenCalledWith(`/api/v1/accounts/${ALICE}/wallet-positions`, {
+      signal: expect.any(AbortSignal),
+    });
     expect(result.data.position_count).toBe(1);
     expect(result.data.positions[0]?.position_kind).toBe("validator-own");
   });
