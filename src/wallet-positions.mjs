@@ -164,19 +164,13 @@ export function buildWalletPositions(
   });
 
   const total_spot_mark_tao = orZeroTao(
-    roundTao(
-      positions.reduce((sum, p) => sum + (p.spot_mark_tao ?? 0), 0),
-    ),
+    roundTao(positions.reduce((sum, p) => sum + (p.spot_mark_tao ?? 0), 0)),
   );
   const total_exit_value_tao = orZeroTao(
-    roundTao(
-      positions.reduce((sum, p) => sum + (p.exit_value_tao ?? 0), 0),
-    ),
+    roundTao(positions.reduce((sum, p) => sum + (p.exit_value_tao ?? 0), 0)),
   );
   const total_stake_tao = orZeroTao(
-    roundTao(
-      positions.reduce((sum, p) => sum + p.stake_tao, 0),
-    ),
+    roundTao(positions.reduce((sum, p) => sum + p.stake_tao, 0)),
   );
 
   const captured_at = portfolio.captured_at ?? nominator.captured_at ?? null;

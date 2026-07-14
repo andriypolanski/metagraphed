@@ -165,7 +165,10 @@ describe("buildWalletPositions", () => {
           ],
         },
         nominator: {
-          positions: [{ netuid: 6, stake_tao: 10 }, { hotkey: "5Hot", stake_tao: 5 }],
+          positions: [
+            { netuid: 6, stake_tao: 10 },
+            { hotkey: "5Hot", stake_tao: 5 },
+          ],
         },
         economicsByNetuid: { 4: { alpha_price_tao: 2 } },
       },
