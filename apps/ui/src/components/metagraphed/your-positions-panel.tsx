@@ -83,9 +83,9 @@ export function YourPositionsPanel({
             <Wallet className="size-4 text-accent" /> Your positions
           </SheetTitle>
           <p className="text-[11px] text-ink-muted leading-relaxed">
-            Cross-subnet holdings for the connected wallet — validator-owned neurons and
-            delegated nominator stake. Spot mark uses alpha × price; exit value simulates a 5%
-            slippage band on alpha subnets.
+            Cross-subnet holdings for the connected wallet — validator-owned neurons and delegated
+            nominator stake. Spot mark uses alpha × price; exit value simulates a 5% slippage band
+            on alpha subnets.
           </p>
         </SheetHeader>
 
