@@ -232,11 +232,7 @@ function ValidatorDetail({ hotkey }: { hotkey: string }) {
         description={
           <span className="block space-y-4">
             <span className="flex flex-wrap items-center gap-3">
-              <ValidatorIdentityChip
-                hotkey={hotkey}
-                identity={detail.coldkey_identity}
-                size={40}
-              />
+              <ValidatorIdentityChip hotkey={hotkey} identity={detail.coldkey_identity} size={40} />
               {detail.coldkey_identity?.has_identity ? (
                 <span className="text-[11px] text-ink-muted">
                   Operator identity is declared on the coldkey — not hotkey-specific (#5234).
@@ -310,9 +306,7 @@ function ValidatorDetail({ hotkey }: { hotkey: string }) {
         <StatTile
           icon={Users}
           eyebrow="Nominators"
-          value={
-            detail.nominator_count != null ? formatNumber(detail.nominator_count) : "—"
-          }
+          value={detail.nominator_count != null ? formatNumber(detail.nominator_count) : "—"}
           hint="distinct coldkeys delegated"
           className="rounded-2xl border-border/80 bg-card/95 p-5 shadow-[0_24px_80px_-58px_rgba(15,23,42,0.45)]"
         />
@@ -332,11 +326,7 @@ function ValidatorDetail({ hotkey }: { hotkey: string }) {
         subtitle="7d / 30d / 90d windows from daily history"
         tone="accent"
       >
-        <ValidatorApyPanel
-          hotkey={hotkey}
-          take={detail.take}
-          generatedAt={detail.captured_at}
-        />
+        <ValidatorApyPanel hotkey={hotkey} take={detail.take} generatedAt={detail.captured_at} />
       </SectionAnchor>
 
       <SectionAnchor id="subnets" title="Per-subnet performance" tone="accent">

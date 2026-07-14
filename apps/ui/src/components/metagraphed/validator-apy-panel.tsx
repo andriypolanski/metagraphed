@@ -55,10 +55,7 @@ export function ValidatorApyPanel({
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-3">
         {rows.map((row) => (
-          <div
-            key={row.window}
-            className="rounded-xl border border-border bg-card px-4 py-3"
-          >
+          <div key={row.window} className="rounded-xl border border-border bg-card px-4 py-3">
             <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">
               Est. APY · {row.window}
             </div>

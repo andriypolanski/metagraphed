@@ -20,8 +20,7 @@ export function netDailyYield(
 ): number | null {
   const gross = dailyYieldFraction(emissionTao, stakeTao);
   if (gross == null) return null;
-  const commission =
-    take != null && Number.isFinite(take) ? Math.min(Math.max(take, 0), 1) : 0;
+  const commission = take != null && Number.isFinite(take) ? Math.min(Math.max(take, 0), 1) : 0;
   return gross * (1 - commission);
 }
 
@@ -42,8 +41,7 @@ export function apyFromRewardsPer1000(
   take?: number | null,
 ): number | null {
   if (rewardsPer1000 == null || !Number.isFinite(rewardsPer1000)) return null;
-  const commission =
-    take != null && Number.isFinite(take) ? Math.min(Math.max(take, 0), 1) : 0;
+  const commission = take != null && Number.isFinite(take) ? Math.min(Math.max(take, 0), 1) : 0;
   const dailyPerTao = (rewardsPer1000 / 1000) * (1 - commission);
   return Math.round(dailyPerTao * 365 * 100 * 100) / 100;
 }

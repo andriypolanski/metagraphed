@@ -124,10 +124,7 @@ async function main() {
       } else {
         await openDirectoryView(page);
       }
-      const file = path.join(
-        OUT_DIR,
-        `5245-${PAGE}-${viewport.name}-${theme}-${VARIANT}.png`,
-      );
+      const file = path.join(OUT_DIR, `5245-${PAGE}-${viewport.name}-${theme}-${VARIANT}.png`);
       await page.screenshot({ path: file, fullPage: false });
       console.log(`wrote ${file}`);
     }

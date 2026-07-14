@@ -39,8 +39,20 @@
         "latest_captured_at": "2026-07-14T08:00:00.000Z",
         "latest_block_number": 4200000,
         "subnets": [
-          { "netuid": 1, "uid": 42, "stake_tao": 210000, "emission_tao": 1.2, "validator_trust": 1 },
-          { "netuid": 8, "uid": 7, "stake_tao": 98000, "emission_tao": 0.6, "validator_trust": 0.99 }
+          {
+            "netuid": 1,
+            "uid": 42,
+            "stake_tao": 210000,
+            "emission_tao": 1.2,
+            "validator_trust": 1
+          },
+          {
+            "netuid": 8,
+            "uid": 7,
+            "stake_tao": 98000,
+            "emission_tao": 0.6,
+            "validator_trust": 0.99
+          }
         ]
       },
       {
@@ -72,13 +84,31 @@
         "stake_dominance": 0.021,
         "latest_captured_at": "2026-07-14T08:00:00.000Z",
         "latest_block_number": 4200000,
-        "subnets": [{ "netuid": 3, "uid": 12, "stake_tao": 88000, "emission_tao": 0.4, "validator_trust": 0.98 }]
+        "subnets": [
+          {
+            "netuid": 3,
+            "uid": 12,
+            "stake_tao": 88000,
+            "emission_tao": 0.4,
+            "validator_trust": 0.98
+          }
+        ]
       },
       {
         "hotkey": "5GNJqTPyNqANBkUQNUqj8Bc6Dt3NGPMEZ98HkTUbc6fe9",
         "featured": false,
         "coldkey": "5GNJqTPyNqANBkUQNUqj8Bc6Dt3NGPMEZ98HkTUbc6fe9",
-        "coldkey_identity": { "has_identity": false, "name": null, "url": null, "github": null, "image": null, "discord": null, "description": null, "additional": null, "captured_at": null },
+        "coldkey_identity": {
+          "has_identity": false,
+          "name": null,
+          "url": null,
+          "github": null,
+          "image": null,
+          "discord": null,
+          "description": null,
+          "additional": null,
+          "captured_at": null
+        },
         "coldkey_count": 1,
         "subnet_count": 5,
         "uid_count": 6,
@@ -93,7 +123,15 @@
         "stake_dominance": 0.01,
         "latest_captured_at": "2026-07-14T08:00:00.000Z",
         "latest_block_number": 4200000,
-        "subnets": [{ "netuid": 19, "uid": 3, "stake_tao": 42000, "emission_tao": 0.2, "validator_trust": 0.96 }]
+        "subnets": [
+          {
+            "netuid": 19,
+            "uid": 3,
+            "stake_tao": 42000,
+            "emission_tao": 0.2,
+            "validator_trust": 0.96
+          }
+        ]
       }
     ]
   },
