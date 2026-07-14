@@ -1249,6 +1249,43 @@ export interface PortfolioPosition {
   [key: string]: unknown;
 }
 
+/** One connected-wallet holding from /api/v1/accounts/{ss58}/positions (#5243). */
+export interface WalletPosition {
+  position_kind: "validator-own" | "nominator";
+  netuid: number;
+  hotkey: string | null;
+  delegated_hotkey: string | null;
+  uid: number | null;
+  role: "validator" | "miner" | "nominator" | null;
+  active?: boolean;
+  stake_tao: number | null;
+  alpha_amount: number | null;
+  alpha_price_tao: number | null;
+  root_stake_tao: number | null;
+  alpha_stake_tao: number | null;
+  spot_mark_tao: number | null;
+  exit_value_tao: number | null;
+  realized_yield_tao: number | null;
+  emission_tao: number | null;
+  rank: number | null;
+  trust: number | null;
+  incentive: number | null;
+  dividends: number | null;
+  yield: number | null;
+  [key: string]: unknown;
+}
+
+/** Connected-wallet cross-subnet positions (#5243). */
+export interface AccountPositions {
+  ss58: string;
+  captured_at?: string | null;
+  position_count: number;
+  total_spot_mark_tao: number | null;
+  total_exit_value_tao: number | null;
+  positions: WalletPosition[];
+  [key: string]: unknown;
+}
+
 /**
  * Stake-concentration lens over a wallet's per-subnet stake (Gini / normalized
  * HHI / Nakamoto coefficient), from the portfolio's `stake_concentration`. Null

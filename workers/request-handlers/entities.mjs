@@ -91,6 +91,7 @@ import {
   buildBlockEvents,
 } from "../../src/account-events.mjs";
 import { buildAccountPortfolio } from "../../src/account-portfolio.mjs";
+import { buildAccountPositions } from "../../src/account-positions.mjs";
 import { buildAccountPositionHistory } from "../../src/account-position-history.mjs";
 import { loadAccountIdentity } from "../../src/account-identity.mjs";
 import { loadAccountIdentityHistory } from "../../src/account-identity-history.mjs";
@@ -3155,6 +3156,30 @@ export async function handleAccountPortfolio(request, env, ss58) {
       meta: await accountMeta(
         env,
         `/metagraph/accounts/${ss58}/portfolio.json`,
+        data.captured_at,
+      ),
+    },
+    "short",
+  );
+}
+
+// GET /api/v1/accounts/{ss58}/positions (#5243): connected-wallet holdings —
+// hotkey-owned neuron rows plus coldkey-delegated nominator positions, each
+// with spot mark and simulated exit value. Cold/absent → empty card.
+export async function handleAccountPositions(request, env, ss58) {
+  const data =
+    (await tryPostgresTier(env, request, "METAGRAPH_NEURONS_SOURCE")) ??
+    buildAccountPositions(
+      { portfolio: { positions: [] }, nominatorRows: [], priceByNetuid: new Map() },
+      ss58,
+    );
+  return accountEnvelopeResponse(
+    request,
+    {
+      data,
+      meta: await accountMeta(
+        env,
+        `/metagraph/accounts/${ss58}/positions.json`,
         data.captured_at,
       ),
     },

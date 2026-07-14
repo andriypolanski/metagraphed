@@ -225,6 +225,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/accounts/{ss58}/positions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch connected-wallet cross-subnet positions: validator-owned neuron rows plus coldkey-delegated nominator holdings, each with spot mark (alpha × price) and simulated exit value (5% slippage on alpha subnets), plus root/alpha split and wallet totals. */
+        get: operations["accountPositions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/accounts/{ss58}/prometheus": {
         parameters: {
             query?: never;
@@ -2903,6 +2920,18 @@ export interface components {
             schema_version: number;
             ss58: string;
             window?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description Connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus coldkey-delegated nominator holdings, each with spot mark and simulated exit value. Served live at /api/v1/accounts/{ss58}/positions (no static file). */
+        AccountPositionsArtifact: {
+            captured_at: string | null;
+            position_count: number;
+            positions: components["schemas"]["WalletPosition"][];
+            schema_version: number;
+            ss58: string;
+            total_exit_value_tao: number;
+            total_spot_mark_tao: number;
         } & {
             [key: string]: unknown;
         };
@@ -7742,6 +7771,34 @@ export interface components {
             url: string;
             verified_at: string;
         };
+        /** @description One connected-wallet holding on a subnet (#5243): validator-owned neuron stake or coldkey-delegated nominator stake, with spot mark and simulated exit value. */
+        WalletPosition: {
+            active?: boolean;
+            alpha_amount?: number | null;
+            alpha_price_tao?: number | null;
+            alpha_stake_tao: number;
+            delegated_hotkey?: string | null;
+            dividends?: number | null;
+            emission_tao?: number | null;
+            exit_value_tao: number;
+            hotkey?: string | null;
+            incentive?: number | null;
+            netuid: number;
+            /** @enum {string} */
+            position_kind: "validator-own" | "nominator";
+            rank?: number | null;
+            realized_yield_tao?: number | null;
+            /** @enum {string|null} */
+            role?: "validator" | "miner" | "nominator" | null;
+            root_stake_tao: number;
+            spot_mark_tao: number;
+            stake_tao: number;
+            trust?: number | null;
+            uid?: number | null;
+            yield?: number | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** @description Distribution summary of the per-neuron emission/stake return rate across the network: count, mean, median, min, max, and the p10/p25/p75/p90 nearest-rank percentiles. Null when no neuron carries a defined yield (a cold store, an empty network, or every neuron zero-stake). */
         YieldDistribution: ({
             count?: number;
@@ -9359,6 +9416,123 @@ export interface operations {
                      */
                     "application/json": components["schemas"]["SuccessEnvelope"] & {
                         data?: components["schemas"]["AccountPortfolioArtifact"];
+                    };
+                };
+            };
+            /** @description ETag matched and the cached response is still valid. */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Query parameters were malformed or unsupported. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Artifact or API route was not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description HTTP method is not supported. */
+            405: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unexpected backend error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    accountPositions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ss58: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Canonical artifact wrapped in the Metagraphed API envelope. */
+            200: {
+                headers: {
+                    "cache-control": components["headers"]["CacheControl"];
+                    etag: components["headers"]["ETag"];
+                    "x-metagraph-contract-version": components["headers"]["ContractVersion"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "captured_at": "2026-06-01T00:00:00.000Z",
+                     *         "position_count": 1,
+                     *         "positions": [
+                     *           {
+                     *             "alpha_stake_tao": 0.5,
+                     *             "exit_value_tao": 0.5,
+                     *             "netuid": 7,
+                     *             "position_kind": "validator-own",
+                     *             "root_stake_tao": 0.5,
+                     *             "spot_mark_tao": 0.5,
+                     *             "stake_tao": 0.5
+                     *           }
+                     *         ],
+                     *         "schema_version": 1,
+                     *         "ss58": "5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5",
+                     *         "total_exit_value_tao": 0.5,
+                     *         "total_spot_mark_tao": 0.5
+                     *       },
+                     *       "meta": {
+                     *         "artifact_path": "example",
+                     *         "cache": "short",
+                     *         "contract_version": "2026-06-29.1",
+                     *         "generated_at": "2026-06-01T00:00:00.000Z",
+                     *         "pagination": {
+                     *           "collection": "example",
+                     *           "cursor": 1,
+                     *           "limit": 1,
+                     *           "next_cursor": 1,
+                     *           "order": "asc",
+                     *           "returned": 1,
+                     *           "sort": "example",
+                     *           "total": 1
+                     *         },
+                     *         "published_at": "2026-06-01T00:00:00.000Z",
+                     *         "source": "live-cron-prober",
+                     *         "stale_contract": {
+                     *           "built_under": "example",
+                     *           "live": "example"
+                     *         }
+                     *       },
+                     *       "ok": true,
+                     *       "schema_version": 1
+                     *     }
+                     */
+                    "application/json": components["schemas"]["SuccessEnvelope"] & {
+                        data?: components["schemas"]["AccountPositionsArtifact"];
                     };
                 };
             };

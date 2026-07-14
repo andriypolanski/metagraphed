@@ -76,6 +76,7 @@ import {
   DEFAULT_YIELD_HISTORY_WINDOW,
 } from "../src/subnet-yield.mjs";
 import { buildAccountPortfolio } from "../src/account-portfolio.mjs";
+import { buildAccountPositions } from "../src/account-positions.mjs";
 import {
   buildNeuronHistory,
   buildSubnetHistory,
@@ -5941,6 +5942,52 @@ export default {
           SELECT netuid, uid, stake_tao, emission_tao, rank, trust, incentive, dividends, validator_permit, active, captured_at
           FROM neurons WHERE hotkey = ${ss58} ORDER BY netuid`;
           return json(buildAccountPortfolio(rows, ss58));
+        }
+
+        // GET /api/v1/accounts/:ss58/positions (#5243): connected-wallet
+        // holdings — validator-own + nominator rows with valuation fields.
+        const acctPositions = url.pathname.match(
+          /^\/api\/v1\/accounts\/([^/]+)\/positions$/,
+        );
+        if (acctPositions) {
+          const ss58 = decodeURIComponent(acctPositions[1]);
+          const portfolioRows = await sql`
+          SELECT netuid, uid, stake_tao, emission_tao, rank, trust, incentive, dividends, validator_permit, active, captured_at
+          FROM neurons WHERE hotkey = ${ss58} ORDER BY netuid`;
+          const nominatorRows = await sql`
+          SELECT netuid, hotkey,
+            COALESCE(SUM(CASE WHEN event_kind = 'StakeAdded' THEN amount_tao ELSE 0 END), 0) -
+            COALESCE(SUM(CASE WHEN event_kind = 'StakeRemoved' THEN amount_tao ELSE 0 END), 0) AS net_stake_tao,
+            COALESCE(SUM(CASE WHEN event_kind = 'StakeAdded' THEN alpha_amount ELSE 0 END), 0) -
+            COALESCE(SUM(CASE WHEN event_kind = 'StakeRemoved' THEN alpha_amount ELSE 0 END), 0) AS net_alpha_amount
+          FROM account_events
+          WHERE coldkey = ${ss58} AND event_kind IN ('StakeAdded', 'StakeRemoved')
+          GROUP BY netuid, hotkey
+          HAVING
+            COALESCE(SUM(CASE WHEN event_kind = 'StakeAdded' THEN amount_tao ELSE 0 END), 0) -
+            COALESCE(SUM(CASE WHEN event_kind = 'StakeRemoved' THEN amount_tao ELSE 0 END), 0) > 0
+            OR
+            COALESCE(SUM(CASE WHEN event_kind = 'StakeAdded' THEN alpha_amount ELSE 0 END), 0) -
+            COALESCE(SUM(CASE WHEN event_kind = 'StakeRemoved' THEN alpha_amount ELSE 0 END), 0) > 0`;
+          const portfolio = buildAccountPortfolio(portfolioRows, ss58);
+          const netuids = new Set([
+            ...portfolio.positions.map((p) => p.netuid),
+            ...nominatorRows.map((r) => Number(r.netuid)).filter((n) => Number.isInteger(n)),
+          ]);
+          const priceRows =
+            netuids.size > 0
+              ? await sql`
+              SELECT DISTINCT ON (netuid) netuid, alpha_price_tao
+              FROM subnet_snapshots
+              WHERE netuid = ANY(${[...netuids]}) AND alpha_price_tao IS NOT NULL
+              ORDER BY netuid, snapshot_date DESC`
+              : [];
+          const priceByNetuid = new Map(
+            priceRows.map((r) => [Number(r.netuid), Number(r.alpha_price_tao)]),
+          );
+          return json(
+            buildAccountPositions({ portfolio, nominatorRows, priceByNetuid }, ss58),
+          );
         }
 
         // GET /api/v1/accounts/:ss58/identity (#4832 gap-closure, Phase B):

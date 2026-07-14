@@ -35,6 +35,9 @@ import { CommandPalette } from "./command-palette";
 import { NavOmnibox } from "./nav-omnibox";
 import { ApiDrawer, ApiDrawerTrigger } from "./api-drawer";
 import { HeaderActionsMenu } from "./header-actions-menu";
+import { WalletConnect } from "./wallet-connect";
+import { YourPositionsPanel } from "./your-positions-panel";
+import { useWallet } from "@/hooks/use-wallet";
 import { ApiSourceProvider } from "@/lib/metagraphed/api-source-context";
 import { IncidentStrip } from "./incident-strip";
 import { pushRecentVisit, visitFromPath } from "@/lib/metagraphed/recent-visits";
@@ -75,7 +78,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [positionsOpen, setPositionsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const { connected } = useWallet();
   const crumbs = useMemo(() => buildCrumbs(pathname), [pathname]);
 
   // Close mobile sheet on route change
@@ -149,6 +154,16 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
               <div className="flex items-center gap-1">
                 <ApiDrawerTrigger />
+                <WalletConnect />
+                {connected ? (
+                  <button
+                    type="button"
+                    onClick={() => setPositionsOpen(true)}
+                    className="hidden md:inline-flex items-center justify-center rounded border border-border bg-card px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-ink-muted hover:text-ink-strong hover:border-ink/30 transition-colors min-h-11"
+                  >
+                    Positions
+                  </button>
+                ) : null}
 
                 <NetworkSwitcher />
                 <Tooltip>
@@ -259,6 +274,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <SiteFooter />
           <ApiDrawer />
+          <YourPositionsPanel open={positionsOpen} onOpenChange={setPositionsOpen} />
           <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
           <ShortcutsPopover />
           <BackToTop />
