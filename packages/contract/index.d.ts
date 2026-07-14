@@ -232,7 +232,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Fetch connected-wallet cross-subnet positions: validator-owned neuron rows plus coldkey-delegated nominator holdings, each with spot mark (alpha × price) and simulated exit value (5% slippage on alpha subnets), plus root/alpha split and wallet totals. */
+        /** Fetch connected-wallet cross-subnet positions: validator-owned neuron rows plus delegated nominator nominator holdings, each with spot mark (alpha × price) and simulated exit value (5% slippage on alpha subnets), plus root/alpha split and wallet totals. */
         get: operations["accountPositions"];
         put?: never;
         post?: never;
@@ -2923,7 +2923,7 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /** @description Connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus coldkey-delegated nominator holdings, each with spot mark and simulated exit value. Served live at /api/v1/accounts/{ss58}/positions (no static file). */
+        /** @description Connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus delegated nominator nominator holdings, each with spot mark and simulated exit value. Served live at /api/v1/accounts/{ss58}/positions (no static file). */
         AccountPositionsArtifact: {
             captured_at: string | null;
             position_count: number;
@@ -7771,7 +7771,7 @@ export interface components {
             url: string;
             verified_at: string;
         };
-        /** @description One connected-wallet holding on a subnet (#5243): validator-owned neuron stake or coldkey-delegated nominator stake, with spot mark and simulated exit value. */
+        /** @description One connected-wallet holding on a subnet (#5243): validator-owned neuron stake or delegated nominator nominator stake, with spot mark and simulated exit value. */
         WalletPosition: {
             active?: boolean;
             alpha_amount?: number | null;

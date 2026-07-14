@@ -1,5 +1,5 @@
 // Connected-wallet positions (#5243 / #5233): hotkey-owned neuron rows plus
-// coldkey-delegated (nominator) holdings reconstructed from the all-time
+// delegated nominator (nominator) holdings reconstructed from the all-time
 // StakeAdded/StakeRemoved stream, enriched with spot mark and a simulated
 // exit value (5% slippage on alpha subnets per ADR 0018; root netuid 0 is
 // exempt). Pure shaping + thin loaders; the Worker adds the REST envelope.
@@ -122,7 +122,7 @@ export function buildNominatorPositions(rows) {
   return positions;
 }
 
-// Merge hotkey-owned portfolio positions with coldkey-delegated rows.
+// Merge hotkey-owned portfolio positions with delegated nominator rows.
 export function buildAccountPositions(
   { portfolio, nominatorRows, priceByNetuid },
   ss58,

@@ -3164,7 +3164,7 @@ export async function handleAccountPortfolio(request, env, ss58) {
 }
 
 // GET /api/v1/accounts/{ss58}/positions (#5243): connected-wallet holdings —
-// hotkey-owned neuron rows plus coldkey-delegated nominator positions, each
+// hotkey-owned neuron rows plus delegated nominator nominator positions, each
 // with spot mark and simulated exit value. Cold/absent → empty card.
 export async function handleAccountPositions(request, env, ss58) {
   const data =

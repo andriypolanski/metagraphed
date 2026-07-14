@@ -6428,7 +6428,7 @@
     {
       "artifact_path": "/metagraph/accounts/{ss58}/positions.json",
       "cache": "short",
-      "description": "Fetch connected-wallet cross-subnet positions: validator-owned neuron rows plus coldkey-delegated nominator holdings, each with spot mark (alpha × price) and simulated exit value (5% slippage on alpha subnets), plus root/alpha split and wallet totals.",
+      "description": "Fetch connected-wallet cross-subnet positions: validator-owned neuron rows plus delegated nominator nominator holdings, each with spot mark (alpha × price) and simulated exit value (5% slippage on alpha subnets), plus root/alpha split and wallet totals.",
       "id": "account-positions",
       "method": "GET",
       "path": "/api/v1/accounts/{ss58}/positions",
