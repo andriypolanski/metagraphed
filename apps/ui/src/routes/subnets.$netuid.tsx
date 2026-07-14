@@ -1252,11 +1252,14 @@ function WeightSettersLoader({ netuid }: { netuid: number }) {
   return (
     <div className="mt-6 min-w-0" data-weight-setters-leaderboard>
       <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border px-4 py-3">
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-muted">
+        <div className="flex flex-nowrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-muted sm:hidden">
+            Weight-setters
+          </span>
+          <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-muted sm:inline">
             Weight-setters · per-validator breakdown
           </span>
-          <span className="font-mono text-[10px] text-ink-muted">
+          <span className="shrink-0 font-mono text-[10px] text-ink-muted whitespace-nowrap">
             {formatNumber(d.setter_count)} validators · {windowLabel}
           </span>
         </div>
