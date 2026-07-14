@@ -1,7 +1,7 @@
 // Unit tests for the registry-sync Worker (workers/registry-sync-api.mjs). postgres.js
 // is mocked so the auth/validation/upsert routing is tested with no real DB — the live
 // Hyperdrive path is validated separately.
-import { beforeEach, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const sqlCalls = vi.hoisted(() => []);
 const surfaceResult = vi.hoisted(() => ({ current: [{ inserted: true }] }));
@@ -563,4 +563,89 @@ test("maps a DB failure to a clean 502 instead of throwing", async () => {
   );
   expect(res.status).toBe(502);
   expect((await res.json()).error).toBe("write failed");
+});
+
+// #5548: authenticated writes are gated by REGISTRY_SYNC_RATE_LIMITER (a
+// no-op when the binding is absent). Mirrors the webhook-subscription and
+// alert-trigger-create suites: within-limit success, over-limit 429 with the
+// standard header family, unbound-binding no-op, and auth-before-rate-limit.
+describe("registry-sync rate limiting", () => {
+  const allow = () => ({ limit: vi.fn(async () => ({ success: true })) });
+  const reject = () => ({ limit: vi.fn(async () => ({ success: false })) });
+
+  test("429 with the rate-limit header family when the limiter rejects, and nothing is written", async () => {
+    const limiter = reject();
+    const res = await worker.fetch(
+      post({ providers: [provider()] }, { secret: SECRET }),
+      baseEnv({ REGISTRY_SYNC_RATE_LIMITER: limiter }),
+      {},
+    );
+    expect(res.status).toBe(429);
+    expect((await res.json()).error).toBe(
+      "too many registry-sync requests from this client; slow down",
+    );
+    expect(res.headers.get("retry-after")).toBe("60");
+    expect(res.headers.get("x-ratelimit-limit")).toBe("10");
+    expect(res.headers.get("x-ratelimit-policy")).toBe("10;w=60");
+    expect(res.headers.get("x-ratelimit-remaining")).toBe("0");
+    expect(limiter.limit.mock.calls.length).toBe(1);
+    expect(limiter.limit.mock.calls[0][0].key).toMatch(/^registry-sync:/);
+    // Rate-limited before Hyperdrive / SQL — no DB call recorded.
+    expect(sqlCalls.length).toBe(0);
+  });
+
+  test("200 when the limiter allows the request", async () => {
+    const limiter = allow();
+    const res = await worker.fetch(
+      post({ providers: [provider()] }, { secret: SECRET }),
+      baseEnv({ REGISTRY_SYNC_RATE_LIMITER: limiter }),
+      {},
+    );
+    expect(res.status).toBe(200);
+    expect(limiter.limit.mock.calls.length).toBe(1);
+    expect((await res.json()).providers_written).toBe(1);
+  });
+
+  test("skips the limiter entirely when the binding is unbound (local dev/CI)", async () => {
+    const res = await worker.fetch(
+      post({ providers: [provider()] }, { secret: SECRET }),
+      baseEnv(),
+      {},
+    );
+    expect(res.status).toBe(200);
+  });
+
+  test("rejects unauthenticated callers before consulting the limiter", async () => {
+    const limiter = reject();
+    const res = await worker.fetch(
+      post({ providers: [provider()] }, { secret: "wrong" }),
+      baseEnv({ REGISTRY_SYNC_RATE_LIMITER: limiter }),
+      {},
+    );
+    expect(res.status).toBe(401);
+    expect(limiter.limit.mock.calls.length).toBe(0);
+  });
+
+  test("keys the limiter on cf-connecting-ip when present", async () => {
+    const limiter = allow();
+    const headers = {
+      "content-type": "application/json",
+      "x-registry-sync-token": SECRET,
+      "cf-connecting-ip": "203.0.113.50",
+    };
+    const req = new Request("https://registry-sync.internal/", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ providers: [provider()] }),
+    });
+    const res = await worker.fetch(
+      req,
+      baseEnv({ REGISTRY_SYNC_RATE_LIMITER: limiter }),
+      {},
+    );
+    expect(res.status).toBe(200);
+    expect(limiter.limit.mock.calls[0][0].key).toBe(
+      "registry-sync:203.0.113.50",
+    );
+  });
 });

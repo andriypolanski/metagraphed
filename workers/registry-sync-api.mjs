@@ -21,20 +21,54 @@
 // + Workers VPC Service + Hyperdrive path already proven for reads).
 import postgres from "postgres";
 import { timingSafeEqual } from "../src/webhooks.mjs";
+import { resolveClientIp } from "./config.mjs";
 
 const TOKEN_HEADER = "x-registry-sync-token";
 const MAX_BODY_BYTES = 4_194_304; // 4 MiB -- the full registry is ~1.5k surfaces, comfortably under this
 const MAX_ROWS_PER_KIND = 5_000;
 
-function json(data, status = 200) {
+// Policy for the rate-limiter's 429 header family. Mirrors the
+// REGISTRY_SYNC_RATE_LIMITER binding in wrangler.registry.jsonc (10/60s) so
+// the advertised headers match the enforced limit. (#5548)
+const REGISTRY_SYNC_RATE_LIMIT = { limit: 10, windowSeconds: 60 };
+
+function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      ...extraHeaders,
+    },
   });
 }
 
 function isValidRow(row) {
   return row && typeof row === "object" && !Array.isArray(row);
+}
+
+// Per-client abuse control for authenticated registry-sync writes. REGISTRY_SYNC_SECRET
+// is a SHARED static secret rather than a per-user credential, and each successful
+// POST can INSERT/UPDATE/DELETE thousands of rows (including full-table deletes),
+// so a token-holding caller could otherwise script unbounded overwrite/delete churn.
+// Optional-chained so it's a no-op when the binding is absent (local dev/CI),
+// matching every other rate-limiter in this codebase. Called AFTER auth so
+// unauthenticated callers never consume limiter budget (#5548).
+async function registrySyncRateLimited(request, env) {
+  if (!env.REGISTRY_SYNC_RATE_LIMITER?.limit) return null;
+  const { success } = await env.REGISTRY_SYNC_RATE_LIMITER.limit({
+    key: `registry-sync:${resolveClientIp(request)}`,
+  });
+  if (success) return null;
+  return json(
+    { error: "too many registry-sync requests from this client; slow down" },
+    429,
+    {
+      "retry-after": String(REGISTRY_SYNC_RATE_LIMIT.windowSeconds),
+      "x-ratelimit-limit": String(REGISTRY_SYNC_RATE_LIMIT.limit),
+      "x-ratelimit-policy": `${REGISTRY_SYNC_RATE_LIMIT.limit};w=${REGISTRY_SYNC_RATE_LIMIT.windowSeconds}`,
+      "x-ratelimit-remaining": "0",
+    },
+  );
 }
 
 export default {
@@ -52,6 +86,15 @@ export default {
     if (!provided || !timingSafeEqual(provided, env.REGISTRY_SYNC_SECRET)) {
       return json({ error: `provide a valid ${TOKEN_HEADER} header` }, 401);
     }
+
+    // Abuse control sits right after auth and before we read/parse the body or
+    // touch Hyperdrive, so a token-holding caller can't script unbounded
+    // registry writes/deletes — while still rejecting unauthenticated callers
+    // first (they never reach the limiter). Mirrors createWebhookSubscription
+    // and handleAlertTriggerCreate. (#5548)
+    const rateLimited = await registrySyncRateLimited(request, env);
+    if (rateLimited) return rateLimited;
+
     if (!env.HYPERDRIVE?.connectionString) {
       return json({ error: "hyperdrive binding unavailable" }, 503);
     }

@@ -49,4 +49,25 @@
       "localConnectionString": "postgresql://metagraphed_registry:postgres@localhost:5433/metagraphed_registry",
     },
   ],
+  // Per-client abuse control for the registry-sync MUTATION path (#5548).
+  // REGISTRY_SYNC_SECRET is a SHARED static secret rather than a per-user
+  // credential, and each authenticated POST can INSERT/UPDATE/DELETE up to
+  // 5k rows per kind (including full-table deletes) against the live public
+  // registry. A leaked secret (e.g. a compromised GitHub Actions runner)
+  // would otherwise let a caller script unbounded overwrite/delete churn.
+  // 10 requests / 60s per client IP — matching WEBHOOK_SUBSCRIPTION_RATE_LIMITER
+  // and ALERT_TRIGGER_CREATE_RATE_LIMITER for the same shared-secret mutation
+  // shape. Namespace id is local to THIS Worker (does not collide with
+  // wrangler.jsonc / wrangler.data.jsonc "1001"). Skipped when unbound
+  // (local dev/CI), matching every other optional rate-limiter in this codebase.
+  "ratelimits": [
+    {
+      "name": "REGISTRY_SYNC_RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 10,
+        "period": 60,
+      },
+    },
+  ],
 }
