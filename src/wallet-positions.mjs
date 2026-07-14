@@ -20,6 +20,10 @@ function nullablePositive(value) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+function orZeroTao(value) {
+  return value == null ? 0 : value;
+}
+
 function spotMarkTao(netuid, stakeTao, alphaAmount, alphaPrice) {
   if (netuid === 0) return roundTao(stakeTao);
   if (alphaAmount != null && alphaPrice != null && alphaPrice > 0) {
@@ -29,7 +33,6 @@ function spotMarkTao(netuid, stakeTao, alphaAmount, alphaPrice) {
 }
 
 function exitValueTao(netuid, stakeTao, alphaAmount, economics) {
-  if (!(stakeTao > 0)) return null;
   if (netuid === 0) return roundTao(stakeTao);
 
   const taoIn = nullablePositive(economics?.tao_in_pool_tao);
@@ -55,7 +58,7 @@ function enrichPosition(base, economicsByNetuid) {
     economicsByNetuid?.get?.(base.netuid) ?? economicsByNetuid?.[base.netuid];
   const alphaPrice = nullablePositive(econ?.alpha_price_tao);
   const isRoot = base.netuid === 0;
-  const stakeTao = base.stake_tao ?? 0;
+  const stakeTao = base.stake_tao;
   const alphaAmount =
     !isRoot && alphaPrice != null ? roundTao(stakeTao / alphaPrice) : null;
 
@@ -152,20 +155,28 @@ export function buildWalletPositions(
     );
   }
 
-  positions.sort(
-    (a, b) =>
-      (b.spot_mark_tao ?? b.stake_tao ?? 0) -
-        (a.spot_mark_tao ?? a.stake_tao ?? 0) || a.netuid - b.netuid,
-  );
+  positions.sort((a, b) => {
+    const aMark = a.spot_mark_tao ?? a.stake_tao ?? 0;
+    const bMark = b.spot_mark_tao ?? b.stake_tao ?? 0;
+    const byMark = bMark - aMark;
+    if (byMark !== 0) return byMark;
+    return a.netuid - b.netuid;
+  });
 
-  const total_spot_mark_tao = roundTao(
-    positions.reduce((sum, p) => sum + (p.spot_mark_tao ?? 0), 0),
+  const total_spot_mark_tao = orZeroTao(
+    roundTao(
+      positions.reduce((sum, p) => sum + (p.spot_mark_tao ?? 0), 0),
+    ),
   );
-  const total_exit_value_tao = roundTao(
-    positions.reduce((sum, p) => sum + (p.exit_value_tao ?? 0), 0),
+  const total_exit_value_tao = orZeroTao(
+    roundTao(
+      positions.reduce((sum, p) => sum + (p.exit_value_tao ?? 0), 0),
+    ),
   );
-  const total_stake_tao = roundTao(
-    positions.reduce((sum, p) => sum + (p.stake_tao ?? 0), 0),
+  const total_stake_tao = orZeroTao(
+    roundTao(
+      positions.reduce((sum, p) => sum + p.stake_tao, 0),
+    ),
   );
 
   const captured_at = portfolio.captured_at ?? nominator.captured_at ?? null;
@@ -175,9 +186,9 @@ export function buildWalletPositions(
     ss58,
     captured_at,
     position_count: positions.length,
-    total_stake_tao: total_stake_tao ?? 0,
-    total_spot_mark_tao: total_spot_mark_tao ?? 0,
-    total_exit_value_tao: total_exit_value_tao ?? 0,
+    total_stake_tao,
+    total_spot_mark_tao,
+    total_exit_value_tao,
     positions,
   };
 }

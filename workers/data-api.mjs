@@ -6497,12 +6497,8 @@ export default {
           );
           const netuids = [
             ...new Set([
-              ...(Array.isArray(portfolio.positions)
-                ? portfolio.positions.map((row) => row.netuid)
-                : []),
-              ...(Array.isArray(nominator.positions)
-                ? nominator.positions.map((row) => row.netuid)
-                : []),
+              ...(portfolio.positions ?? []).map((row) => row.netuid),
+              ...(nominator.positions ?? []).map((row) => row.netuid),
             ]),
           ].filter((n) => Number.isInteger(n) && n >= 0);
           const econRows = await loadLatestSubnetEconomics(sql, netuids);

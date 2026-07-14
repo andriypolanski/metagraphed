@@ -12,6 +12,8 @@ import {
   identityHash as subnetIdentityHash,
   identitySnapshotFromProfile,
 } from "../src/subnet-identity-history.mjs";
+import * as accountPortfolio from "../src/account-portfolio.mjs";
+import * as accountNominatorPositions from "../src/account-nominator-positions.mjs";
 
 const sqlCalls = vi.hoisted(() => []);
 const sqlBeginOptions = vi.hoisted(() => []);
@@ -110,6 +112,9 @@ const nominatorPositionsSyncFailure = vi.hoisted(() => ({ error: null }));
 // isolation purpose as subnetTemposQueryFailure above, but for
 // loadNominatorPositions' own SELECT.
 const nominatorPositionsQueryFailure = vi.hoisted(() => ({ error: null }));
+// State for wallet-positions subnet_snapshots economics READ (#5243) only.
+const subnetEconomicsQueryFailure = vi.hoisted(() => ({ error: null }));
+const subnetEconomicsRows = vi.hoisted(() => ({ current: [] }));
 
 vi.mock("postgres", () => ({
   default: () => {
@@ -282,6 +287,12 @@ vi.mock("postgres", () => ({
         }
         return Promise.resolve(accountIdentityJoinRows.current);
       }
+      if (/FROM subnet_snapshots/.test(text)) {
+        if (subnetEconomicsQueryFailure.error) {
+          return Promise.reject(subnetEconomicsQueryFailure.error);
+        }
+        return Promise.resolve(subnetEconomicsRows.current);
+      }
       return Promise.resolve(mockRows.current);
     };
     // sql.begin(["read only",] cb) reserves a connection for cb in real
@@ -371,6 +382,8 @@ beforeEach(() => {
   subnetTemposQueryFailure.error = null;
   nominatorPositionsSyncFailure.error = null;
   nominatorPositionsQueryFailure.error = null;
+  subnetEconomicsQueryFailure.error = null;
+  subnetEconomicsRows.current = [];
   subnetIdentitySyncFailure.error = null;
   subnetIdentityLatestHashes.current = [];
   healthChecksSyncFailure.error = null;
@@ -4691,15 +4704,96 @@ test("GET /api/v1/accounts/:ss58/wallet-positions merges portfolio and nominator
         captured_at: "1780000000000",
       },
     ], // neurons portfolio
-    [], // loadNominatorPositions
+    [
+      {
+        coldkey: "5Hot1",
+        hotkey: "5Del1",
+        netuid: 3,
+        share_fraction: 0.5,
+        captured_at: "1780000000000",
+      },
+    ], // loadNominatorPositions
+  ];
+  mockRows.current = [{ hotkey: "5Del1", netuid: 3, stake_tao: "200" }];
+  subnetEconomicsRows.current = [
+    {
+      netuid: 1,
+      alpha_price_tao: "2",
+      tao_in_pool_tao: "10000",
+      alpha_in_pool: "5000",
+    },
+    {
+      netuid: 3,
+      alpha_price_tao: "1",
+      tao_in_pool_tao: "5000",
+      alpha_in_pool: "2500",
+    },
   ];
   const res = await req("/api/v1/accounts/5Hot1/wallet-positions");
   expect(res.status).toBe(200);
   const body = await res.json();
   expect(body.ss58).toBe("5Hot1");
+  expect(body.position_count).toBe(2);
+  expect(body.positions.map((p) => p.position_kind).sort()).toEqual([
+    "nominator",
+    "validator-own",
+  ]);
+  expect(queryText()).toMatch(/FROM subnet_snapshots/);
+  expect(body.total_spot_mark_tao).toBeGreaterThan(0);
+  expect(body.total_exit_value_tao).toBeGreaterThan(0);
+});
+
+test("GET /api/v1/accounts/:ss58/wallet-positions still serves when subnet_snapshots economics read fails", async () => {
+  subnetEconomicsQueryFailure.error = new Error(
+    'relation "subnet_snapshots" does not exist',
+  );
+  mockQueue.current = [
+    [],
+    [
+      {
+        netuid: 1,
+        uid: 2,
+        stake_tao: "100",
+        emission_tao: "1",
+        rank: 1,
+        trust: 0.9,
+        incentive: 0.8,
+        dividends: 0.7,
+        validator_permit: true,
+        active: true,
+        captured_at: "1780000000000",
+      },
+    ],
+    [],
+  ];
+  const res = await req("/api/v1/accounts/5Hot1/wallet-positions");
+  expect(res.status).toBe(200);
+  const body = await res.json();
   expect(body.position_count).toBe(1);
-  expect(body.positions[0].position_kind).toBe("validator-own");
-  expect(body.total_spot_mark_tao).toBeGreaterThanOrEqual(0);
+  expect(body.positions[0].exit_value_tao).toBeGreaterThan(0);
+});
+
+test("GET /api/v1/accounts/:ss58/wallet-positions skips economics lookup when builders return no positions (#5243)", async () => {
+  const portfolioSpy = vi
+    .spyOn(accountPortfolio, "buildAccountPortfolio")
+    .mockReturnValue({ positions: null, captured_at: null });
+  const positionsSpy = vi
+    .spyOn(accountNominatorPositions, "buildAccountPositions")
+    .mockReturnValue({ positions: null, captured_at: null });
+  mockQueue.current = [[], [{ netuid: 1, uid: 1, stake_tao: "1" }], []];
+  try {
+    const res = await req("/api/v1/accounts/5Hot1/wallet-positions");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.position_count).toBe(0);
+    expect(body.positions).toEqual([]);
+    expect(portfolioSpy).toHaveBeenCalled();
+    expect(positionsSpy).toHaveBeenCalled();
+    expect(queryText()).not.toMatch(/FROM subnet_snapshots/);
+  } finally {
+    portfolioSpy.mockRestore();
+    positionsSpy.mockRestore();
+  }
 });
 
 test("GET /api/v1/accounts/:ss58/wallet-positions returns an empty card when no holdings", async () => {
