@@ -4673,6 +4673,49 @@ test("GET /api/v1/accounts/:ss58/positions still serves an empty card when the n
   expect(body.positions).toEqual([]);
 });
 
+test("GET /api/v1/accounts/:ss58/wallet-positions merges portfolio and nominator rows (#5243)", async () => {
+  mockQueue.current = [
+    [], // sql.begin's leading `SET statement_timeout`
+    [
+      {
+        netuid: 1,
+        uid: 2,
+        stake_tao: "100",
+        emission_tao: "1",
+        rank: 1,
+        trust: 0.9,
+        incentive: 0.8,
+        dividends: 0.7,
+        validator_permit: true,
+        active: true,
+        captured_at: "1780000000000",
+      },
+    ], // neurons portfolio
+    [], // loadNominatorPositions
+  ];
+  const res = await req("/api/v1/accounts/5Hot1/wallet-positions");
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.ss58).toBe("5Hot1");
+  expect(body.position_count).toBe(1);
+  expect(body.positions[0].position_kind).toBe("validator-own");
+  expect(body.total_spot_mark_tao).toBeGreaterThanOrEqual(0);
+});
+
+test("GET /api/v1/accounts/:ss58/wallet-positions returns an empty card when no holdings", async () => {
+  mockQueue.current = [
+    [], // sql.begin
+    [], // neurons
+    [], // nominator_positions
+  ];
+  const res = await req("/api/v1/accounts/5NoPositions/wallet-positions");
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.position_count).toBe(0);
+  expect(body.total_spot_mark_tao).toBe(0);
+  expect(body.positions).toEqual([]);
+});
+
 test("GET /api/v1/accounts/:ss58/identity returns the latest row", async () => {
   mockRows.current = [
     {

@@ -176,6 +176,10 @@ export const ACCOUNT_PORTFOLIO_PATH_PATTERN =
 // /portfolio above (hotkey-scoped).
 export const ACCOUNT_POSITIONS_PATH_PATTERN =
   /^\/api\/v1\/accounts\/([1-9A-HJ-NP-Za-km-z]{47,48})\/positions$/;
+// Connected-wallet cross-subnet positions (#5243): validator-owned neurons plus
+// coldkey-delegated nominator holdings, enriched with spot mark and exit value.
+export const ACCOUNT_WALLET_POSITIONS_PATH_PATTERN =
+  /^\/api\/v1\/accounts\/([1-9A-HJ-NP-Za-km-z]{47,48})\/wallet-positions$/;
 // Per-account, per-subnet position HISTORY (block-explorer Tier-1, #4329/6.2):
 // time series read from the account_position_daily rollup tier — the "Alpha
 // Holdings chart" for one wallet's position on one subnet.

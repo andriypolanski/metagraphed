@@ -939,6 +939,15 @@
     {
       "content_type": "application/json",
       "contract_version": "2026-07-03.2",
+      "description": "Connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus coldkey-delegated nominator holdings, each with spot mark and simulated exit value, served at /api/v1/accounts/{ss58}/wallet-positions (no static file).",
+      "id": "wallet-positions",
+      "path": "/metagraph/accounts/{ss58}/wallet-positions.json",
+      "schema_ref": "#/components/schemas/WalletPositionsArtifact",
+      "storage_tier": "r2"
+    },
+    {
+      "content_type": "application/json",
+      "contract_version": "2026-07-03.2",
       "description": "One wallet's position on one subnet over time (the 'Alpha Holdings chart'): one point per snapshot_date with the position's economics (stake, emission, rank, trust, incentive, dividends, coldkey, role) and yield, served live from the account_position_daily D1 rollup tier at /api/v1/accounts/{ss58}/subnets/{netuid}/history (no static file).",
       "id": "account-subnet-position-history",
       "path": "/metagraph/accounts/{ss58}/subnets/{netuid}/history.json",

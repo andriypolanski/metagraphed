@@ -730,6 +730,13 @@
     },
     {
       "contract_version": "2026-07-03.2",
+      "id": "wallet-positions",
+      "path": "/metagraph/accounts/{ss58}/wallet-positions.json",
+      "schema_ref": "#/components/schemas/WalletPositionsArtifact",
+      "storage_tier": "r2"
+    },
+    {
+      "contract_version": "2026-07-03.2",
       "id": "account-subnet-position-history",
       "path": "/metagraph/accounts/{ss58}/subnets/{netuid}/history.json",
       "schema_ref": "#/components/schemas/AccountPositionHistoryArtifact",
@@ -6469,6 +6476,18 @@
       "id": "account-positions",
       "method": "GET",
       "path": "/api/v1/accounts/{ss58}/positions",
+      "public": true,
+      "query_collection": null,
+      "query_filter_names": [],
+      "query_parameters": []
+    },
+    {
+      "artifact_path": "/metagraph/accounts/{ss58}/wallet-positions.json",
+      "cache": "short",
+      "description": "Fetch connected-wallet cross-subnet positions (#5243): validator-owned neuron rows plus coldkey-delegated nominator holdings, each with spot mark and simulated exit value.",
+      "id": "wallet-positions",
+      "method": "GET",
+      "path": "/api/v1/accounts/{ss58}/wallet-positions",
       "public": true,
       "query_collection": null,
       "query_filter_names": [],

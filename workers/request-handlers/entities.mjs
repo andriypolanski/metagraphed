@@ -92,6 +92,10 @@ import {
 } from "../../src/account-events.mjs";
 import { buildAccountPortfolio } from "../../src/account-portfolio.mjs";
 import { buildAccountPositions } from "../../src/account-nominator-positions.mjs";
+import {
+  buildWalletPositions,
+  economicsByNetuidFromRows,
+} from "../../src/wallet-positions.mjs";
 import { buildAccountPositionHistory } from "../../src/account-position-history.mjs";
 import { loadAccountIdentity } from "../../src/account-identity.mjs";
 import { loadAccountIdentityHistory } from "../../src/account-identity-history.mjs";
@@ -3100,6 +3104,29 @@ export async function handleAccountPositions(request, env, ss58) {
       meta: await accountMeta(
         env,
         `/metagraph/accounts/${ss58}/positions.json`,
+        data.captured_at,
+      ),
+    },
+    "short",
+  );
+}
+
+// GET /api/v1/accounts/{ss58}/wallet-positions (#5243): connected-wallet
+// cross-subnet positions — validator-owned neuron rows plus coldkey-delegated
+// nominator holdings, each enriched with spot mark and simulated exit value.
+// Merges /portfolio with /positions (#5233). Postgres-only; reuses
+// METAGRAPH_NEURONS_SOURCE like handleAccountPositions.
+export async function handleWalletPositions(request, env, ss58) {
+  const data =
+    (await tryPostgresTier(env, request, "METAGRAPH_NEURONS_SOURCE")) ??
+    buildWalletPositions({}, ss58);
+  return accountEnvelopeResponse(
+    request,
+    {
+      data,
+      meta: await accountMeta(
+        env,
+        `/metagraph/accounts/${ss58}/wallet-positions.json`,
         data.captured_at,
       ),
     },

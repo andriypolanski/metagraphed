@@ -1358,6 +1358,39 @@ export interface AccountPortfolio {
   [key: string]: unknown;
 }
 
+/** One connected-wallet position row from /api/v1/accounts/{ss58}/wallet-positions (#5243). */
+export interface WalletPosition {
+  position_kind: "validator-own" | "miner-own" | "nominator";
+  netuid: number;
+  hotkey: string | null;
+  delegated_hotkey: string | null;
+  uid: number | null;
+  role: "validator" | "miner" | "nominator" | null;
+  active: boolean;
+  stake_tao: number | null;
+  share_fraction?: number | null;
+  alpha_amount?: number | null;
+  alpha_price_tao?: number | null;
+  root_stake_tao: number | null;
+  alpha_stake_tao: number | null;
+  spot_mark_tao: number | null;
+  exit_value_tao: number | null;
+  realized_yield_tao: number | null;
+  [key: string]: unknown;
+}
+
+/** Connected-wallet positions artifact (#5243). */
+export interface WalletPositions {
+  ss58: string;
+  captured_at?: string | null;
+  position_count: number;
+  total_stake_tao: number | null;
+  total_spot_mark_tao: number | null;
+  total_exit_value_tao: number | null;
+  positions: WalletPosition[];
+  [key: string]: unknown;
+}
+
 /** Cross-subnet activity summary for one account from /api/v1/accounts/{ss58}. */
 export interface AccountSummary {
   ss58: string;

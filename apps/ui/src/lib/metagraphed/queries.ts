@@ -57,6 +57,8 @@ import type {
   AccountSummary,
   PortfolioConcentration,
   PortfolioPosition,
+  WalletPosition,
+  WalletPositions,
   Block,
   ChainActivity,
   ChainActivityDay,
@@ -2229,6 +2231,38 @@ export function normalizePortfolioPosition(raw: unknown): PortfolioPosition | nu
   };
 }
 
+export function normalizeWalletPosition(raw: unknown): WalletPosition | null {
+  if (!isRecord(raw)) return null;
+  const netuid = firstFiniteNumber(raw.netuid);
+  if (netuid == null) return null;
+  const kind = firstString(raw.position_kind);
+  const role = firstString(raw.role);
+  const position_kind =
+    kind === "nominator" || kind === "miner-own" || kind === "validator-own"
+      ? kind
+      : "validator-own";
+  return {
+    ...(raw as object),
+    position_kind,
+    netuid,
+    hotkey: firstString(raw.hotkey) ?? null,
+    delegated_hotkey: firstString(raw.delegated_hotkey) ?? null,
+    uid: firstFiniteNumber(raw.uid) ?? null,
+    role:
+      role === "validator" || role === "miner" || role === "nominator" ? role : null,
+    active: booleanValue(raw.active) ?? false,
+    stake_tao: firstFiniteNumber(raw.stake_tao) ?? null,
+    share_fraction: firstFiniteNumber(raw.share_fraction) ?? null,
+    alpha_amount: firstFiniteNumber(raw.alpha_amount) ?? null,
+    alpha_price_tao: firstFiniteNumber(raw.alpha_price_tao) ?? null,
+    root_stake_tao: firstFiniteNumber(raw.root_stake_tao) ?? null,
+    alpha_stake_tao: firstFiniteNumber(raw.alpha_stake_tao) ?? null,
+    spot_mark_tao: firstFiniteNumber(raw.spot_mark_tao) ?? null,
+    exit_value_tao: firstFiniteNumber(raw.exit_value_tao) ?? null,
+    realized_yield_tao: firstFiniteNumber(raw.realized_yield_tao) ?? null,
+  };
+}
+
 // The portfolio's stake-concentration lens (#3491).
 export function normalizePortfolioConcentration(raw: unknown): PortfolioConcentration | null {
   if (!isRecord(raw)) return null;
@@ -2812,6 +2846,38 @@ export const accountPortfolioQuery = (ss58: string) =>
         meta: res.meta,
         url: res.url,
       } as ApiResult<AccountPortfolio>;
+    },
+    staleTime: STALE_MED,
+  });
+
+export const accountWalletPositionsQuery = (ss58: string) =>
+  queryOptions({
+    queryKey: k("account-wallet-positions", ss58),
+    queryFn: async ({ signal }) => {
+      const res = await apiFetch<unknown>(
+        `/api/v1/accounts/${ss58PathSegment(ss58)}/wallet-positions`,
+        { signal },
+      );
+      const d = isRecord(res.data) ? res.data : {};
+      const positions = Array.isArray(d.positions)
+        ? d.positions.slice(0, MAX_ACCOUNT_POSITIONS).flatMap((position) => {
+            const normalized = normalizeWalletPosition(position);
+            return normalized ? [normalized] : [];
+          })
+        : [];
+      return {
+        data: {
+          ss58: firstString(d.ss58) ?? ss58,
+          captured_at: firstString(d.captured_at) ?? null,
+          position_count: firstFiniteNumber(d.position_count) ?? positions.length,
+          total_stake_tao: firstFiniteNumber(d.total_stake_tao) ?? null,
+          total_spot_mark_tao: firstFiniteNumber(d.total_spot_mark_tao) ?? null,
+          total_exit_value_tao: firstFiniteNumber(d.total_exit_value_tao) ?? null,
+          positions,
+        } as WalletPositions,
+        meta: res.meta,
+        url: res.url,
+      } as ApiResult<WalletPositions>;
     },
     staleTime: STALE_MED,
   });

@@ -132,6 +132,9 @@ export const R2_ONLY_PATTERNS = [
   // from nominator_positions joined against the neurons D1 tier at
   // /api/v1/accounts/{ss58}/positions — never a file.
   /^accounts\/(?:[1-9A-HJ-NP-Za-km-z]{47,48}|\{ss58\})\/positions\.json$/,
+  // wallet-positions (#5243) is computed live at
+  // /api/v1/accounts/{ss58}/wallet-positions — never a file.
+  /^accounts\/(?:[1-9A-HJ-NP-Za-km-z]{47,48}|\{ss58\})\/wallet-positions\.json$/,
   // Per-account, per-subnet position history (#4329/6.2), computed live from the
   // account_position_daily D1 rollup tier at
   // /api/v1/accounts/{ss58}/subnets/{netuid}/history — never a file.

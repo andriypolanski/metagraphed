@@ -314,6 +314,10 @@ import {
   stakeByHotkeyNetuid,
 } from "../src/account-nominator-positions.mjs";
 import {
+  buildWalletPositions,
+  economicsByNetuidFromRows,
+} from "../src/wallet-positions.mjs";
+import {
   identityHash,
   buildAccountIdentityHistory,
 } from "../src/account-identity-history.mjs";
@@ -2756,6 +2760,27 @@ async function loadNeuronStakeByHotkeys(sql, hotkeys) {
   } catch (err) {
     console.error("neurons stake-by-hotkey join query failed:", err);
     return new Map();
+  }
+}
+
+// Latest subnet_snapshots economics row per netuid — pool reserves and alpha
+// price for wallet-positions exit-quote enrichment (#5243).
+async function loadLatestSubnetEconomics(sql, netuids) {
+  if (netuids.length === 0) return [];
+  try {
+    const placeholders = netuids.map((_, i) => `$${i + 1}::int`).join(", ");
+    return await sql.savepoint((sql) =>
+      sql.unsafe(
+        `SELECT DISTINCT ON (netuid) netuid, alpha_price_tao, tao_in_pool_tao, alpha_in_pool
+         FROM subnet_snapshots
+         WHERE netuid IN (${placeholders})
+         ORDER BY netuid, snapshot_date DESC`,
+        netuids,
+      ),
+    );
+  } catch (err) {
+    console.error("subnet_snapshots economics query failed:", err);
+    return [];
   }
 }
 
@@ -6444,6 +6469,52 @@ export default {
           );
           return json(
             buildAccountPositions(positionRows, hotkeyNetuidStake, ss58),
+          );
+        }
+
+        // GET /api/v1/accounts/:ss58/wallet-positions (#5243): connected-wallet
+        // cross-subnet positions — merges /portfolio (hotkey-owned neurons)
+        // with /positions (nominator holdings, #5233), enriched with spot mark
+        // and simulated exit value from subnet_snapshots pool reserves.
+        const acctWalletPositions = url.pathname.match(
+          /^\/api\/v1\/accounts\/([^/]+)\/wallet-positions$/,
+        );
+        if (acctWalletPositions) {
+          const ss58 = decodeURIComponent(acctWalletPositions[1]);
+          const neuronRows = await sql`
+          SELECT netuid, uid, stake_tao, emission_tao, rank, trust, incentive, dividends, validator_permit, active, captured_at
+          FROM neurons WHERE hotkey = ${ss58} ORDER BY netuid`;
+          const portfolio = buildAccountPortfolio(neuronRows, ss58);
+          const positionRows = await loadNominatorPositions(sql, ss58);
+          const hotkeyNetuidStake = await loadNeuronStakeByHotkeys(
+            sql,
+            distinctHotkeys(positionRows),
+          );
+          const nominator = buildAccountPositions(
+            positionRows,
+            hotkeyNetuidStake,
+            ss58,
+          );
+          const netuids = [
+            ...new Set([
+              ...(Array.isArray(portfolio.positions)
+                ? portfolio.positions.map((row) => row.netuid)
+                : []),
+              ...(Array.isArray(nominator.positions)
+                ? nominator.positions.map((row) => row.netuid)
+                : []),
+            ]),
+          ].filter((n) => Number.isInteger(n) && n >= 0);
+          const econRows = await loadLatestSubnetEconomics(sql, netuids);
+          return json(
+            buildWalletPositions(
+              {
+                portfolio,
+                nominator,
+                economicsByNetuid: economicsByNetuidFromRows(econRows),
+              },
+              ss58,
+            ),
           );
         }
 
