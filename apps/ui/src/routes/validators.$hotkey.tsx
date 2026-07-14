@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { Suspense, useState } from "react";
+import { Suspense } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { Boxes, Coins, Gauge, Percent, Users, Zap } from "lucide-react";
@@ -13,7 +13,6 @@ import { PageHero, ShareButton, SectionAnchor, CopyableCode, StatTile } from "@j
 import { ValidatorHistoryChart } from "@/components/metagraphed/validator-history-chart";
 import { ValidatorApyPanel } from "@/components/metagraphed/validator-apy-panel";
 import { ValidatorIdentityChip } from "@/components/metagraphed/validator-identity-chip";
-import { StakeModal } from "@/components/metagraphed/stake-modal";
 import { WatchValidatorAlert } from "@/components/metagraphed/watch-validator-alert";
 import {
   ValidatorNominatorsTable,
@@ -212,7 +211,6 @@ function ValidatorDetail({ hotkey }: { hotkey: string }) {
   const sourceRef = ss58PathSegment(hotkey);
   const detailRes = useSuspenseQuery(validatorDetailQuery(hotkey)).data;
   const detail = detailRes.data;
-  const [stakeOpen, setStakeOpen] = useState(false);
   const displayName =
     detail.coldkey_identity?.has_identity && detail.coldkey_identity.name
       ? detail.coldkey_identity.name
@@ -248,18 +246,7 @@ function ValidatorDetail({ hotkey }: { hotkey: string }) {
             </span>
           </span>
         }
-        actions={
-          <span className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setStakeOpen(true)}
-              className="inline-flex items-center justify-center rounded border border-accent/40 bg-accent-surface px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-accent-text hover:border-accent/60 transition-colors min-h-11"
-            >
-              Stake to this validator
-            </button>
-            <ShareButton />
-          </span>
-        }
+        actions={<ShareButton />}
         caption="explorer / v1"
       />
 
@@ -385,8 +372,6 @@ function ValidatorDetail({ hotkey }: { hotkey: string }) {
           `/api/v1/validators/${sourceRef}/history`,
         ]}
       />
-
-      <StakeModal open={stakeOpen} onOpenChange={setStakeOpen} hotkey={hotkey} />
     </>
   );
 }

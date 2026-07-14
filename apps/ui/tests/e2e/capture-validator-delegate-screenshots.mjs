@@ -92,10 +92,6 @@ async function openDetailView(page) {
     timeout: 90_000,
   });
   if (VARIANT === "after") {
-    await page.getByRole("button", { name: "Stake to this validator" }).waitFor({
-      state: "visible",
-      timeout: 30_000,
-    });
     await page.getByText("Delegator yield (APY)").waitFor({ state: "visible", timeout: 30_000 });
   } else {
     await page.locator("header.mg-header").waitFor({ state: "visible", timeout: 30_000 });
