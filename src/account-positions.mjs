@@ -62,7 +62,8 @@ function rootAlphaSplit(netuid, stakeTao) {
 
 function spotMarkTao(netuid, stakeTao, alphaAmount, alphaPrice) {
   if (netuid === 0) return round9(stakeTao);
-  if (alphaAmount > 0 && alphaPrice > 0) return round9(alphaAmount * alphaPrice);
+  if (alphaAmount > 0 && alphaPrice > 0)
+    return round9(alphaAmount * alphaPrice);
   return round9(stakeTao);
 }
 
@@ -174,7 +175,9 @@ export function buildAccountPositions(
 
 // Latest alpha_price_tao per netuid from subnet_snapshots.
 export async function loadLatestAlphaPrices(d1, netuids) {
-  const ids = [...new Set((netuids ?? []).filter((n) => Number.isInteger(n) && n >= 0))];
+  const ids = [
+    ...new Set((netuids ?? []).filter((n) => Number.isInteger(n) && n >= 0)),
+  ];
   const map = new Map();
   if (ids.length === 0) return map;
   const placeholders = ids.map(() => "?").join(",");
@@ -227,8 +230,13 @@ export async function loadAccountPositions(d1, ss58) {
   const nominatorRows = await loadNominatorPositionRows(d1, ss58);
   const netuids = new Set([
     ...portfolio.positions.map((p) => p.netuid),
-    ...nominatorRows.map((r) => normalizedNetuid(r?.netuid)).filter((n) => n != null),
+    ...nominatorRows
+      .map((r) => normalizedNetuid(r?.netuid))
+      .filter((n) => n != null),
   ]);
   const priceByNetuid = await loadLatestAlphaPrices(d1, [...netuids]);
-  return buildAccountPositions({ portfolio, nominatorRows, priceByNetuid }, ss58);
+  return buildAccountPositions(
+    { portfolio, nominatorRows, priceByNetuid },
+    ss58,
+  );
 }

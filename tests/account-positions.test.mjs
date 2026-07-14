@@ -103,7 +103,11 @@ describe("buildAccountPositions", () => {
 
   test("empty inputs yield a schema-stable empty card", () => {
     const out = buildAccountPositions(
-      { portfolio: { positions: [] }, nominatorRows: [], priceByNetuid: new Map() },
+      {
+        portfolio: { positions: [] },
+        nominatorRows: [],
+        priceByNetuid: new Map(),
+      },
       SS58,
     );
     expect(out).toMatchObject({

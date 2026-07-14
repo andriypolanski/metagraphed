@@ -3170,7 +3170,11 @@ export async function handleAccountPositions(request, env, ss58) {
   const data =
     (await tryPostgresTier(env, request, "METAGRAPH_NEURONS_SOURCE")) ??
     buildAccountPositions(
-      { portfolio: { positions: [] }, nominatorRows: [], priceByNetuid: new Map() },
+      {
+        portfolio: { positions: [] },
+        nominatorRows: [],
+        priceByNetuid: new Map(),
+      },
       ss58,
     );
   return accountEnvelopeResponse(

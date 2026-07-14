@@ -5972,7 +5972,9 @@ export default {
           const portfolio = buildAccountPortfolio(portfolioRows, ss58);
           const netuids = new Set([
             ...portfolio.positions.map((p) => p.netuid),
-            ...nominatorRows.map((r) => Number(r.netuid)).filter((n) => Number.isInteger(n)),
+            ...nominatorRows
+              .map((r) => Number(r.netuid))
+              .filter((n) => Number.isInteger(n)),
           ]);
           const priceRows =
             netuids.size > 0
@@ -5986,7 +5988,10 @@ export default {
             priceRows.map((r) => [Number(r.netuid), Number(r.alpha_price_tao)]),
           );
           return json(
-            buildAccountPositions({ portfolio, nominatorRows, priceByNetuid }, ss58),
+            buildAccountPositions(
+              { portfolio, nominatorRows, priceByNetuid },
+              ss58,
+            ),
           );
         }
 

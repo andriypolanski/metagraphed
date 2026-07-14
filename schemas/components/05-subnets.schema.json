@@ -3515,7 +3515,10 @@
           "exit_value_tao"
         ],
         "properties": {
-          "position_kind": { "type": "string", "enum": ["validator-own", "nominator"] },
+          "position_kind": {
+            "type": "string",
+            "enum": ["validator-own", "nominator"]
+          },
           "netuid": { "type": "integer", "minimum": 0 },
           "hotkey": { "type": ["string", "null"] },
           "delegated_hotkey": { "type": ["string", "null"] },
