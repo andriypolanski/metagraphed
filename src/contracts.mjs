@@ -155,6 +155,10 @@ export const API_QUERY_COLLECTIONS = {
       kind: enumSchema(QUERY_ENUMS.surfaceKind),
       provider: filterTextSchema,
       state: enumSchema(QUERY_ENUMS.candidateState),
+      // Same exact-match id filter as pools / endpoint-pools; confidence enum
+      // matches profiles (#6242).
+      id: filterTextSchema,
+      confidence: enumSchema(["low", "medium", "high"]),
     },
     sort: ["confidence", "id", "kind", "name", "netuid", "provider", "state"],
   }),
@@ -192,6 +196,8 @@ export const API_QUERY_COLLECTIONS = {
       netuid: integerSchema,
       kind: enumSchema(QUERY_ENUMS.surfaceKind),
       provider: filterTextSchema,
+      // Same exact-match id filter as pools / endpoint-pools (#6242).
+      id: filterTextSchema,
     },
     sort: ["id", "kind", "name", "netuid", "provider"],
   }),

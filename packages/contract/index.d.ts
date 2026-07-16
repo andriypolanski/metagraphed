@@ -12205,6 +12205,8 @@ export interface operations {
                 kind?: "archive" | "dashboard" | "data-artifact" | "docs" | "example" | "openapi" | "repo-registry" | "sdk" | "source-repo" | "sse" | "subnet-api" | "subtensor-rpc" | "subtensor-wss" | "website";
                 provider?: string;
                 state?: "schema-invalid" | "schema-valid" | "maintainer-review" | "verified" | "stale" | "rejected";
+                id?: string;
+                confidence?: "low" | "medium" | "high";
                 fields?: string;
                 limit?: number;
                 cursor?: number;
@@ -22712,6 +22714,8 @@ export interface operations {
                 kind?: "archive" | "dashboard" | "data-artifact" | "docs" | "example" | "openapi" | "repo-registry" | "sdk" | "source-repo" | "sse" | "subnet-api" | "subtensor-rpc" | "subtensor-wss" | "website";
                 provider?: string;
                 state?: "schema-invalid" | "schema-valid" | "maintainer-review" | "verified" | "stale" | "rejected";
+                id?: string;
+                confidence?: "low" | "medium" | "high";
                 fields?: string;
                 limit?: number;
                 cursor?: number;
@@ -27337,6 +27341,7 @@ export interface operations {
             query?: {
                 kind?: "archive" | "dashboard" | "data-artifact" | "docs" | "example" | "openapi" | "repo-registry" | "sdk" | "source-repo" | "sse" | "subnet-api" | "subtensor-rpc" | "subtensor-wss" | "website";
                 provider?: string;
+                id?: string;
                 fields?: string;
                 limit?: number;
                 cursor?: number;
@@ -28972,6 +28977,7 @@ export interface operations {
                 netuid?: number;
                 kind?: "archive" | "dashboard" | "data-artifact" | "docs" | "example" | "openapi" | "repo-registry" | "sdk" | "source-repo" | "sse" | "subnet-api" | "subtensor-rpc" | "subtensor-wss" | "website";
                 provider?: string;
+                id?: string;
                 fields?: string;
                 limit?: number;
                 cursor?: number;

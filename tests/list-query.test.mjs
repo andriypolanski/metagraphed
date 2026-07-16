@@ -1238,3 +1238,122 @@ describe("list-query string filter excludes rows missing the field", () => {
     });
   });
 });
+
+// #6242: candidates and curated-surfaces were sortable by id (and candidates by
+// confidence) but could not filter on those fields.
+describe("candidates id/confidence filters (#6242)", () => {
+  const data = {
+    candidates: [
+      {
+        id: "sn-7-openapi",
+        netuid: 7,
+        kind: "openapi",
+        confidence: "high",
+        provider: "allways",
+        state: "verified",
+      },
+      {
+        id: "sn-7-website",
+        netuid: 7,
+        kind: "website",
+        confidence: "low",
+        provider: "allways",
+        state: "schema-valid",
+      },
+      {
+        id: "sn-8-openapi",
+        netuid: 8,
+        kind: "openapi",
+        confidence: "medium",
+        provider: "beta",
+        state: "verified",
+      },
+    ],
+  };
+  const ids = (result) => result.data.candidates.map((r) => r.id);
+
+  test("?id=<value> keeps rows whose id exactly matches (case-insensitive)", () => {
+    const lower = applyQueryFilters(
+      data,
+      query("/api/v1/candidates?id=sn-7-openapi"),
+      "candidates",
+    );
+    const upper = applyQueryFilters(
+      data,
+      query("/api/v1/candidates?id=SN-7-OPENAPI"),
+      "candidates",
+    );
+    assert.equal(lower.error, undefined);
+    assert.equal(upper.error, undefined);
+    assert.deepEqual(ids(lower), ["sn-7-openapi"]);
+    assert.deepEqual(ids(upper), ids(lower));
+  });
+
+  test("?confidence=<low|medium|high> filters to rows with that confidence", () => {
+    const result = applyQueryFilters(
+      data,
+      query("/api/v1/candidates?confidence=medium"),
+      "candidates",
+    );
+    assert.equal(result.error, undefined);
+    assert.deepEqual(ids(result), ["sn-8-openapi"]);
+    assert.ok(
+      result.data.candidates.every((row) => row.confidence === "medium"),
+    );
+  });
+
+  test("an invalid confidence value returns invalid_query on that parameter", () => {
+    const result = applyQueryFilters(
+      data,
+      query("/api/v1/candidates?confidence=extreme"),
+      "candidates",
+    );
+    assert.equal(result.error.parameter, "confidence");
+  });
+});
+
+describe("curated-surfaces id filter (#6242)", () => {
+  const data = {
+    surfaces: [
+      {
+        id: "sn-7-openapi",
+        netuid: 7,
+        kind: "openapi",
+        provider: "allways",
+        name: "OpenAPI",
+      },
+      {
+        id: "sn-7-website",
+        netuid: 7,
+        kind: "website",
+        provider: "allways",
+        name: "Website",
+      },
+      {
+        id: "sn-8-openapi",
+        netuid: 8,
+        kind: "openapi",
+        provider: "beta",
+        name: "OpenAPI",
+      },
+    ],
+  };
+  const ids = (result) => result.data.surfaces.map((r) => r.id);
+
+  test("?id=<value> keeps rows whose id exactly matches (case-insensitive)", () => {
+    const lower = applyQueryFilters(
+      data,
+      query("/api/v1/surfaces?id=sn-7-website"),
+      "curated-surfaces",
+    );
+    const upper = applyQueryFilters(
+      data,
+      query("/api/v1/surfaces?id=SN-7-WEBSITE"),
+      "curated-surfaces",
+    );
+    assert.equal(lower.error, undefined);
+    assert.equal(upper.error, undefined);
+    assert.deepEqual(ids(lower), ["sn-7-website"]);
+    assert.deepEqual(ids(upper), ids(lower));
+  });
+});
