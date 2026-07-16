@@ -126,7 +126,10 @@ export async function recordUsageEvent(env, event, deps = {}) {
 
     const token = String(env[POSTHOG_PROJECT_TOKEN_ENV]).trim();
     const host = resolvePostHogHost(env);
-    const doFetch = deps.fetch ?? globalThis.fetch;
+    // Prefer an injected fetch when the key is present — including an
+    // explicit `null` (tests: "fetch unavailable") — over falling through
+    // to globalThis.fetch via `??` (which treats null as missing).
+    const doFetch = Object.hasOwn(deps, "fetch") ? deps.fetch : globalThis.fetch;
     if (typeof doFetch !== "function") return false;
 
     const response = await doFetch(postHogCaptureUrl(host), {
