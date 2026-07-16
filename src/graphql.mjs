@@ -106,9 +106,12 @@ import { composeLeaderboardsData } from "../workers/request-handlers/analytics-r
 import {
   loadCompareSubnets,
   loadSubnetHealthTrends,
+  loadSubnetUptime,
   parseCompareDimensionList,
   parseCompareNetuidList,
+  parseUptimeWindow,
 } from "./analytics-live.mjs";
+import { UPTIME_WINDOWS } from "../workers/config.mjs";
 import {
   buildAccountExtrinsics,
   buildExtrinsic,
@@ -295,6 +298,8 @@ export const SDL = `
     subnet_serving(netuid: Int!, window: String): SubnetServing!
     "One subnet's uptime + success-only latency trend windows (7d/30d) from the live health-probe history: per-window samples, uptime_ratio, latency sample count, and the per-surface uptime/latency series. A subnet with no probe history resolves to a schema-stable zeroed-windows card, never null. Mirrors GET /api/v1/subnets/{netuid}/health/trends."
     subnet_health_trends(netuid: Int!): SubnetHealthTrends!
+    "One subnet's long-term daily uptime history for its operational surfaces from the live surface_uptime_daily rollup: per-surface day series, window-wide uptime ratios, and reliability scores for the requested window (90d or 1y, default 90d). Optional min_samples drops day rows whose daily probe count is below the threshold (including zero-sample 'unknown' days). A subnet with no history resolves to a schema-stable empty card (surfaces []), never null. Mirrors GET /api/v1/subnets/{netuid}/uptime."
+    subnet_uptime(netuid: Int!, window: String, min_samples: Int): SubnetUptime!
     "Per-subnet axon-removal activity over a 7d/30d window (distinct removers, AxonInfoRemoved count, and removals per remover); a subnet with no events in the window resolves to a schema-stable zeroed card, never null. Mirrors GET /api/v1/subnets/{netuid}/axon-removals."
     subnet_axon_removals(netuid: Int!, window: String): SubnetAxonRemovals!
     "Per-subnet validator weight-setting activity over a 7d/30d window (distinct weight-setters, WeightsSet count, and sets per setter); a subnet with no events in the window resolves to a schema-stable zeroed card, never null. Mirrors GET /api/v1/subnets/{netuid}/weights."
@@ -1029,6 +1034,61 @@ export const SDL = `
     source: String
     "The 7d/30d windows keyed by window label, each holding this subnet's samples, uptime_ratio, latency_sample_count and the per-surface uptime/latency series. Opaque JSON: dynamic-keyed by window label, matching the get_subnet_health_trends MCP/REST shape."
     windows: JSON!
+  }
+
+  "One subnet's long-term daily uptime history (#5885). Mirrors GET /api/v1/subnets/{netuid}/uptime's data envelope."
+  type SubnetUptime {
+    schema_version: Int!
+    netuid: Int!
+    window: String
+    observed_at: String
+    source: String
+    "Subnet-level sample-weighted reliability score over the window; null when there are no probe samples."
+    reliability: UptimeReliability
+    "Per-surface day series with window-wide uptime ratios and per-surface reliability scores."
+    surfaces: [UptimeSurface!]!
+  }
+
+  "Window-wide reliability score (0-100) with letter grade. Surface-level scores omit window/surface_count/day_count/computed_at."
+  type UptimeReliability {
+    score: Int
+    grade: String
+    uptime_ratio: Float
+    avg_latency_ms: Int
+    sample_count: Int
+    latency_sample_count: Int
+    window: String
+    surface_count: Int
+    day_count: Int
+    computed_at: String
+  }
+
+  "One operational surface's uptime history over the requested window."
+  type UptimeSurface {
+    surface_id: String
+    day_count: Int
+    samples: Int
+    uptime_ratio: Float
+    reliability: UptimeReliability
+    days: [UptimeDay!]!
+  }
+
+  "One daily uptime point for a surface."
+  type UptimeDay {
+    day: String
+    samples: Int
+    uptime_ratio: Float
+    avg_latency_ms: Int
+    latency_sample_count: Int
+    latency_ms: UptimeLatency
+    status: String
+  }
+
+  "Percentile latency summary for one uptime day."
+  type UptimeLatency {
+    p50: Int
+    p95: Int
+    p99: Int
   }
 
   "RPC reverse-proxy usage analytics over a 7d/30d window. Mirrors GET /api/v1/rpc/usage's data envelope."
@@ -2622,6 +2682,7 @@ export const FIELD_COMPLEXITY = {
   subnet_deregistrations: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_serving: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_health_trends: RELATIONSHIP_FIELD_COMPLEXITY,
+  subnet_uptime: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_axon_removals: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_weights: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_stake_moves: RELATIONSHIP_FIELD_COMPLEXITY,
@@ -5917,6 +5978,58 @@ const rootValue = {
       observed_at: data.observed_at ?? null,
       source: data.source ?? null,
       windows: data.windows ?? {},
+    };
+  },
+
+  async subnet_uptime({ netuid, window, min_samples: minSamples }, context) {
+    // Same 90d/1y window validation handleUptime / get_subnet_uptime use -- an
+    // unsupported window is a GraphQL BAD_USER_INPUT error, not a silent card.
+    // parseUptimeWindow(undefined) → "90d"; a supplied bad value → null.
+    const windowParam = parseUptimeWindow(window);
+    if (windowParam === null) {
+      throw new GraphQLError(unsupportedWindowMessage(window, UPTIME_WINDOWS), {
+        extensions: { code: "BAD_USER_INPUT" },
+      });
+    }
+    // Same non-negative min_samples floor the REST route and MCP tool enforce
+    // (GraphQL Int coercion already rejects non-integers at parse time).
+    if (minSamples != null && minSamples < 0) {
+      throw new GraphQLError("min_samples must be a non-negative integer.", {
+        extensions: { code: "BAD_USER_INPUT" },
+      });
+    }
+    const sampleFloor = minSamples == null ? null : minSamples;
+    const params = new URLSearchParams();
+    params.set("window", windowParam);
+    if (sampleFloor !== null) params.set("min_samples", String(sampleFloor));
+    // Same tryPostgresTier(METAGRAPH_HEALTH_SOURCE) -> loadSubnetUptime D1
+    // fallback contract REST's handleUptime and the get_subnet_uptime MCP tool
+    // share -- a subnet with no daily history yields a schema-stable empty
+    // surfaces card, never a GraphQL error. The tier owns the
+    // surface_uptime_daily aggregation; nothing is duplicated here.
+    const data =
+      (await tryPostgresTier(
+        context.env,
+        postgresTierRequest(
+          context,
+          `/api/v1/subnets/${netuid}/uptime`,
+          params,
+        ),
+        "METAGRAPH_HEALTH_SOURCE",
+      )) ??
+      (await loadSubnetUptime(graphqlD1(context), netuid, {
+        window: windowParam,
+        observedAt: await loadObservedAt(context),
+        minSamples: sampleFloor,
+      }));
+    return {
+      schema_version: data.schema_version ?? 1,
+      netuid: data.netuid ?? netuid,
+      window: data.window ?? windowParam,
+      observed_at: data.observed_at ?? null,
+      source: data.source ?? null,
+      reliability: data.reliability ?? null,
+      surfaces: data.surfaces ?? [],
     };
   },
 

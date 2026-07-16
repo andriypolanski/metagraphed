@@ -9944,6 +9944,205 @@ describe("graphql — subnet_health_trends (#5883, Postgres-tier + D1-live fallb
   });
 });
 
+describe("graphql — subnet_uptime (#5885, Postgres-tier + D1-live fallback)", () => {
+  const NETUID = 7;
+
+  function uptimeQuery(args = `netuid: ${NETUID}`) {
+    return `{ subnet_uptime(${args}) {
+      schema_version netuid window observed_at source
+      reliability { score grade uptime_ratio sample_count window }
+      surfaces {
+        surface_id day_count samples uptime_ratio
+        days { day samples uptime_ratio status avg_latency_ms }
+      }
+    } }`;
+  }
+
+  // loadSubnetUptime issues a single GROUP BY over surface_uptime_daily; the
+  // mock only needs to answer all() with the aggregated day rows.
+  function uptimeD1(rows = []) {
+    return {
+      prepare() {
+        return {
+          bind() {
+            return {
+              async all() {
+                return { results: rows };
+              },
+            };
+          },
+        };
+      },
+    };
+  }
+
+  test("cold store: schema-stable empty surfaces via the D1-live loader", async () => {
+    const { status, body } = await gql(uptimeQuery());
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(body.data.subnet_uptime, {
+      schema_version: 1,
+      netuid: NETUID,
+      window: "90d",
+      observed_at: null,
+      source: "live-cron-prober",
+      reliability: null,
+      surfaces: [],
+    });
+  });
+
+  test("resolves Postgres-tier data and forwards window + min_samples", async () => {
+    let capturedUrl;
+    const env = {
+      METAGRAPH_HEALTH_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async (r) => {
+          capturedUrl = new URL(r.url);
+          return Response.json({
+            schema_version: 1,
+            netuid: NETUID,
+            window: "1y",
+            observed_at: "2026-07-10T00:00:00.000Z",
+            source: "live-cron-prober",
+            reliability: {
+              score: 99,
+              grade: "A",
+              uptime_ratio: 0.995,
+              sample_count: 100,
+              window: "1y",
+            },
+            surfaces: [
+              {
+                surface_id: "api-root",
+                day_count: 1,
+                samples: 100,
+                uptime_ratio: 0.995,
+                days: [
+                  {
+                    day: "2026-07-09",
+                    samples: 100,
+                    uptime_ratio: 0.995,
+                    status: "ok",
+                    avg_latency_ms: 80,
+                  },
+                ],
+              },
+            ],
+          });
+        },
+      },
+    };
+    const { status, body } = await gql(
+      uptimeQuery(`netuid: ${NETUID}, window: "1y", min_samples: 5`),
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(capturedUrl.pathname, `/api/v1/subnets/${NETUID}/uptime`);
+    assert.equal(capturedUrl.searchParams.get("window"), "1y");
+    assert.equal(capturedUrl.searchParams.get("min_samples"), "5");
+    const d = body.data.subnet_uptime;
+    assert.equal(d.window, "1y");
+    assert.equal(d.reliability.score, 99);
+    assert.equal(d.surfaces[0].surface_id, "api-root");
+    assert.equal(d.surfaces[0].days[0].uptime_ratio, 0.995);
+  });
+
+  test("a malformed Postgres-tier body falls back to schema-stable defaults (no throw)", async () => {
+    const env = {
+      METAGRAPH_HEALTH_SOURCE: "postgres",
+      DATA_API: { fetch: async () => Response.json({}) },
+    };
+    const { status, body } = await gql(uptimeQuery(), env);
+    assert.equal(status, 200);
+    assert.deepEqual(body.data.subnet_uptime, {
+      schema_version: 1,
+      netuid: NETUID,
+      window: "90d",
+      observed_at: null,
+      source: null,
+      reliability: null,
+      surfaces: [],
+    });
+  });
+
+  test("no Postgres tier flag: formats surface_uptime_daily rows straight off D1", async () => {
+    const env = {
+      METAGRAPH_HEALTH_DB: uptimeD1([
+        {
+          surface_id: "api-root",
+          surface_key: "api-root",
+          day: "2026-07-09",
+          samples: 50,
+          ok_count: 45,
+          uptime_ratio: 0.9,
+          avg_latency_ms: 90,
+          latency_samples: 45,
+          p50: 80,
+          p95: 110,
+          p99: 130,
+          status: "degraded",
+        },
+      ]),
+    };
+    const { status, body } = await gql(uptimeQuery(), env);
+    assert.equal(status, 200);
+    const d = body.data.subnet_uptime;
+    assert.equal(d.schema_version, 1);
+    assert.equal(d.window, "90d");
+    assert.equal(d.source, "live-cron-prober");
+    assert.equal(d.surfaces.length, 1);
+    assert.equal(d.surfaces[0].surface_id, "api-root");
+    assert.equal(d.surfaces[0].samples, 50);
+    assert.equal(d.surfaces[0].days[0].status, "degraded");
+    assert.ok(d.reliability);
+    assert.equal(d.reliability.sample_count, 50);
+  });
+
+  test("unsupported window is a BAD_USER_INPUT error", async () => {
+    const { status, body } = await gql(
+      uptimeQuery(`netuid: ${NETUID}, window: "7d"`),
+    );
+    assert.equal(status, 200);
+    assert.ok(
+      body.errors?.find((e) => e.extensions?.code === "BAD_USER_INPUT"),
+      `expected BAD_USER_INPUT, got: ${JSON.stringify(body.errors)}`,
+    );
+  });
+
+  test("negative min_samples is a BAD_USER_INPUT error", async () => {
+    const { status, body } = await gql(
+      uptimeQuery(`netuid: ${NETUID}, min_samples: -1`),
+    );
+    assert.equal(status, 200);
+    assert.ok(
+      body.errors?.find((e) => e.extensions?.code === "BAD_USER_INPUT"),
+      `expected BAD_USER_INPUT, got: ${JSON.stringify(body.errors)}`,
+    );
+  });
+
+  test("observed_at is stamped from the health:meta KV freshness on the D1-live path", async () => {
+    const env = {
+      METAGRAPH_CONTROL: {
+        async get(key) {
+          return key === KV_HEALTH_META
+            ? { last_run_at: "2026-06-23T00:00:00.000Z" }
+            : null;
+        },
+      },
+      METAGRAPH_HEALTH_DB: uptimeD1([]),
+    };
+    const { body } = await gql(uptimeQuery(), env);
+    assert.equal(
+      body.data.subnet_uptime.observed_at,
+      "2026-06-23T00:00:00.000Z",
+    );
+  });
+
+  test("subnet_uptime is weighted as a fan-out field", () => {
+    assert.equal(FIELD_COMPLEXITY.subnet_uptime, 5);
+  });
+});
+
 describe("graphql — rpc_usage (#5899, Postgres-tier + D1-live fallback)", () => {
   function usageQuery(argsClause = "") {
     return `{ rpc_usage${argsClause} {
