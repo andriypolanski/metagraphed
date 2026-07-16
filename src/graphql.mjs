@@ -197,6 +197,12 @@ import {
 } from "../workers/config.mjs";
 import { loadRpcUsage } from "./rpc-usage-loader.mjs";
 import {
+  loadChainSigners,
+  CHAIN_SIGNERS_SORTS,
+  CHAIN_SIGNERS_LIMIT_DEFAULT,
+  CHAIN_SIGNERS_LIMIT_MAX,
+} from "./chain-query-loaders.mjs";
+import {
   parseHistoryWindow,
   unsupportedWindowMessage,
 } from "./neuron-history.mjs";
@@ -410,6 +416,8 @@ export const SDL = `
     chain_axon_removals(window: String, limit: Int): ChainAxonRemovals!
     "Network-wide weight-setter leaderboard over a 7d/30d window (default 7d): the individual validators driving consensus network-wide, each with its total WeightsSet count, share of the network total, and first/last set times, ranked by activity. The setter-level drill-in behind chain_weights. Mirrors GET /api/v1/chain/weights/setters."
     chain_weight_setters(window: String, limit: Int): ChainWeightSetters!
+    "Most-active signer leaderboard over a 7d/30d window (default 7d): the accounts submitting the most extrinsics, each with its extrinsic count, total fees and tips paid in TAO, and last-seen block. Rank by tx_count (default) or total_fee_tao, optionally scoped to a single call_module pallet (limit default 50, max 100). Computed live from the extrinsics tier; a cold store yields a schema-stable empty leaderboard, never a GraphQL error. Mirrors GET /api/v1/chain/signers."
+    chain_signers(window: String, limit: Int, sort: String, call_module: String): ChainSigners!
     "Compact all-subnet 7d/30d daily uptime + latency trend matrix from the live health-probe history (probed every ~15 minutes); a cold store still returns both windows, schema-stable and zeroed, never a GraphQL error. Mirrors GET /api/v1/health/trends."
     health_trends: HealthTrends!
     "RPC reverse-proxy usage analytics over a 7d/30d window (default 7d): total request volume, error + failover rates, cache-hit rate, latency p50/p95/avg, the per-endpoint and per-network request distribution, and bounded time buckets (1h for 7d, 6h for 30d), computed live from the rpc_proxy_events telemetry. A cold store yields a schema-stable zeroed card, never a GraphQL error. Mirrors GET /api/v1/rpc/usage."
@@ -959,6 +967,26 @@ export const SDL = `
   }
 
   "Network-wide weight-setter leaderboard over a lookback window, summed live from the account_events WeightsSet stream. The setter-level drill-in behind ChainWeights. Mirrors GET /api/v1/chain/weights/setters."
+  type ChainSigners {
+    schema_version: Int!
+    window: String
+    "The rank order actually applied: tx_count or total_fee_tao."
+    sort: String!
+    observed_at: String
+    signer_count: Int!
+    signers: [ChainSigner!]!
+  }
+
+  "One account's extrinsic-submission activity in the window, ranked by the requested sort."
+  type ChainSigner {
+    signer: String!
+    tx_count: Int!
+    "Total fees paid across the window's extrinsics; null when the tier has no fee data."
+    total_fee_tao: Float
+    total_tip_tao: Float
+    last_tx_block: Int
+  }
+
   type ChainWeightSetters {
     schema_version: Int!
     window: String
@@ -2596,6 +2624,7 @@ export const FIELD_COMPLEXITY = {
   chain_deregistrations: RELATIONSHIP_FIELD_COMPLEXITY,
   chain_axon_removals: RELATIONSHIP_FIELD_COMPLEXITY,
   chain_weight_setters: RELATIONSHIP_FIELD_COMPLEXITY,
+  chain_signers: RELATIONSHIP_FIELD_COMPLEXITY,
   health_trends: RELATIONSHIP_FIELD_COMPLEXITY,
   rpc_usage: RELATIONSHIP_FIELD_COMPLEXITY,
   validator_nominators: RELATIONSHIP_FIELD_COMPLEXITY,
@@ -5628,6 +5657,82 @@ const rootValue = {
       },
       intensity_distribution: data.intensity_distribution ?? null,
       subnets: data.subnets || [],
+    };
+  },
+
+  async chain_signers(
+    { window, limit, sort, call_module: callModule },
+    context,
+  ) {
+    // Reuse the exact analyticsWindow parse/validate REST's handleChainSigners
+    // uses (7d/30d, default 7d) -- an unsupported window is a GraphQL
+    // BAD_USER_INPUT error, not a silent empty leaderboard.
+    const windowUrl = new URL(context.request.url);
+    windowUrl.search = "";
+    if (window != null) windowUrl.searchParams.set("window", window);
+    const { label, days, error } = analyticsWindow(windowUrl);
+    if (error) {
+      throw new GraphQLError(error.message, {
+        extensions: { code: "BAD_USER_INPUT" },
+      });
+    }
+    // Same CHAIN_SIGNERS_SORTS allow-list REST validates against; sort is
+    // optional (null -> the loader's tx_count default), so only a non-null
+    // value is checked.
+    if (sort != null && !CHAIN_SIGNERS_SORTS.includes(sort)) {
+      throw new GraphQLError(
+        `"${sort}" is not a supported sort. Supported: ${CHAIN_SIGNERS_SORTS.join(", ")}.`,
+        { extensions: { code: "BAD_USER_INPUT" } },
+      );
+    }
+    if (callModule != null && callModule.length > 100) {
+      throw new GraphQLError("call_module must be at most 100 characters.", {
+        extensions: { code: "BAD_USER_INPUT" },
+      });
+    }
+    const safeLimit = clampLimit(limit, {
+      defaultLimit: CHAIN_SIGNERS_LIMIT_DEFAULT,
+      maxLimit: CHAIN_SIGNERS_LIMIT_MAX,
+    });
+    const params = new URLSearchParams();
+    params.set("window", label);
+    params.set("limit", String(safeLimit));
+    if (sort != null) params.set("sort", sort);
+    if (callModule != null) params.set("call_module", callModule);
+    // Same tryPostgresTier(METAGRAPH_EXTRINSICS_SOURCE) -> loadChainSigners
+    // fallback contract handleChainSigners uses, including the KV health:meta
+    // observed_at stamp REST passes; no ranking/aggregation logic is duplicated
+    // here, and a cold store yields a schema-stable empty leaderboard.
+    const tier = await tryPostgresTier(
+      context.env,
+      postgresTierRequest(context, "/api/v1/chain/signers", params),
+      "METAGRAPH_EXTRINSICS_SOURCE",
+    );
+    const data =
+      tier ??
+      (
+        await loadChainSigners(graphqlD1(context), {
+          windowLabel: label,
+          windowDays: days,
+          observedAt: await loadObservedAt(context),
+          limit: safeLimit,
+          callModule,
+          sort,
+        })
+      ).data;
+    return {
+      schema_version: data.schema_version ?? 1,
+      window: data.window ?? label,
+      sort: data.sort ?? CHAIN_SIGNERS_SORTS[0],
+      observed_at: data.observed_at ?? null,
+      signer_count: data.signer_count ?? 0,
+      signers: (data.signers ?? []).map((entry) => ({
+        signer: entry.signer,
+        tx_count: entry.tx_count ?? 0,
+        total_fee_tao: entry.total_fee_tao ?? null,
+        total_tip_tao: entry.total_tip_tao ?? null,
+        last_tx_block: entry.last_tx_block ?? null,
+      })),
     };
   },
 

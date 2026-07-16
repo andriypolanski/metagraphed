@@ -23,6 +23,7 @@ import {
 } from "../src/graphql.mjs";
 import { LEADERBOARD_BOARDS } from "../src/health-serving.mjs";
 import { CHAIN_PROMETHEUS_WINDOWS } from "../src/chain-prometheus.mjs";
+import { CHAIN_SIGNERS_SORTS } from "../src/chain-query-loaders.mjs";
 import { CHAIN_DEREGISTRATIONS_WINDOWS } from "../src/chain-deregistrations.mjs";
 import { CHAIN_AXON_REMOVALS_WINDOWS } from "../src/chain-axon-removals.mjs";
 import { handleRequest } from "../workers/api.mjs";
@@ -12243,6 +12244,262 @@ describe("graphql — chain_deregistrations (#5877, Postgres-tier + D1-live fall
     assert.equal(
       FIELD_COMPLEXITY.chain_deregistrations,
       FIELD_COMPLEXITY.chain_serving,
+    );
+  });
+});
+
+describe("graphql — chain_signers (#5882, Postgres-tier + D1-live fallback)", () => {
+  const SIGNER = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
+
+  function signersQuery(argsClause) {
+    return `{ chain_signers${argsClause} {
+      schema_version window sort observed_at signer_count
+      signers { signer tx_count total_fee_tao total_tip_tao last_tx_block }
+    } }`;
+  }
+
+  // loadChainSigners issues one ranked extrinsics-tier read; the rows carry the
+  // per-signer aggregate.
+  function signersD1(rows = []) {
+    return {
+      prepare: () => ({
+        bind: () => ({ all: async () => ({ results: rows }) }),
+      }),
+    };
+  }
+
+  test("cold store, default args: schema-stable empty leaderboard, never an error", async () => {
+    const { status, body } = await gql(signersQuery(""));
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(body.data.chain_signers, {
+      schema_version: 1,
+      window: "7d",
+      sort: "tx_count",
+      observed_at: null,
+      signer_count: 0,
+      signers: [],
+    });
+  });
+
+  test("resolves the D1-live tier and shapes each signer row", async () => {
+    const env = {
+      METAGRAPH_HEALTH_DB: signersD1([
+        {
+          signer: SIGNER,
+          tx_count: 12,
+          total_fee_tao: 1.5,
+          total_tip_tao: 0.25,
+          last_tx_block: 5000000,
+        },
+      ]),
+    };
+    const { status, body } = await gql(signersQuery(""), env);
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    const got = body.data.chain_signers;
+    assert.equal(got.signer_count, 1);
+    assert.equal(got.sort, "tx_count");
+    assert.deepEqual(got.signers, [
+      {
+        signer: SIGNER,
+        tx_count: 12,
+        total_fee_tao: 1.5,
+        total_tip_tao: 0.25,
+        last_tx_block: 5000000,
+      },
+    ]);
+  });
+
+  test("resolves Postgres-tier data, forwarding window/limit/sort/call_module", async () => {
+    let capturedUrl;
+    const env = {
+      METAGRAPH_EXTRINSICS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async (req) => {
+          capturedUrl = new URL(req.url);
+          return Response.json({
+            schema_version: 1,
+            window: "30d",
+            sort: "total_fee_tao",
+            observed_at: "2026-07-01T00:00:00.000Z",
+            signer_count: 1,
+            signers: [
+              {
+                signer: SIGNER,
+                tx_count: 3,
+                total_fee_tao: 9.5,
+                total_tip_tao: 0,
+                last_tx_block: 42,
+              },
+            ],
+          });
+        },
+      },
+    };
+    const { status, body } = await gql(
+      signersQuery(
+        '(window: "30d", limit: 5, sort: "total_fee_tao", call_module: "Balances")',
+      ),
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.equal(capturedUrl.pathname, "/api/v1/chain/signers");
+    assert.equal(capturedUrl.searchParams.get("window"), "30d");
+    assert.equal(capturedUrl.searchParams.get("limit"), "5");
+    assert.equal(capturedUrl.searchParams.get("sort"), "total_fee_tao");
+    assert.equal(capturedUrl.searchParams.get("call_module"), "Balances");
+    assert.equal(body.data.chain_signers.sort, "total_fee_tao");
+    assert.equal(body.data.chain_signers.signers[0].total_fee_tao, 9.5);
+  });
+
+  test("omits the optional sort/call_module params when the caller supplies neither", async () => {
+    let capturedUrl;
+    const env = {
+      METAGRAPH_EXTRINSICS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async (req) => {
+          capturedUrl = new URL(req.url);
+          return Response.json({ signers: [] });
+        },
+      },
+    };
+    await gql(signersQuery(""), env);
+    assert.equal(capturedUrl.searchParams.get("sort"), null);
+    assert.equal(capturedUrl.searchParams.get("call_module"), null);
+    assert.equal(capturedUrl.searchParams.get("window"), "7d");
+    assert.equal(capturedUrl.searchParams.get("limit"), "50");
+  });
+
+  test("a sparse Postgres-tier payload still resolves a schema-stable card", async () => {
+    // The tier's shape is upstream-controlled, so every field falls back rather
+    // than surfacing null through a non-null SDL field.
+    const env = {
+      METAGRAPH_EXTRINSICS_SOURCE: "postgres",
+      DATA_API: { fetch: async () => Response.json({}) },
+    };
+    const { status, body } = await gql(signersQuery(""), env);
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(body.data.chain_signers, {
+      schema_version: 1,
+      window: "7d",
+      sort: "tx_count",
+      observed_at: null,
+      signer_count: 0,
+      signers: [],
+    });
+  });
+
+  test("a signer row missing every optional metric resolves to nulls, not an error", async () => {
+    const env = {
+      METAGRAPH_EXTRINSICS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async () => Response.json({ signers: [{ signer: SIGNER }] }),
+      },
+    };
+    const { status, body } = await gql(signersQuery(""), env);
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(body.data.chain_signers.signers, [
+      {
+        signer: SIGNER,
+        tx_count: 0,
+        total_fee_tao: null,
+        total_tip_tao: null,
+        last_tx_block: null,
+      },
+    ]);
+  });
+
+  test("clamps an over-max limit to the route's own ceiling", async () => {
+    let capturedUrl;
+    const env = {
+      METAGRAPH_EXTRINSICS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async (req) => {
+          capturedUrl = new URL(req.url);
+          return Response.json({});
+        },
+      },
+    };
+    await gql(signersQuery("(limit: 99999)"), env);
+    assert.equal(capturedUrl.searchParams.get("limit"), "100");
+  });
+
+  test("every documented sort is accepted", async () => {
+    for (const sort of CHAIN_SIGNERS_SORTS) {
+      const { status, body } = await gql(signersQuery(`(sort: "${sort}")`));
+      assert.equal(status, 200, sort);
+      assert.equal(body.errors, undefined);
+      assert.equal(body.data.chain_signers.sort, sort);
+    }
+  });
+
+  test("an unsupported sort is BAD_USER_INPUT and never reaches the Postgres tier", async () => {
+    let called = false;
+    const env = {
+      METAGRAPH_EXTRINSICS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async () => {
+          called = true;
+          return Response.json({});
+        },
+      },
+    };
+    const { status, body } = await gql(
+      signersQuery('(sort: "not_a_real_sort")'),
+      env,
+    );
+    assert.equal(status, 200);
+    assert.ok(body.errors.find((e) => e.extensions?.code === "BAD_USER_INPUT"));
+    assert.equal(body.data, null);
+    assert.equal(called, false);
+  });
+
+  test("an unsupported window is BAD_USER_INPUT and never reaches the Postgres tier", async () => {
+    let called = false;
+    const env = {
+      METAGRAPH_EXTRINSICS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async () => {
+          called = true;
+          return Response.json({});
+        },
+      },
+    };
+    const { status, body } = await gql(signersQuery('(window: "1y")'), env);
+    assert.equal(status, 200);
+    assert.ok(body.errors.find((e) => e.extensions?.code === "BAD_USER_INPUT"));
+    assert.equal(body.data, null);
+    assert.equal(called, false);
+  });
+
+  test("an over-long call_module is BAD_USER_INPUT, matching REST's 100-char bound", async () => {
+    let called = false;
+    const env = {
+      METAGRAPH_EXTRINSICS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async () => {
+          called = true;
+          return Response.json({});
+        },
+      },
+    };
+    const { status, body } = await gql(
+      signersQuery(`(call_module: "${"x".repeat(101)}")`),
+      env,
+    );
+    assert.equal(status, 200);
+    assert.ok(body.errors.find((e) => e.extensions?.code === "BAD_USER_INPUT"));
+    assert.equal(called, false);
+  });
+
+  test("is priced at the relationship-field complexity weight", () => {
+    assert.equal(
+      FIELD_COMPLEXITY.chain_signers,
+      FIELD_COMPLEXITY.chain_weight_setters,
     );
   });
 });
