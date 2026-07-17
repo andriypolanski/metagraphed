@@ -14645,6 +14645,133 @@ describe("MCP parity tools — provider + discovery bundle (artifact-backed)", (
     assert.equal(res.body.result.isError, true);
   });
 
+  // #6570: list_rpc_pools gained the same limit/cursor/sort/filter surface
+  // list_endpoint_pools already has, applied after the live-eligibility
+  // overlay so filters/sorts see live values, not the baked snapshot.
+  test("list_rpc_pools filters by kind and reports total/returned", async () => {
+    const deps = makeDeps({
+      "/metagraph/rpc/pools.json": {
+        generated_at: "2026-01-01T00:00:00Z",
+        pools: [
+          {
+            id: "finney-rpc",
+            kind: "subtensor-rpc",
+            eligible_count: 2,
+            endpoint_count: 5,
+          },
+          {
+            id: "finney-wss",
+            kind: "subtensor-wss",
+            eligible_count: 8,
+            endpoint_count: 10,
+          },
+        ],
+      },
+    });
+    const res = await callTool(
+      "list_rpc_pools",
+      { kind: "subtensor-rpc" },
+      { deps },
+    );
+    const out = res.body.result.structuredContent;
+    assert.equal(out.total, 1);
+    assert.equal(out.returned, 1);
+    assert.equal(out.pools[0].id, "finney-rpc");
+  });
+
+  test("list_rpc_pools sorts by eligible_count and pages with limit/cursor", async () => {
+    const deps = makeDeps({
+      "/metagraph/rpc/pools.json": {
+        generated_at: "2026-01-01T00:00:00Z",
+        pools: [
+          {
+            id: "a",
+            kind: "subtensor-rpc",
+            eligible_count: 1,
+            endpoint_count: 5,
+          },
+          {
+            id: "b",
+            kind: "subtensor-rpc",
+            eligible_count: 9,
+            endpoint_count: 5,
+          },
+          {
+            id: "c",
+            kind: "subtensor-rpc",
+            eligible_count: 4,
+            endpoint_count: 5,
+          },
+        ],
+      },
+    });
+    const res = await callTool(
+      "list_rpc_pools",
+      { sort: "eligible_count", order: "desc", limit: 2 },
+      { deps },
+    );
+    const out = res.body.result.structuredContent;
+    assert.deepEqual(
+      out.pools.map((p) => p.id),
+      ["b", "c"],
+    );
+    assert.equal(out.total, 3);
+    assert.equal(out.returned, 2);
+    assert.equal(out.next_cursor, 2);
+  });
+
+  test("list_rpc_pools min_/max_eligible_count bound the live-overlaid eligible_count", async () => {
+    const deps = makeDeps({
+      "/metagraph/rpc/pools.json": {
+        generated_at: "2026-01-01T00:00:00Z",
+        pools: [
+          {
+            id: "low",
+            kind: "subtensor-rpc",
+            eligible_count: 1,
+            endpoint_count: 5,
+          },
+          {
+            id: "high",
+            kind: "subtensor-rpc",
+            eligible_count: 9,
+            endpoint_count: 5,
+          },
+        ],
+      },
+    });
+    const res = await callTool(
+      "list_rpc_pools",
+      { min_eligible_count: 5 },
+      { deps },
+    );
+    const out = res.body.result.structuredContent;
+    assert.deepEqual(
+      out.pools.map((p) => p.id),
+      ["high"],
+    );
+  });
+
+  test("list_rpc_pools rejects an invalid sort value", async () => {
+    const res = await callTool("list_rpc_pools", { sort: "not-a-field" });
+    assert.equal(res.body.result.isError, true);
+  });
+
+  test("list_rpc_pools payload validates against its declared outputSchema", async () => {
+    const schema = listToolDefinitions().find(
+      (t) => t.name === "list_rpc_pools",
+    )?.outputSchema;
+    const deps = makeDeps({
+      "/metagraph/rpc/pools.json": {
+        generated_at: "2026-01-01T00:00:00Z",
+        pools: [{ id: "finney-rpc", kind: "subtensor-rpc", eligible_count: 2 }],
+      },
+    });
+    const res = await callTool("list_rpc_pools", { limit: 1 }, { deps });
+    const validate = new Ajv2020({ strict: false }).compile(schema);
+    assert.ok(validate(res.body.result.structuredContent));
+  });
+
   test("get_subnet_endpoints returns one subnet's endpoints artifact", async () => {
     const deps = makeDeps({
       "/metagraph/endpoints/5.json": {

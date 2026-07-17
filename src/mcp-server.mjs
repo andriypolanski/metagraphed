@@ -165,6 +165,11 @@ import {
   loadEndpointPoolsList,
 } from "./endpoint-pools-mcp.mjs";
 import {
+  LIST_RPC_POOLS_MCP_TOOL,
+  LIST_RPC_POOLS_OUTPUT_SCHEMA,
+  loadRpcPoolsList,
+} from "./rpc-pools-mcp.mjs";
+import {
   LIST_ENDPOINT_INCIDENTS_INSTRUCTIONS,
   LIST_ENDPOINT_INCIDENTS_MCP_TOOL,
   LIST_ENDPOINT_INCIDENTS_OUTPUT_SCHEMA,
@@ -8844,42 +8849,9 @@ export const MCP_TOOLS = [
     },
   },
   {
-    name: "list_rpc_pools",
-    title: "List Bittensor RPC pools",
-    description:
-      "Fetch the load-balanced Bittensor RPC pool scores: each pool with its " +
-      "network and probe-derived score/health, as used to route the public " +
-      "RPC proxy. Complements list_rpc_endpoints (the individual endpoints) and " +
-      "get_best_rpc_endpoint (the pick-one shortcut). Mirrors " +
-      "GET /api/v1/rpc/pools.",
-    inputSchema: {
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-    },
-    async handler(_args, ctx) {
-      const staticData = await loadArtifactData(
-        ctx,
-        "/metagraph/rpc/pools.json",
-      );
-      const livePool = ctx.readHealthKv
-        ? await ctx.readHealthKv(ctx.env, KV_HEALTH_RPC_POOL)
-        : null;
-      if (
-        livePool &&
-        Array.isArray(livePool.endpoints) &&
-        Array.isArray(staticData?.pools)
-      ) {
-        return {
-          ...staticData,
-          source: "live-cron-prober",
-          operational_observed_at: livePool.last_run_at || null,
-          pools: staticData.pools.map((pool) =>
-            overlayRpcPoolEligibility(pool, livePool),
-          ),
-        };
-      }
-      return staticData;
+    ...LIST_RPC_POOLS_MCP_TOOL,
+    async handler(args, ctx) {
+      return loadRpcPoolsList(ctx, args);
     },
   },
   {
@@ -13475,16 +13447,7 @@ const TOOL_OUTPUT_SCHEMAS = {
     },
   },
   list_subnet_endpoints: LIST_SUBNET_ENDPOINTS_OUTPUT_SCHEMA,
-  list_rpc_pools: {
-    type: "object",
-    additionalProperties: true,
-    required: [],
-    properties: {
-      pools: { type: "array", items: { type: "object" } },
-      generated_at: NULLABLE_STRING,
-      schema_version: { type: ["string", "integer", "null"] },
-    },
-  },
+  list_rpc_pools: LIST_RPC_POOLS_OUTPUT_SCHEMA,
   list_profile_completeness: {
     type: "object",
     additionalProperties: true,

@@ -21339,7 +21339,21 @@ export interface operations {
     };
     rpcPools: {
         parameters: {
-            query?: never;
+            query?: {
+                id?: string;
+                kind?: "subtensor-rpc" | "subtensor-wss" | "archive";
+                min_eligible_count?: number;
+                max_eligible_count?: number;
+                min_endpoint_count?: number;
+                max_endpoint_count?: number;
+                fields?: string;
+                limit?: number;
+                cursor?: number;
+                /** @description Field to sort by — the bare field name only (e.g. `sort=total_stake_tao`). Pair with the separate `order` parameter to choose direction; a combined `field:desc` token is NOT supported. */
+                sort?: "eligible_count" | "endpoint_count" | "id" | "kind";
+                /** @description Sort direction for `sort`: `asc` or `desc` (default `desc`). This is a separate parameter from `sort` — e.g. `?sort=emission_share&order=desc`. */
+                order?: "asc" | "desc";
+            };
             header?: never;
             path?: never;
             cookie?: never;

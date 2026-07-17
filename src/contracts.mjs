@@ -273,6 +273,17 @@ export const API_QUERY_COLLECTIONS = {
     sort: ["eligible_count", "endpoint_count", "id", "kind"],
     rangeFilters: ["eligible_count", "endpoint_count"],
   }),
+  // #6570: rpc-pools is the Bittensor-RPC-scoped predecessor of the
+  // generalized endpoint-pools collection above — same pools[] row shape,
+  // same filter/sort/range surface, distinct artifact (rpc/pools.json).
+  "rpc-pools": queryCollection("pools", {
+    filters: {
+      id: filterTextSchema,
+      kind: enumSchema(["subtensor-rpc", "subtensor-wss", "archive"]),
+    },
+    sort: ["eligible_count", "endpoint_count", "id", "kind"],
+    rangeFilters: ["eligible_count", "endpoint_count"],
+  }),
   "endpoint-incidents": queryCollection("incidents", {
     filters: {
       netuid: integerSchema,
@@ -3885,6 +3896,7 @@ export const API_ROUTES = [
     "Fetch endpoint pool scores.",
     "short",
     ["rpc"],
+    listQuery("rpc-pools"),
   ),
   route(
     "endpoint-pools",

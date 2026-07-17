@@ -851,9 +851,10 @@ describe("list-query integration_readiness (#2085)", () => {
   });
 });
 
-// #2587: endpoint-pools and pools are duplicate collection configs (same data_key,
-// same filters/sort/rangeFilters). REST exposes endpoint-pools; pools is the
-// canonical id for the artifact data_key. Both must accept min_/max_ on counts.
+// #2587/#6570: endpoint-pools, pools, and rpc-pools are duplicate collection
+// configs (same data_key, same filters/sort/rangeFilters). REST exposes
+// endpoint-pools and rpc-pools; pools is the canonical id for the artifact
+// data_key. All three must accept min_/max_ on counts identically.
 describe("list-query endpoint pool count range filters (#2587)", () => {
   const data = {
     pools: [
@@ -866,7 +867,7 @@ describe("list-query endpoint pool count range filters (#2587)", () => {
   };
   const poolIds = (result) => result.data.pools.map((r) => r.id);
 
-  for (const collection of ["endpoint-pools", "pools"]) {
+  for (const collection of ["endpoint-pools", "pools", "rpc-pools"]) {
     test(`${collection}: min_eligible_count keeps rows >= the bound and drops absent/non-numeric`, () => {
       const result = applyQueryFilters(
         data,
