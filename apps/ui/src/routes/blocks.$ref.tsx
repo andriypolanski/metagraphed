@@ -329,11 +329,18 @@ function ValidBlockDetail({ refValue }: { refValue: string }) {
                 {extrinsics.map((extrinsic) => {
                   const result =
                     extrinsic.success == null ? "—" : extrinsic.success ? "Success" : "Failed";
+                  // This table spells the result out ("Success"/"Failed")
+                  // rather than the feeds' "ok"/"fail", so it keeps its own
+                  // rendering instead of the shared SuccessBadge -- swapping it
+                  // in would silently reword the page. What it borrows is the
+                  // token pair: the fail branch already used --health-down
+                  // while success stayed on raw emerald, so the two halves of
+                  // one ternary disagreed (#6403).
                   const resultClass =
                     extrinsic.success == null
                       ? "text-ink-muted"
                       : extrinsic.success
-                        ? "text-emerald-500"
+                        ? "text-health-ok"
                         : "text-health-down";
 
                   return (

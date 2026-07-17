@@ -5,6 +5,7 @@ import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 import { AppShell } from "@/components/metagraphed/app-shell";
+import { SuccessBadge } from "@/components/metagraphed/success-badge";
 import { useRefetchInterval } from "@/hooks/use-refetch-interval";
 import { ApiSourceFooter } from "@/components/metagraphed/api-source-footer";
 import { EmptyState, Skeleton } from "@/components/metagraphed/states";
@@ -152,15 +153,6 @@ function FeesTrendCard() {
         formatValue={formatTao}
       />
     </section>
-  );
-}
-
-function SuccessBadge({ success }: { success?: boolean | null }) {
-  if (success == null) return <span className="text-ink-muted">—</span>;
-  return success ? (
-    <span className="text-emerald-500">ok</span>
-  ) : (
-    <span className="text-rose-500">fail</span>
   );
 }
 

@@ -3,6 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { TimeAgo, ListShell, CopyableCode, CopyButton } from "@jsonbored/ui-kit";
 import { EmptyState } from "@/components/metagraphed/states";
+import { SuccessBadge } from "@/components/metagraphed/success-badge";
 import {
   PageSizeSelect,
   ResetFiltersButton,
@@ -31,15 +32,6 @@ interface Props {
   emptyTitle: string;
   emptyDescription: string;
   emptyApiPath: string;
-}
-
-function SuccessBadge({ success }: { success?: boolean | null }) {
-  if (success == null) return <span className="text-ink-muted">—</span>;
-  return success ? (
-    <span className="text-emerald-500">ok</span>
-  ) : (
-    <span className="text-rose-500">fail</span>
-  );
 }
 
 /** Shared paginated/filtered extrinsics table for a fixed call_module feed
