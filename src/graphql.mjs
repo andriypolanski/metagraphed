@@ -15,6 +15,9 @@ import { tryPostgresTier } from "../workers/postgres-tier.mjs";
 import { loadEndpointPoolsList } from "./endpoint-pools-mcp.mjs";
 import { loadRpcPoolsList } from "./rpc-pools-mcp.mjs";
 import { loadEndpointIncidentsList } from "./endpoint-incidents-mcp.mjs";
+// #6987: GraphQL parity for GET /api/v1/agent-resources, reusing loadAgentResources
+// (the same loader MCP get_agent_resources already calls) -- not a reimplementation.
+import { loadAgentResources } from "./agent-resources-mcp.mjs";
 import {
   buildChainAxonRemovals,
   CHAIN_AXON_REMOVALS_WINDOWS,
@@ -400,6 +403,8 @@ export const SDL = `
     endpoint_incidents(netuid: Int, kind: String, provider: String, status: String, severity: String, state: String, sort: String, order: String, fields: String, limit: Int, cursor: Int): IncidentList!
     "Global operational health rollup with per-subnet summaries."
     health: GlobalHealth
+    "AI-resources index: the copyable agent (/agent.md), MCP server install metadata and tool listing, the Bittensor skill, llms.txt, OpenAPI, and links to agent-facing APIs (catalog, semantic search, ask, fixtures, lineage). A cold/absent store resolves to null (schema-stable, never a GraphQL error). Mirrors GET /api/v1/agent-resources."
+    agent_resources: AgentResources
     "Cross-subnet economic opportunity boards (where to register, what it costs, where the emission and validator headroom are)."
     opportunity_boards(limit: Int): OpportunityBoards!
     "Cross-subnet comparison: registry structure, live economics, and live health placed side by side for the requested netuids, in requested order. Mirrors GET /api/v1/compare."
@@ -593,6 +598,49 @@ export const SDL = `
     netuids: [Int]!
     "The subnets this provider operates surfaces on."
     subnets: [Subnet!]!
+  }
+
+  "AI-resources index (copyable agent, MCP install, skill/OpenAPI links, agent-facing API links). Mirrors GET /api/v1/agent-resources's data envelope."
+  type AgentResources {
+    schema_version: Int
+    contract_version: String
+    generated_at: String
+    published_at: String
+    content_hash: String
+    "Headline counts across the agent-facing registry."
+    summary: JSON
+    copyable_agent: AgentResourceCopyableAgent
+    mcp: AgentResourcesMcp
+    resources: [AgentResourceEntry!]!
+  }
+
+  "The paste-ready /agent.md system prompt entry."
+  type AgentResourceCopyableAgent {
+    title: String
+    url: String!
+    description: String
+  }
+
+  "MCP server install metadata and the tool listing advertised in the AI-resources index."
+  type AgentResourcesMcp {
+    endpoint: String
+    transport: String
+    install: String
+    server_card: String
+    tools: [AgentResourceMcpTool!]!
+  }
+
+  type AgentResourceMcpTool {
+    name: String!
+    title: String
+  }
+
+  "One entry in the AI-resources link list (agent, skill, OpenAPI, catalog, …)."
+  type AgentResourceEntry {
+    id: String!
+    title: String
+    kind: String
+    url: String!
   }
 
   type EconomicsList {
@@ -3079,6 +3127,7 @@ export const FIELD_COMPLEXITY = {
   rpc_pools: RELATIONSHIP_FIELD_COMPLEXITY,
   endpoint_incidents: RELATIONSHIP_FIELD_COMPLEXITY,
   health: RELATIONSHIP_FIELD_COMPLEXITY,
+  agent_resources: RELATIONSHIP_FIELD_COMPLEXITY,
   opportunity_boards: RELATIONSHIP_FIELD_COMPLEXITY,
   compare: RELATIONSHIP_FIELD_COMPLEXITY,
   extrinsics: RELATIONSHIP_FIELD_COMPLEXITY,
@@ -4509,6 +4558,39 @@ const rootValue = {
     const data = await loadArtifact(context, `/metagraph/providers/${id}.json`);
     if (!data) return null;
     return providerNode(data.provider ?? data);
+  },
+
+  // #6987: reuse loadAgentResources (the same loader MCP get_agent_resources
+  // already calls) unchanged -- same artifact path and miss mapping as REST
+  // /api/v1/agent-resources. A cold/absent/unavailable index resolves to null
+  // (schema-stable), matching provider's cold/absent convention -- never a
+  // GraphQL error for a missing AI-resources artifact.
+  async agent_resources(_args, context) {
+    try {
+      const data = await loadAgentResources(context, { readArtifact });
+      return {
+        schema_version: data.schema_version ?? null,
+        contract_version: data.contract_version ?? null,
+        generated_at: data.generated_at ?? null,
+        published_at: data.published_at ?? null,
+        content_hash: data.content_hash ?? null,
+        summary: data.summary ?? null,
+        copyable_agent: data.copyable_agent ?? null,
+        mcp: data.mcp
+          ? {
+              endpoint: data.mcp.endpoint ?? null,
+              transport: data.mcp.transport ?? null,
+              install: data.mcp.install ?? null,
+              server_card: data.mcp.server_card ?? null,
+              tools: Array.isArray(data.mcp.tools) ? data.mcp.tools : [],
+            }
+          : null,
+        resources: Array.isArray(data.resources) ? data.resources : [],
+      };
+    } catch (err) {
+      if (err?.toolError) return null;
+      throw err;
+    }
   },
 
   async economics({ limit, cursor }, context) {

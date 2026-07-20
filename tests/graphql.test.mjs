@@ -14912,3 +14912,152 @@ describe("graphql — chain_signers (#5882, Postgres-tier + D1-live fallback)", 
     );
   });
 });
+
+describe("graphql — agent_resources (#6987, reuses loadAgentResources)", () => {
+  const SAMPLE = {
+    schema_version: 1,
+    contract_version: "2026-07-01",
+    generated_at: "2026-07-01T00:00:00.000Z",
+    published_at: "2026-07-01T00:00:00.000Z",
+    content_hash: "abc",
+    summary: { subnet_count: 129, callable_service_count: 42 },
+    copyable_agent: {
+      title: "Bittensor integration agent",
+      url: "https://api.metagraph.sh/agent.md",
+      description: "Paste-ready system prompt.",
+    },
+    mcp: {
+      endpoint: "https://api.metagraph.sh/mcp",
+      transport: "streamable-http",
+      install: "npx mcp-remote https://api.metagraph.sh/mcp",
+      server_card: "https://api.metagraph.sh/.well-known/mcp/server-card.json",
+      tools: [{ name: "search_subnets", title: "Search subnets" }],
+    },
+    resources: [
+      {
+        id: "agent",
+        title: "Copyable AI agent",
+        kind: "agent",
+        url: "https://api.metagraph.sh/agent.md",
+      },
+    ],
+  };
+
+  const query = `{ agent_resources {
+    schema_version contract_version generated_at published_at content_hash
+    summary
+    copyable_agent { title url description }
+    mcp { endpoint transport install server_card tools { name title } }
+    resources { id title kind url }
+  } }`;
+
+  test("resolves the baked AI-resources index via loadAgentResources", async () => {
+    const env = fixtureEnv({
+      "/metagraph/agent-resources.json": SAMPLE,
+    });
+    const { status, body } = await gql(query, env);
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(body.data.agent_resources, SAMPLE);
+  });
+
+  test("cold/absent store resolves to null (schema-stable)", async () => {
+    const { status, body } = await gql(query);
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.equal(body.data.agent_resources, null);
+  });
+
+  test("a malformed payload with missing nested arrays still resolves schema-stable", async () => {
+    const env = fixtureEnv({
+      "/metagraph/agent-resources.json": {
+        schema_version: 1,
+        mcp: { endpoint: "https://api.metagraph.sh/mcp" },
+      },
+    });
+    const { status, body } = await gql(
+      `{ agent_resources {
+        generated_at published_at content_hash summary copyable_agent { url }
+        mcp { endpoint transport install server_card tools { name } }
+        resources { id }
+      } }`,
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.equal(body.data.agent_resources.generated_at, null);
+    assert.equal(body.data.agent_resources.published_at, null);
+    assert.equal(body.data.agent_resources.content_hash, null);
+    assert.equal(body.data.agent_resources.summary, null);
+    assert.equal(body.data.agent_resources.copyable_agent, null);
+    assert.equal(
+      body.data.agent_resources.mcp.endpoint,
+      "https://api.metagraph.sh/mcp",
+    );
+    assert.equal(body.data.agent_resources.mcp.transport, null);
+    assert.equal(body.data.agent_resources.mcp.install, null);
+    assert.equal(body.data.agent_resources.mcp.server_card, null);
+    assert.deepEqual(body.data.agent_resources.mcp.tools, []);
+    assert.deepEqual(body.data.agent_resources.resources, []);
+  });
+
+  test("mcp/resources absent coerces to null / empty list", async () => {
+    const env = fixtureEnv({
+      "/metagraph/agent-resources.json": { schema_version: 1 },
+    });
+    const { status, body } = await gql(
+      "{ agent_resources { schema_version mcp { endpoint } resources { id } } }",
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.equal(body.data.agent_resources.schema_version, 1);
+    assert.equal(body.data.agent_resources.mcp, null);
+    assert.deepEqual(body.data.agent_resources.resources, []);
+  });
+
+  test("an empty artifact object zeroes every optional field", async () => {
+    const env = fixtureEnv({
+      "/metagraph/agent-resources.json": { mcp: {} },
+    });
+    const { status, body } = await gql(
+      `{ agent_resources {
+        schema_version contract_version
+        mcp { endpoint transport install server_card tools { name } }
+        resources { id }
+      } }`,
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.equal(body.data.agent_resources.schema_version, null);
+    assert.equal(body.data.agent_resources.contract_version, null);
+    assert.equal(body.data.agent_resources.mcp.endpoint, null);
+    assert.equal(body.data.agent_resources.mcp.transport, null);
+    assert.deepEqual(body.data.agent_resources.mcp.tools, []);
+    assert.deepEqual(body.data.agent_resources.resources, []);
+  });
+
+  test("a non-toolError from the artifact read is propagated", async () => {
+    const env = {
+      METAGRAPH_R2_LATEST_PREFIX: "latest/",
+      METAGRAPH_ARCHIVE: {
+        async get() {
+          return {
+            async json() {
+              throw new Error("corrupt agent-resources artifact");
+            },
+          };
+        },
+      },
+    };
+    const { status, body } = await gql(query, env);
+    assert.equal(status, 200);
+    assert.ok(body.errors?.length > 0);
+    assert.equal(body.data?.agent_resources ?? null, null);
+  });
+
+  test("is priced at the relationship-field complexity weight", () => {
+    assert.equal(FIELD_COMPLEXITY.agent_resources, FIELD_COMPLEXITY.health);
+  });
+});
