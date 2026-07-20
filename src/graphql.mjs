@@ -5590,7 +5590,7 @@ const rootValue = {
 
   // #7171: reuse loadChainEventsFeed (the same DATA_API path MCP
   // list_chain_events already calls). invalid_params (bad filter combo) is
-  // BAD_USER_INPUT; a cold/unbound/unreachable tier degrades to a
+  // BAD_USER_INPUT; a cold/unbound/rate-limited tier degrades to a
   // schema-stable empty feed, never a GraphQL error — matching extrinsics'
   // cold-empty convention. Distinct from Subscription.chainEvents.
   async chain_events(
@@ -5607,22 +5607,22 @@ const rootValue = {
         before,
         limit,
       });
+      // loadChainEventsFeed always returns count/next_*/events (array); map
+      // sparse event rows so every GraphQL field is present.
       return {
-        count: data.count ?? 0,
-        next_before: data.next_before ?? null,
-        next_cursor: data.next_cursor ?? null,
-        events: Array.isArray(data.events)
-          ? data.events.map((event) => ({
-              block_number: event.block_number ?? null,
-              event_index: event.event_index ?? null,
-              pallet: event.pallet ?? null,
-              method: event.method ?? null,
-              args: event.args ?? null,
-              phase: event.phase ?? null,
-              extrinsic_index: event.extrinsic_index ?? null,
-              observed_at: event.observed_at ?? null,
-            }))
-          : [],
+        count: data.count,
+        next_before: data.next_before,
+        next_cursor: data.next_cursor,
+        events: data.events.map((event) => ({
+          block_number: event.block_number ?? null,
+          event_index: event.event_index ?? null,
+          pallet: event.pallet ?? null,
+          method: event.method ?? null,
+          args: event.args ?? null,
+          phase: event.phase ?? null,
+          extrinsic_index: event.extrinsic_index ?? null,
+          observed_at: event.observed_at ?? null,
+        })),
       };
     } catch (err) {
       if (err?.toolError && err.code === "invalid_params") {
@@ -5630,18 +5630,14 @@ const rootValue = {
           extensions: { code: "BAD_USER_INPUT" },
         });
       }
-      if (
-        err?.toolError &&
-        (err.code === "tier_unavailable" || err.code === "data_rate_limited")
-      ) {
-        return {
-          count: 0,
-          next_before: null,
-          next_cursor: null,
-          events: [],
-        };
-      }
-      throw err;
+      // tier_unavailable / data_rate_limited (and any other loader failure):
+      // schema-stable empty feed, never a GraphQL error.
+      return {
+        count: 0,
+        next_before: null,
+        next_cursor: null,
+        events: [],
+      };
     }
   },
 
