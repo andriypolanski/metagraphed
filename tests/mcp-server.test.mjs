@@ -3329,7 +3329,7 @@ describe("MCP get_chain_activity (DATA_API binding)", () => {
     assert.equal(res.body.result.isError, true);
     assert.match(
       res.body.result.content[0].text,
-      /Invalid chain-events filter/,
+      /Invalid request to the all-events data tier/,
     );
   });
 });
