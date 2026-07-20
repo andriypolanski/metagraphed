@@ -840,6 +840,20 @@ const checks = [
     },
   ],
   [
+    "/api/v1/accounts/5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5/root-claim",
+    (body) => {
+      assert.equal(
+        body.data.ss58,
+        "5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5",
+      );
+      assert.equal("claim_type" in body.data, true);
+      assert.equal("hotkeys" in body.data, true);
+      assert.ok(
+        body.data.hotkeys === null || Array.isArray(body.data.hotkeys),
+      );
+    },
+  ],
+  [
     "/api/v1/accounts/5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5/children",
     (body) => {
       assert.equal(
