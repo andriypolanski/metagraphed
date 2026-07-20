@@ -7,6 +7,14 @@ import {
   validate,
 } from "graphql";
 import { readArtifact, readHealthKv } from "../workers/storage.mjs";
+// #6986: GraphQL parity for source-snapshots, reusing list_source_snapshots'
+// own loader unchanged (same artifact read, filter, sort, and page logic REST
+// and MCP already use) -- not a reimplementation.
+import { loadSourceSnapshotsList } from "./source-snapshots-mcp.mjs";
+// #6992: GraphQL parity for profiles, reusing list_profiles' own loader
+// unchanged (same artifact read, filter, sort, and page logic REST and MCP
+// already use) -- not a reimplementation.
+import { loadProfilesList } from "./profiles-mcp.mjs";
 import { contractVersion } from "../workers/responses.mjs";
 import { tryPostgresTier } from "../workers/postgres-tier.mjs";
 // #6985: GraphQL parity for the endpoint-pools/rpc-pools/endpoint-incidents REST
@@ -168,6 +176,7 @@ import {
   overlayFeaturedValidators,
 } from "./metagraph-neurons.mjs";
 import { buildAlphaVolume } from "./alpha-volume.mjs";
+import { AGENT_RESOURCES_ARTIFACT } from "./agent-resources-mcp.mjs";
 import {
   buildSubnetOhlc,
   OHLC_INTERVALS,
@@ -398,6 +407,8 @@ export const SDL = `
     subnet_health_percentiles(netuid: Int!, window: String): SubnetHealthPercentiles!
     "One subnet's rolling 24h alpha trading volume from the StakeAdded/StakeRemoved trade stream: buy/sell volume in alpha and TAO, trade counts, net flow, a buy-vs-sell sentiment ratio, and volume-to-market-cap ratio. A subnet with no trades resolves to a schema-stable zeroed card, never null. Mirrors GET /api/v1/subnets/{netuid}/volume."
     subnet_volume(netuid: Int!): SubnetVolume!
+    "The machine-readable AI-resources index: the copyable agent prompt (/agent.md), MCP server install metadata and tool listing, the Bittensor skill, llms.txt, OpenAPI, and links to the agent-facing APIs. Use it to bootstrap an agent integration before calling the catalog/search fields. Null when the index has not been baked in this environment (rather than a GraphQL error). Opaque JSON passed through verbatim, matching the get_agent_resources MCP/REST shape. Mirrors GET /api/v1/agent-resources."
+    agent_resources: JSON
     "One subnet's alpha-price OHLC candles bucketed by interval (1h or 1d, default 1h) over the trailing days window (default 90, max 365), from the same executed-trade stream subnet_volume reads. A subnet with no trades resolves to a schema-stable empty candle list, never null. Mirrors GET /api/v1/subnets/{netuid}/ohlc."
     subnet_ohlc(netuid: Int!, interval: String, days: Int): SubnetOhlc!
     "A read-only quote for a hypothetical stake/unstake against one subnet's live AMM pool: expected amount out, spot vs effective price, and estimated price impact. Computes nothing on-chain and signs nothing. Mirrors GET /api/v1/subnets/{netuid}/stake-quote."
@@ -458,6 +469,10 @@ export const SDL = `
     rpc_pools(id: String, kind: String, min_eligible_count: Float, max_eligible_count: Float, min_endpoint_count: Float, max_endpoint_count: Float, sort: String, order: String, fields: String, limit: Int, cursor: Int): PoolList!
     "Probe-derived endpoint incident feed -- active endpoint failures/degradations with severity, state, provider, and subnet. Filter by netuid/kind/provider/status/severity/state, sort with sort/order, and page with limit (1-100)/cursor. An invalid filter/sort/limit/cursor is a GraphQL error, not a silently substituted default. Mirrors GET /api/v1/endpoint-incidents."
     endpoint_incidents(netuid: Int, kind: String, provider: String, status: String, severity: String, state: String, sort: String, order: String, fields: String, limit: Int, cursor: Int): IncidentList!
+    "Per-source input-hash ledger -- each registry data source's captured input hash and record count at ingest time, for detecting hash drift or seeing per-source contribution volume. Filter with q (keyword search across id/kind/path), sort with sort/order, and page with limit (1-100)/cursor. An invalid sort/limit/cursor is a GraphQL error, not a silently substituted default. Mirrors GET /api/v1/source-snapshots."
+    source_snapshots(q: String, sort: String, order: String, fields: String, limit: Int, cursor: Int): SourceSnapshotList!
+    "Public-safe subnet profile index -- completeness scores, surface/interface counts, curation level, review state, and confidence for every registered subnet. Filter by netuid/subnet_type/curation_level/review_state/confidence/profile_level, search name/slug/project/team/categories with q, sort with sort/order, and page with limit (1-1000)/cursor. An invalid filter/sort/limit/cursor is a GraphQL error, not a silently substituted default. Mirrors GET /api/v1/profiles."
+    profiles(netuid: Int, subnet_type: String, curation_level: String, review_state: String, confidence: String, profile_level: String, q: String, sort: String, order: String, fields: String, limit: Int, cursor: Int): ProfileList!
     "Global operational health rollup with per-subnet summaries."
     health: GlobalHealth
     "Cross-subnet economic opportunity boards (where to register, what it costs, where the emission and validator headroom are)."
@@ -1693,6 +1708,32 @@ export const SDL = `
     notes: JSON
     summary: JSON
     incidents: [JSON!]!
+    total: Int!
+    returned: Int!
+    limit: Int!
+    cursor: Int!
+    next_cursor: Int
+    sort: String
+    order: String
+  }
+
+  type SourceSnapshotList {
+    generated_at: String
+    schema_version: String
+    summary: JSON
+    sources: [JSON!]!
+    total: Int!
+    returned: Int!
+    limit: Int!
+    cursor: Int!
+    next_cursor: Int
+    sort: String
+    order: String
+  }
+
+  type ProfileList {
+    captured_at: String
+    profiles: [JSON!]!
     total: Int!
     returned: Int!
     limit: Int!
@@ -3436,6 +3477,8 @@ export const FIELD_COMPLEXITY = {
   endpoint_pools: RELATIONSHIP_FIELD_COMPLEXITY,
   rpc_pools: RELATIONSHIP_FIELD_COMPLEXITY,
   endpoint_incidents: RELATIONSHIP_FIELD_COMPLEXITY,
+  source_snapshots: RELATIONSHIP_FIELD_COMPLEXITY,
+  profiles: RELATIONSHIP_FIELD_COMPLEXITY,
   health: RELATIONSHIP_FIELD_COMPLEXITY,
   opportunity_boards: RELATIONSHIP_FIELD_COMPLEXITY,
   compare: RELATIONSHIP_FIELD_COMPLEXITY,
@@ -3473,6 +3516,7 @@ export const FIELD_COMPLEXITY = {
   subnet_uptime: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_health_incidents: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_health_percentiles: RELATIONSHIP_FIELD_COMPLEXITY,
+  agent_resources: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_volume: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_ohlc: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_stake_quote: RELATIONSHIP_FIELD_COMPLEXITY,
@@ -4960,6 +5004,27 @@ const rootValue = {
     return loadEndpointIncidentsList(context, args, { readArtifact });
   },
 
+  // #6986: reuse list_source_snapshots' own loader unchanged. It validates its
+  // own args and throws on an invalid one -- that throw (inside this async
+  // function) becomes a rejected promise, which the graphql executor surfaces
+  // as a normal GraphQL error, matching every other field's "an unsupported
+  // filter/sort is a GraphQL error, not a silently substituted default"
+  // convention.
+  source_snapshots(args, context) {
+    return loadSourceSnapshotsList(context, args, { readArtifact });
+  },
+
+  // #6992: reuse list_profiles' own loader unchanged. Its readOptionalArtifact
+  // dep is called as (ctx, path) and expects data-or-null on a cold artifact
+  // (not a throw) -- this file's own loadArtifact(context, path) already has
+  // exactly that shape (readArtifact(context.env, path), null if not ok), so
+  // it's reused directly rather than adding a redundant wrapper.
+  profiles(args, context) {
+    return loadProfilesList(context, args, {
+      readOptionalArtifact: loadArtifact,
+    });
+  },
+
   async health(_args, context) {
     const snapshot = await loadLiveHealth(context);
     const result = snapshot ? buildGlobalHealth(snapshot, {}) : null;
@@ -5065,6 +5130,13 @@ const rootValue = {
       summary: data.summary ?? null,
       surfaces: data.surfaces ?? [],
     };
+  },
+
+  async agent_resources(_args, context) {
+    // Same baked artifact the REST route + get_agent_resources MCP tool read.
+    // The MCP tool raises not_found when it is absent; GraphQL degrades to
+    // null instead, matching every other artifact-backed resolver here.
+    return loadArtifact(context, AGENT_RESOURCES_ARTIFACT);
   },
 
   async subnet_volume({ netuid }, context) {
