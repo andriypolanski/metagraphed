@@ -16491,7 +16491,7 @@ describe("graphql — chain_events (#7171, DATA_API all-events feed)", () => {
       DATA_API: dataApi(
         Response.json({
           count: 1,
-          events: [{ pallet: "System" }],
+          events: [{}],
         }),
       ),
     };
@@ -16507,12 +16507,35 @@ describe("graphql — chain_events (#7171, DATA_API all-events feed)", () => {
     assert.deepEqual(body.data.chain_events.events[0], {
       block_number: null,
       event_index: null,
-      pallet: "System",
+      pallet: null,
       method: null,
       args: null,
       phase: null,
       extrinsic_index: null,
       observed_at: null,
+    });
+  });
+
+  test("a data_rate_limited loader failure degrades to an empty feed", async () => {
+    const env = {
+      DATA_API: dataApi(
+        Response.json({ count: 99, events: [{ pallet: "X" }] }),
+      ),
+      DATA_RATE_LIMITER: {
+        async limit() {
+          return { success: false };
+        },
+      },
+    };
+    const { status, body } = await gql(
+      "{ chain_events { count events { pallet } } }",
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(body.data.chain_events, {
+      count: 0,
+      events: [],
     });
   });
 
