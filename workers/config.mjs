@@ -258,6 +258,11 @@ export const ACCOUNT_DEREGISTRATIONS_PATH_PATTERN =
 // applies a stricter ^5[a-zA-Z0-9]{46,47}$ guard before making the RPC call.
 export const ACCOUNT_BALANCE_PATH_PATTERN =
   /^\/api\/v1\/accounts\/([^/]+)\/balance$/;
+// Live root-claim current state (#7229): claim type + claimable rates +
+// cumulative claimed for one Finney ss58 account. Same loose capture as
+// balance; the handler applies isFinneySs58Address before RPC.
+export const ACCOUNT_ROOT_CLAIM_PATH_PATTERN =
+  /^\/api\/v1\/accounts\/([^/]+)\/root-claim$/;
 // Personal chain identity (epic #4301/5.4): the latest-only
 // account_identity row for one account, and its append-only diff-tracking
 // timeline. Mirrors SUBNET_IDENTITY_HISTORY_PATH_PATTERN's shape, keyed by

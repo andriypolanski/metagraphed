@@ -1247,6 +1247,17 @@
     {
       "content_type": "application/json",
       "contract_version": "2026-07-03.2",
+      "description": "Live root-claim current state for a Finney ss58 account (#7229) — claim type, per-hotkey claimable rates, cumulative claimed, and thresholds — queried from the finney RPC at request time with 120s KV cache. claim_type/hotkeys null on RPC failure. Read-only; never submits claim_root.",
+      "id": "account-root-claim",
+      "path": "/metagraph/accounts/{ss58}/root-claim.json",
+      "retirement": null,
+      "schema_ref": "#/components/schemas/AccountRootClaimArtifact",
+      "status": "live",
+      "storage_tier": "git"
+    },
+    {
+      "content_type": "application/json",
+      "contract_version": "2026-07-03.2",
       "description": "Live child-hotkey delegation graph for one account (#6723, part of the child-hotkey delegation epic #6721) — every child hotkey this account currently delegates stake-weight to, per subnet, queried from the chain's own ChildKeys storage map at request time with 120s KV cache. subnets is null on RPC failure, distinct from a confirmed empty graph.",
       "id": "account-children",
       "path": "/metagraph/accounts/{ss58}/children.json",

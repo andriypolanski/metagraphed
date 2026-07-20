@@ -206,6 +206,7 @@ import { loadSubnetRecycled, isU16Netuid } from "./subnet-recycled.mjs";
 import { loadSubnetBurn } from "./subnet-burn.mjs";
 import { loadSubnetLease } from "./subnet-lease.mjs";
 import { loadAccountBalance, isFinneySs58Address } from "./account-balance.mjs";
+import { loadAccountRootClaim } from "./account-root-claim.mjs";
 // #6976: GraphQL parity for the children/parents/weight-setters/entities account
 // relationship routes, reusing the same loaders/builders REST + MCP already call.
 import {
@@ -779,6 +780,8 @@ export const SDL = `
     subnet_lease_history(netuid: Int!): SubnetLeaseHistory!
     "Live free+reserved balance in TAO for one Finney ss58 account, read directly from chain via RPC (KV-cached, not the Postgres tier). balance_tao is null on RPC failure, schema-stable, never a GraphQL error. Mirrors GET /api/v1/accounts/{ss58}/balance."
     account_balance(ss58: String!): AccountBalance
+    "Live root-claim current state for one Finney ss58 account (#7229) — claim type, per-hotkey claimable rates, cumulative claimed watermarks, and per-netuid thresholds — read directly from chain via RPC (KV-cached, not the Postgres tier). claim_type/hotkeys are null on RPC failure, schema-stable, never a GraphQL error. Read-only; never submits claim_root. Mirrors GET /api/v1/accounts/{ss58}/root-claim."
+    account_root_claim(ss58: String!): AccountRootClaim
     "Live child-hotkey delegation graph (#6723) for one Finney ss58 account -- every child hotkey it currently delegates stake-weight to, per subnet, with the proportion charged -- read directly from chain via RPC (KV-cached, not the Postgres tier). subnets is null on RPC failure, distinct from a confirmed-empty [] (the account genuinely has no children on any subnet). Companion to account_parents. Mirrors GET /api/v1/accounts/{ss58}/children."
     account_children(ss58: String!): AccountChildren
     "Live parent-hotkey delegation graph (#6723) for one Finney ss58 account -- every hotkey currently delegating stake-weight to it, per subnet -- read directly from chain via RPC (KV-cached, not the Postgres tier). subnets is null on RPC failure, distinct from a confirmed-empty [] (the account genuinely has no parents on any subnet). Companion to account_children. Mirrors GET /api/v1/accounts/{ss58}/parents."
@@ -3106,6 +3109,35 @@ export const SDL = `
     queried_at: String!
   }
 
+  "Per-account RootClaimTypeEnum (#7229): Swap / Keep / KeepSubnets."
+  type RootClaimType {
+    kind: String!
+    subnets: [Int!]
+  }
+
+  "One netuid's root-claim accounting for a (hotkey, account) pair (#7229)."
+  type RootClaimEntry {
+    netuid: Int!
+    claimable_rate: Float!
+    claimed: String!
+    threshold: Float!
+  }
+
+  "Root-claim rows for one staking/owned hotkey of the queried account (#7229)."
+  type RootClaimHotkey {
+    hotkey: String!
+    entries: [RootClaimEntry!]!
+  }
+
+  "Live root-claim current state for one Finney ss58 account (#7229), read directly from chain via RPC (KV-cached). claim_type/hotkeys are null on RPC failure (schema-stable, never a GraphQL error). Read-only; never submits claim_root. Mirrors GET /api/v1/accounts/{ss58}/root-claim."
+  type AccountRootClaim {
+    schema_version: Int!
+    ss58: String!
+    claim_type: RootClaimType
+    hotkeys: [RootClaimHotkey!]
+    queried_at: String!
+  }
+
   "Live child-hotkey delegation graph (#6723) for one Finney ss58 account, read directly from chain via RPC (KV-cached). subnets is null on RPC failure, distinct from a confirmed-empty [] (schema-stable, never a GraphQL error). Mirrors GET /api/v1/accounts/{ss58}/children."
   type AccountChildren {
     schema_version: Int!
@@ -4262,6 +4294,7 @@ export const FIELD_COMPLEXITY = {
   subnet_burn: LIVE_RPC_FIELD_COMPLEXITY,
   subnet_lease: LIVE_RPC_FIELD_COMPLEXITY,
   account_balance: LIVE_RPC_FIELD_COMPLEXITY,
+  account_root_claim: LIVE_RPC_FIELD_COMPLEXITY,
   account_children: LIVE_RPC_FIELD_COMPLEXITY,
   account_parents: LIVE_RPC_FIELD_COMPLEXITY,
   sudo_key: LIVE_RPC_FIELD_COMPLEXITY,
@@ -9803,6 +9836,18 @@ const rootValue = {
     // loadAccountBalance always sets schema_version/ss58/queried_at
     // unconditionally, so no `??` fallback is needed for those.
     return loadAccountBalance(context.env, ss58);
+  },
+
+  async account_root_claim({ ss58 }, context) {
+    if (!isFinneySs58Address(ss58)) {
+      throw new GraphQLError("ss58 must be a valid Finney ss58 address.", {
+        extensions: { code: "BAD_USER_INPUT" },
+      });
+    }
+    // Live chain RPC — reuses loadAccountRootClaim's KV cache/TTL, matching
+    // REST's handleAccountRootClaim. claim_type/hotkeys stay null on RPC
+    // failure (schema-stable), never a GraphQL error. Read-only.
+    return loadAccountRootClaim(context.env, ss58);
   },
 
   async account_children({ ss58 }, context) {

@@ -1022,6 +1022,15 @@
     },
     {
       "contract_version": "2026-07-03.2",
+      "id": "account-root-claim",
+      "path": "/metagraph/accounts/{ss58}/root-claim.json",
+      "retirement": null,
+      "schema_ref": "#/components/schemas/AccountRootClaimArtifact",
+      "status": "live",
+      "storage_tier": "git"
+    },
+    {
+      "contract_version": "2026-07-03.2",
       "id": "account-children",
       "path": "/metagraph/accounts/{ss58}/children.json",
       "retirement": null,
@@ -7397,6 +7406,18 @@
       "id": "account-balance",
       "method": "GET",
       "path": "/api/v1/accounts/{ss58}/balance",
+      "public": true,
+      "query_collection": null,
+      "query_filter_names": [],
+      "query_parameters": []
+    },
+    {
+      "artifact_path": "/metagraph/accounts/{ss58}/root-claim.json",
+      "cache": "short",
+      "description": "Fetch the live root-claim current state for one Finney ss58 account (#7229) — RootClaimType setting, per-hotkey RootClaimable rates, RootClaimed cumulative watermarks, and RootClaimableThreshold — queried from the finney RPC at request time with 120s KV cache. Returns 400 on invalid ss58; claim_type/hotkeys are null on RPC failure. Read-only display only; never submits claim_root or any other extrinsic.",
+      "id": "account-root-claim",
+      "method": "GET",
+      "path": "/api/v1/accounts/{ss58}/root-claim",
       "public": true,
       "query_collection": null,
       "query_filter_names": [],

@@ -4099,6 +4099,74 @@
           "queried_at": { "type": ["string", "null"], "format": "date-time" }
         }
       },
+      "RootClaimType": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Per-account RootClaimTypeEnum (#7229): Swap alpha→TAO, Keep alpha, or KeepSubnets for a listed set.",
+        "required": ["kind"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["Swap", "Keep", "KeepSubnets"]
+          },
+          "subnets": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0, "maximum": 65535 },
+            "description": "Present only when kind is KeepSubnets."
+          }
+        }
+      },
+      "RootClaimEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "One netuid's root-claim accounting for a (hotkey, account) pair (#7229). claimable_rate is RootClaimable's I96F32 rate; claimed is RootClaimed's u128 watermark (string); threshold is RootClaimableThreshold.",
+        "required": ["netuid", "claimable_rate", "claimed", "threshold"],
+        "properties": {
+          "netuid": { "type": "integer", "minimum": 0, "maximum": 65535 },
+          "claimable_rate": { "type": "number" },
+          "claimed": { "type": "string" },
+          "threshold": { "type": "number" }
+        }
+      },
+      "RootClaimHotkey": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Root-claim rows for one staking/owned hotkey of the queried account (#7229).",
+        "required": ["hotkey", "entries"],
+        "properties": {
+          "hotkey": { "type": "string" },
+          "entries": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/RootClaimEntry" }
+          }
+        }
+      },
+      "AccountRootClaimArtifact": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Live root-claim current state for one Finney ss58 account (#7229) — claim type, per-hotkey claimable rates, cumulative claimed watermarks, and per-netuid thresholds — queried from finney RPC at request time with 120s KV cache. claim_type and hotkeys are null on RPC failure (schema-stable), distinct from a confirmed empty hotkeys list. Read-only; never submits claim_root.",
+        "required": ["schema_version", "ss58"],
+        "properties": {
+          "schema_version": { "type": "integer" },
+          "ss58": { "type": "string" },
+          "claim_type": {
+            "anyOf": [
+              { "$ref": "#/components/schemas/RootClaimType" },
+              { "type": "null" }
+            ]
+          },
+          "hotkeys": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/RootClaimHotkey" }
+              },
+              { "type": "null" }
+            ]
+          },
+          "queried_at": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
       "ChildDelegationEntry": {
         "type": "object",
         "additionalProperties": false,

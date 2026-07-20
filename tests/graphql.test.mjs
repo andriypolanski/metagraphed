@@ -16438,6 +16438,50 @@ describe("graphql — account_balance (#5700, live chain RPC via account-balance
   });
 });
 
+describe("graphql — account_root_claim (#7229)", () => {
+  const SS58 = "5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5";
+
+  function withFetchStub(stub, fn) {
+    const orig = globalThis.fetch;
+    globalThis.fetch = stub;
+    return Promise.resolve(fn()).finally(() => {
+      globalThis.fetch = orig;
+    });
+  }
+
+  test("returns null claim_type/hotkeys on RPC failure", async () => {
+    await withFetchStub(
+      async () => {
+        throw new Error("rpc down");
+      },
+      async () => {
+        const { status, body } = await gql(
+          `{ account_root_claim(ss58: "${SS58}") { schema_version ss58 claim_type { kind } hotkeys { hotkey } queried_at } }`,
+        );
+        assert.equal(status, 200);
+        assert.equal(body.errors, undefined);
+        const r = body.data.account_root_claim;
+        assert.equal(r.ss58, SS58);
+        assert.equal(r.claim_type, null);
+        assert.equal(r.hotkeys, null);
+        assert.ok(r.queried_at);
+      },
+    );
+  });
+
+  test("rejects an invalid ss58", async () => {
+    const { body } = await gql(
+      '{ account_root_claim(ss58: "not-an-address") { ss58 } }',
+    );
+    assert.equal(body.data.account_root_claim, null);
+    assert.ok(body.errors?.length);
+  });
+
+  test("account_root_claim is weighted at the live-RPC complexity", () => {
+    assert.equal(FIELD_COMPLEXITY.account_root_claim, 10);
+  });
+});
+
 describe("graphql — registry_leaderboards (#5661, shared composer + REST-matching validation)", () => {
   // Every D1 query in the composer returns no rows, so the boards resolve from
   // an empty projection without a live DB. No profiles artifact is injected, so

@@ -589,6 +589,7 @@ import {
   MOVERS_LIMIT_MAX,
 } from "./movers.mjs";
 import { isFinneySs58Address, loadAccountBalance } from "./account-balance.mjs";
+import { loadAccountRootClaim } from "./account-root-claim.mjs";
 import {
   loadAccountChildren,
   loadAccountParents,
@@ -908,6 +909,8 @@ export const MCP_INSTRUCTIONS =
   "UID — use these to decide where to mine or validate. For wallet lookup, " +
   "get_account summarizes what one hotkey or coldkey does across the network, " +
   "get_account_balance its live native-TAO balance (free+reserved) from finney RPC, " +
+  "get_account_root_claim its live root-claim state (claim type, claimable rates, " +
+  "cumulative claimed — read-only, never submits claim_root), " +
   "get_account_events returns its chain-event history (optional kind filter), and " +
   "get_account_subnets the subnets where it is registered, get_account_portfolio " +
   "its cross-subnet neuron portfolio (per-position economics + yield and wallet " +
@@ -6503,6 +6506,52 @@ export const MCP_TOOLS = [
         }
       }
       return loadAccountBalance(ctx.env, ss58);
+    },
+  },
+  {
+    name: "get_account_root_claim",
+    title: "Get an account's live root-claim state",
+    description:
+      "Fetch the live root-claim current state for one Finney ss58 account " +
+      "(#7229): RootClaimType setting, per-hotkey RootClaimable rates, " +
+      "RootClaimed cumulative watermarks, and RootClaimableThreshold — queried " +
+      "from the finney RPC at request time with a 120s KV cache. claim_type and " +
+      "hotkeys are null on RPC failure (schema-stable, not an error). Read-only " +
+      "display only — never submits claim_root or any other extrinsic. Mirrors " +
+      "GET /api/v1/accounts/{ss58}/root-claim.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ss58: {
+          type: "string",
+          description:
+            "The account's SS58 address (finney network), base58, 47-48 chars.",
+          pattern: SS58_PATTERN_SOURCE,
+        },
+      },
+      required: ["ss58"],
+      additionalProperties: false,
+    },
+    async handler(args, ctx) {
+      const ss58 = requireSs58(args);
+      if (!isFinneySs58Address(ss58)) {
+        throw toolError(
+          "invalid_params",
+          "Argument `ss58` must be a valid finney SS58 account address.",
+        );
+      }
+      if (ctx.env.RPC_RATE_LIMITER?.limit) {
+        const { success } = await ctx.env.RPC_RATE_LIMITER.limit({
+          key: `root-claim:mcp:${ctx.clientIp}`,
+        });
+        if (!success) {
+          throw toolError(
+            "rate_limited",
+            "Too many live root-claim requests from this client; slow down.",
+          );
+        }
+      }
+      return loadAccountRootClaim(ctx.env, ss58);
     },
   },
   {
@@ -13657,6 +13706,58 @@ const TOOL_OUTPUT_SCHEMAS = {
       schema_version: { type: "integer" },
       ss58: { type: "string" },
       balance_tao: { type: ["number", "null"] },
+      queried_at: NULLABLE_STRING,
+    },
+  },
+  get_account_root_claim: {
+    type: "object",
+    additionalProperties: true,
+    required: ["ss58", "queried_at"],
+    properties: {
+      schema_version: { type: "integer" },
+      ss58: { type: "string" },
+      claim_type: {
+        anyOf: [
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["kind"],
+            properties: {
+              kind: { type: "string" },
+              subnets: {
+                type: "array",
+                items: { type: "integer" },
+              },
+            },
+          },
+          { type: "null" },
+        ],
+      },
+      hotkeys: {
+        type: ["array", "null"],
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["hotkey", "entries"],
+          properties: {
+            hotkey: { type: "string" },
+            entries: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["netuid", "claimable_rate", "claimed", "threshold"],
+                properties: {
+                  netuid: { type: "integer" },
+                  claimable_rate: { type: "number" },
+                  claimed: { type: "string" },
+                  threshold: { type: "number" },
+                },
+              },
+            },
+          },
+        },
+      },
       queried_at: NULLABLE_STRING,
     },
   },

@@ -1496,6 +1496,53 @@
         ],
         "type": "object"
       },
+      "AccountRootClaimArtifact": {
+        "additionalProperties": true,
+        "description": "Live root-claim current state for one Finney ss58 account (#7229) — claim type, per-hotkey claimable rates, cumulative claimed watermarks, and per-netuid thresholds — queried from finney RPC at request time with 120s KV cache. claim_type and hotkeys are null on RPC failure (schema-stable), distinct from a confirmed empty hotkeys list. Read-only; never submits claim_root.",
+        "properties": {
+          "claim_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RootClaimType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hotkeys": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/RootClaimHotkey"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "queried_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "schema_version": {
+            "type": "integer"
+          },
+          "ss58": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "ss58"
+        ],
+        "type": "object"
+      },
       "AccountServingArtifact": {
         "additionalProperties": false,
         "description": "One account's axon-serving footprint per subnet over a recent window, from the account_events AxonServed stream: per-subnet announcement count with the first/last announcement timestamps, plus account totals, an HHI concentration of where its serving activity is focused, and the dominant subnet. Operational activity (announcing an axon endpoint) — the account-level companion to /api/v1/chain/serving and /api/v1/subnets/{netuid}/serving, orthogonal to /accounts/{ss58}/subnets (registration state) and /accounts/{ss58}/registrations (registration events).",
@@ -14783,6 +14830,80 @@
           "needs-review",
           "stale"
         ]
+      },
+      "RootClaimEntry": {
+        "additionalProperties": false,
+        "description": "One netuid's root-claim accounting for a (hotkey, account) pair (#7229). claimable_rate is RootClaimable's I96F32 rate; claimed is RootClaimed's u128 watermark (string); threshold is RootClaimableThreshold.",
+        "properties": {
+          "claimable_rate": {
+            "type": "number"
+          },
+          "claimed": {
+            "type": "string"
+          },
+          "netuid": {
+            "maximum": 65535,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "threshold": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "netuid",
+          "claimable_rate",
+          "claimed",
+          "threshold"
+        ],
+        "type": "object"
+      },
+      "RootClaimHotkey": {
+        "additionalProperties": false,
+        "description": "Root-claim rows for one staking/owned hotkey of the queried account (#7229).",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/RootClaimEntry"
+            },
+            "type": "array"
+          },
+          "hotkey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "hotkey",
+          "entries"
+        ],
+        "type": "object"
+      },
+      "RootClaimType": {
+        "additionalProperties": false,
+        "description": "Per-account RootClaimTypeEnum (#7229): Swap alpha→TAO, Keep alpha, or KeepSubnets for a listed set.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "Swap",
+              "Keep",
+              "KeepSubnets"
+            ],
+            "type": "string"
+          },
+          "subnets": {
+            "description": "Present only when kind is KeepSubnets.",
+            "items": {
+              "maximum": 65535,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
       },
       "RpcEndpoint": {
         "additionalProperties": false,

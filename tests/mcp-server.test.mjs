@@ -12668,6 +12668,58 @@ describe("MCP account tools (get_account + events + subnets)", () => {
     }
   });
 
+  test("get_account_root_claim returns null fields on RPC failure", async () => {
+    const orig = globalThis.fetch;
+    globalThis.fetch = async () => {
+      throw new Error("rpc down");
+    };
+    try {
+      const res = await callTool("get_account_root_claim", { ss58: SS58 }, {});
+      const out = res.body.result.structuredContent;
+      assert.equal(out.ss58, SS58);
+      assert.equal(out.claim_type, null);
+      assert.equal(out.hotkeys, null);
+      assert.ok(out.queried_at);
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
+
+  test("get_account_root_claim rejects a non-finney ss58", async () => {
+    const res = await callTool(
+      "get_account_root_claim",
+      { ss58: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXc6TYeyZ1km1" },
+      {},
+    );
+    assert.equal(res.body.result.isError, true);
+    assert.match(res.body.result.content[0].text, /finney/i);
+  });
+
+  test("get_account_root_claim applies the RPC rate limiter", async () => {
+    let limiterKey;
+    const res = await callTool(
+      "get_account_root_claim",
+      { ss58: SS58 },
+      {
+        env: {
+          MCP_RATE_LIMITER: {
+            async limit() {
+              return { success: true };
+            },
+          },
+          RPC_RATE_LIMITER: {
+            async limit({ key }) {
+              limiterKey = key;
+              return { success: false };
+            },
+          },
+        },
+      },
+    );
+    assert.equal(res.body.result.isError, true);
+    assert.equal(limiterKey, "root-claim:mcp:anonymous");
+  });
+
   test("get_account_children returns subnets:[] when the account has no children", async () => {
     const orig = globalThis.fetch;
     globalThis.fetch = async (_url, init) => {

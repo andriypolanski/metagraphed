@@ -149,6 +149,7 @@ import {
   handleAccount,
   handleAccountHistory,
   handleAccountBalance,
+  handleAccountRootClaim,
   handleAccountChildren,
   handleAccountParents,
   handleAccountEntities,
@@ -301,6 +302,7 @@ import {
 } from "../src/ai-search.mjs";
 import {
   ACCOUNT_BALANCE_PATH_PATTERN,
+  ACCOUNT_ROOT_CLAIM_PATH_PATTERN,
   ACCOUNT_CHILDREN_PATH_PATTERN,
   ACCOUNT_PARENTS_PATH_PATTERN,
   ACCOUNT_ENTITIES_PATH_PATTERN,
@@ -2891,6 +2893,12 @@ export async function handleRequest(request, env = {}, ctx = {}) {
     if (accountBalanceMatch) {
       return handleAccountBalance(request, env, accountBalanceMatch[1]);
     }
+    const accountRootClaimMatch = ACCOUNT_ROOT_CLAIM_PATH_PATTERN.exec(
+      resolved.url.pathname,
+    );
+    if (accountRootClaimMatch) {
+      return handleAccountRootClaim(request, env, accountRootClaimMatch[1]);
+    }
     const accountChildrenMatch = ACCOUNT_CHILDREN_PATH_PATTERN.exec(
       resolved.url.pathname,
     );
@@ -3258,6 +3266,7 @@ function isMainnetOnlyApiPath(pathname) {
     ACCOUNT_PROMETHEUS_PATH_PATTERN.test(pathname) ||
     ACCOUNT_AXON_REMOVALS_PATH_PATTERN.test(pathname) ||
     ACCOUNT_BALANCE_PATH_PATTERN.test(pathname) ||
+    ACCOUNT_ROOT_CLAIM_PATH_PATTERN.test(pathname) ||
     ACCOUNT_CHILDREN_PATH_PATTERN.test(pathname) ||
     ACCOUNT_PARENTS_PATH_PATTERN.test(pathname) ||
     BLOCKS_FEED_PATH_PATTERN.test(pathname) ||

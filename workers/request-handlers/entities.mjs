@@ -103,6 +103,7 @@ import {
   isFinneySs58Address,
   loadAccountBalance,
 } from "../../src/account-balance.mjs";
+import { loadAccountRootClaim } from "../../src/account-root-claim.mjs";
 import {
   loadAccountChildren,
   loadAccountParents,
@@ -3839,6 +3840,47 @@ export async function handleAccountBalance(request, env, ss58) {
   }
 
   const data = await loadAccountBalance(env, ss58);
+  return envelopeResponse(
+    request,
+    { data, meta: { contract_version: contractVersion(env) } },
+    "short",
+  );
+}
+
+// GET /api/v1/accounts/{ss58}/root-claim (#7229): live root-claim current
+// state for one Finney ss58 account — claim type, per-hotkey claimable rates,
+// cumulative claimed watermarks, and per-netuid thresholds. Read-only; never
+// submits claim_root. Live RPC + KV-cache, same shape as handleAccountBalance.
+export async function handleAccountRootClaim(request, env, ss58) {
+  if (!isFinneySs58Address(ss58)) {
+    return errorResponse(
+      "invalid_ss58",
+      "ss58 address must be a valid finney SS58 account address.",
+      400,
+    );
+  }
+
+  if (env.RPC_RATE_LIMITER?.limit) {
+    const { success } = await env.RPC_RATE_LIMITER.limit({
+      key: `root-claim:${resolveClientIp(request)}`,
+    });
+    if (!success) {
+      return errorResponse(
+        "root_claim_rate_limited",
+        "Too many live root-claim requests from this client; slow down.",
+        429,
+        {},
+        {
+          "retry-after": String(BALANCE_RATE_LIMIT.windowSeconds),
+          "x-ratelimit-limit": String(BALANCE_RATE_LIMIT.limit),
+          "x-ratelimit-policy": `${BALANCE_RATE_LIMIT.limit};w=${BALANCE_RATE_LIMIT.windowSeconds}`,
+          "x-ratelimit-remaining": "0",
+        },
+      );
+    }
+  }
+
+  const data = await loadAccountRootClaim(env, ss58);
   return envelopeResponse(
     request,
     { data, meta: { contract_version: contractVersion(env) } },
