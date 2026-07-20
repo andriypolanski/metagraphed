@@ -1666,6 +1666,144 @@ describe("graphql — profiles", () => {
   });
 });
 
+// #6977: block-scoped extrinsics/events/chain-events lists mirror the same
+// Postgres tier + schema-stable fallback the block/extrinsics feeds already use.
+describe("graphql — block_extrinsics / block_events / block_chain_events (#6977)", () => {
+  function dataApi(response) {
+    return { fetch: async () => response };
+  }
+
+  test("block_extrinsics: cold store returns a schema-stable empty list, never an error", async () => {
+    const { status, body } = await gql(
+      '{ block_extrinsics(ref: "9") { block_number extrinsic_count extrinsics } }',
+    );
+    assert.equal(status, 200);
+    assert.equal(body.data.block_extrinsics.block_number, null);
+    assert.equal(body.data.block_extrinsics.extrinsic_count, 0);
+    assert.deepEqual(body.data.block_extrinsics.extrinsics, []);
+  });
+
+  test("block_extrinsics: resolves Postgres-tier rows (the /blocks/:ref/extrinsics { data } envelope)", async () => {
+    const env = {
+      METAGRAPH_EXTRINSICS_SOURCE: "postgres",
+      DATA_API: dataApi(
+        Response.json({
+          data: {
+            schema_version: 1,
+            ref: "9",
+            block_number: 9,
+            extrinsic_count: 1,
+            limit: 50,
+            offset: 0,
+            extrinsics: [
+              {
+                block_number: 9,
+                extrinsic_index: 0,
+                call_module: "Timestamp",
+                call_function: "set",
+                success: true,
+              },
+            ],
+          },
+        }),
+      ),
+    };
+    const { status, body } = await gql(
+      '{ block_extrinsics(ref: "9", limit: 10, offset: 2) { block_number extrinsic_count extrinsics } }',
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.data.block_extrinsics.block_number, 9);
+    assert.equal(body.data.block_extrinsics.extrinsic_count, 1);
+    assert.equal(
+      body.data.block_extrinsics.extrinsics[0].call_module,
+      "Timestamp",
+    );
+  });
+
+  test("block_events: cold store returns a schema-stable empty list, never an error", async () => {
+    const { status, body } = await gql(
+      '{ block_events(ref: "9") { block_number event_count events } }',
+    );
+    assert.equal(status, 200);
+    assert.equal(body.data.block_events.event_count, 0);
+    assert.deepEqual(body.data.block_events.events, []);
+  });
+
+  test("block_events: resolves Postgres-tier rows (the /blocks/:ref/events { data } envelope)", async () => {
+    const env = {
+      METAGRAPH_EXTRINSICS_SOURCE: "postgres",
+      DATA_API: dataApi(
+        Response.json({
+          data: {
+            schema_version: 1,
+            ref: "9",
+            block_number: 9,
+            event_count: 1,
+            limit: 100,
+            offset: 0,
+            events: [
+              { block_number: 9, event_index: 0, kind: "Balances.Transfer" },
+            ],
+          },
+        }),
+      ),
+    };
+    const { status, body } = await gql(
+      '{ block_events(ref: "9", limit: 20, offset: 3) { block_number event_count events } }',
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.data.block_events.event_count, 1);
+    assert.equal(body.data.block_events.events[0].kind, "Balances.Transfer");
+  });
+
+  test("block_chain_events: resolves the all-events tier by block_number", async () => {
+    const env = {
+      DATA_API: dataApi(
+        Response.json({
+          block_number: 9,
+          event_count: 2,
+          events: [
+            { event_index: 0, pallet: "System", method: "ExtrinsicSuccess" },
+            { event_index: 1, pallet: "Balances", method: "Transfer" },
+          ],
+        }),
+      ),
+    };
+    const { status, body } = await gql(
+      "{ block_chain_events(block_number: 9) { block_number event_count events } }",
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.data.block_chain_events.block_number, 9);
+    assert.equal(body.data.block_chain_events.event_count, 2);
+    assert.equal(body.data.block_chain_events.events[1].method, "Transfer");
+  });
+
+  test("block_chain_events: an absent all-events tier is a GraphQL error, not null-degrade", async () => {
+    const { body } = await gql(
+      "{ block_chain_events(block_number: 9) { event_count } }",
+      emptyEnv,
+    );
+    assert.ok(
+      body.errors?.length,
+      "expected a GraphQL error when the tier is unavailable",
+    );
+    assert.equal(body.data, null);
+  });
+
+  test("all three fields are weighted in the complexity map", () => {
+    for (const field of [
+      "block_extrinsics",
+      "block_events",
+      "block_chain_events",
+    ]) {
+      assert.equal(FIELD_COMPLEXITY[field], 5, `${field} should be weighted`);
+    }
+  });
+});
+
 describe("graphql — economics pagination", () => {
   const env = () =>
     fixtureEnv({
@@ -3496,6 +3634,348 @@ describe("graphql — subnet_turnover (#5886, Postgres-tier + empty-card fallbac
     assert.equal(status, 200);
     assert.equal(body.data, null);
     assert.ok(body.errors.find((e) => e.extensions?.code === "BAD_USER_INPUT"));
+  });
+});
+
+// #6978: GraphQL parity for the conviction/ownership-contest (#4302) and
+// subnet-leasing (#6717) epics. ownership_history/conviction/lease_history
+// reach the Postgres-only all-events tier unconditionally (no per-table flag,
+// unlike subnet_turnover above), mirroring MCP's get_subnet_ownership_history/
+// get_subnet_conviction/get_subnet_lease_history proxies byte-for-byte.
+describe("graphql — subnet_ownership_history / subnet_conviction / subnet_lease_history", () => {
+  function dataApi(response) {
+    return { fetch: async () => response };
+  }
+
+  test("subnet_ownership_history returns the decoded ownership-change list", async () => {
+    const env = {
+      DATA_API: dataApi(
+        Response.json({
+          schema_version: 1,
+          netuid: 7,
+          count: 1,
+          ownership_changes: [
+            {
+              netuid: 7,
+              old_coldkey: "5HHBZRFX9UiyG77qU1pn1qMceRYKeg2a4yGBwPCHCyDocX4i",
+              new_coldkey: "5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F",
+              block_number: 8587754,
+              observed_at: "2026-07-09T12:26:40.000Z",
+            },
+          ],
+        }),
+      ),
+    };
+    const { status, body } = await gql(
+      "{ subnet_ownership_history(netuid: 7) { schema_version netuid count ownership_changes } }",
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    const r = body.data.subnet_ownership_history;
+    assert.equal(r.netuid, 7);
+    assert.equal(r.count, 1);
+    assert.equal(
+      r.ownership_changes[0].old_coldkey,
+      "5HHBZRFX9UiyG77qU1pn1qMceRYKeg2a4yGBwPCHCyDocX4i",
+    );
+  });
+
+  test("subnet_conviction returns the leaderboard and live-rolled rates", async () => {
+    const env = {
+      DATA_API: dataApi(
+        Response.json({
+          schema_version: 1,
+          netuid: 7,
+          queried_at_block: 5000000,
+          unlock_rate: 0.001,
+          maturity_rate: 0.002,
+          king: { coldkey: "5HHBZRFX9UiyG77qU1pn1qMceRYKeg2a4yGBwPCHCyDocX4i" },
+          count: 1,
+          leaderboard: [
+            {
+              coldkey: "5HHBZRFX9UiyG77qU1pn1qMceRYKeg2a4yGBwPCHCyDocX4i",
+              conviction: 1000,
+            },
+          ],
+        }),
+      ),
+    };
+    const { status, body } = await gql(
+      "{ subnet_conviction(netuid: 7) { schema_version netuid queried_at_block unlock_rate maturity_rate king count leaderboard } }",
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    const r = body.data.subnet_conviction;
+    assert.equal(r.netuid, 7);
+    assert.equal(r.unlock_rate, 0.001);
+    assert.equal(
+      r.king.coldkey,
+      "5HHBZRFX9UiyG77qU1pn1qMceRYKeg2a4yGBwPCHCyDocX4i",
+    );
+    assert.equal(r.leaderboard[0].conviction, 1000);
+  });
+
+  test("subnet_lease_history returns the decoded lease-lifecycle event list", async () => {
+    const env = {
+      DATA_API: dataApi(
+        Response.json({
+          schema_version: 1,
+          netuid: 9,
+          count: 1,
+          lease_events: [
+            {
+              event_kind: "SubnetLeaseCreated",
+              beneficiary: "5HHBZRFX9UiyG77qU1pn1qMceRYKeg2a4yGBwPCHCyDocX4i",
+              block_number: 8000000,
+              observed_at: "2026-07-01T00:00:00.000Z",
+            },
+          ],
+        }),
+      ),
+    };
+    const { status, body } = await gql(
+      "{ subnet_lease_history(netuid: 9) { schema_version netuid count lease_events } }",
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    const r = body.data.subnet_lease_history;
+    assert.equal(r.netuid, 9);
+    assert.equal(r.count, 1);
+    assert.equal(r.lease_events[0].event_kind, "SubnetLeaseCreated");
+  });
+
+  test("a subnet with no recorded events returns an empty list, not an error", async () => {
+    const env = {
+      DATA_API: dataApi(
+        Response.json({
+          schema_version: 1,
+          netuid: 4,
+          count: 0,
+          ownership_changes: [],
+        }),
+      ),
+    };
+    const { body } = await gql(
+      "{ subnet_ownership_history(netuid: 4) { count ownership_changes } }",
+      env,
+    );
+    assert.equal(body.data.subnet_ownership_history.count, 0);
+    assert.deepEqual(body.data.subnet_ownership_history.ownership_changes, []);
+  });
+
+  test("a fully empty tier body degrades every field to its resolver default", async () => {
+    // A fresh Response per fetch call (unlike the shared-instance dataApi()
+    // helper above) since this test reuses `env` across three requests and a
+    // Response body can only be consumed once.
+    const env = { DATA_API: { fetch: async () => Response.json({}) } };
+
+    const ownership = await gql(
+      "{ subnet_ownership_history(netuid: 4) { schema_version netuid count ownership_changes } }",
+      env,
+    );
+    assert.deepEqual(ownership.body.data.subnet_ownership_history, {
+      schema_version: 1,
+      netuid: 4,
+      count: 0,
+      ownership_changes: [],
+    });
+
+    const conviction = await gql(
+      "{ subnet_conviction(netuid: 4) { schema_version netuid queried_at_block unlock_rate maturity_rate king count leaderboard } }",
+      env,
+    );
+    assert.deepEqual(conviction.body.data.subnet_conviction, {
+      schema_version: 1,
+      netuid: 4,
+      queried_at_block: null,
+      unlock_rate: null,
+      maturity_rate: null,
+      king: null,
+      count: 0,
+      leaderboard: [],
+    });
+
+    const leaseHistory = await gql(
+      "{ subnet_lease_history(netuid: 4) { schema_version netuid count lease_events } }",
+      env,
+    );
+    assert.deepEqual(leaseHistory.body.data.subnet_lease_history, {
+      schema_version: 1,
+      netuid: 4,
+      count: 0,
+      lease_events: [],
+    });
+  });
+
+  test("surfaces a missing DATA_API binding as a GraphQL error", async () => {
+    const { body } = await gql(
+      "{ subnet_ownership_history(netuid: 7) { count } }",
+    );
+    assert.ok(body.errors?.length);
+    assert.equal(body.data, null);
+  });
+
+  test("surfaces a non-OK DATA_API response as a GraphQL error", async () => {
+    const env = { DATA_API: dataApi(new Response("err", { status: 502 })) };
+    const { body } = await gql(
+      "{ subnet_conviction(netuid: 7) { count } }",
+      env,
+    );
+    assert.ok(body.errors?.length);
+    assert.equal(body.data, null);
+  });
+
+  test("surfaces a DATA_API fetch failure as a GraphQL error", async () => {
+    const env = {
+      DATA_API: {
+        fetch: async () => {
+          throw new Error("network unreachable");
+        },
+      },
+    };
+    const { body } = await gql(
+      "{ subnet_lease_history(netuid: 9) { count } }",
+      env,
+    );
+    assert.ok(body.errors?.length);
+    assert.equal(body.data, null);
+  });
+
+  test("FIELD_COMPLEXITY weights all three like their sibling Postgres-tier fields", () => {
+    for (const field of [
+      "subnet_ownership_history",
+      "subnet_conviction",
+      "subnet_lease_history",
+    ]) {
+      assert.equal(FIELD_COMPLEXITY[field], 5, `${field} should be weighted`);
+    }
+  });
+
+  test("an out-of-range or negative netuid is BAD_USER_INPUT and never reaches the tier", async () => {
+    for (const { query, field } of [
+      {
+        query: "{ subnet_ownership_history(netuid: 99999) { count } }",
+        field: "subnet_ownership_history",
+      },
+      {
+        query: "{ subnet_conviction(netuid: -1) { count } }",
+        field: "subnet_conviction",
+      },
+      {
+        query: "{ subnet_lease_history(netuid: 99999) { count } }",
+        field: "subnet_lease_history",
+      },
+    ]) {
+      let called = false;
+      const env = {
+        DATA_API: {
+          fetch: async () => {
+            called = true;
+            return Response.json({});
+          },
+        },
+      };
+      const { status, body } = await gql(query, env);
+      assert.equal(status, 200);
+      // Non-null field type (SubnetOwnershipHistory!/etc.) -- an error nulls
+      // the whole response, not just this field.
+      assert.equal(body.data, null, `${field} should null the response`);
+      assert.ok(
+        body.errors.find((e) => e.extensions?.code === "BAD_USER_INPUT"),
+        `${field} should be BAD_USER_INPUT`,
+      );
+      assert.equal(called, false, `${field} should never reach DATA_API`);
+    }
+  });
+});
+
+// #6978: subnet_lease is the live-RPC counterpart (current state, not the
+// event log) -- same schema-stable-null-on-RPC-failure shape as
+// subnet_recycled/subnet_burn above, reusing loadSubnetLease unchanged.
+describe("graphql — subnet_lease (#6719, live chain RPC via subnet-lease.mjs)", () => {
+  function withFetchStub(stub, fn) {
+    const orig = globalThis.fetch;
+    globalThis.fetch = stub;
+    return Promise.resolve(fn()).finally(() => {
+      globalThis.fetch = orig;
+    });
+  }
+
+  test("returns leased:false for a confirmed no-lease result", async () => {
+    await withFetchStub(
+      async () => ({
+        ok: true,
+        json: async () => ({ jsonrpc: "2.0", id: 1, result: null }),
+      }),
+      async () => {
+        const { status, body } = await gql(
+          "{ subnet_lease(netuid: 7) { schema_version netuid leased lease queried_at } }",
+        );
+        assert.equal(status, 200);
+        assert.equal(body.errors, undefined);
+        const r = body.data.subnet_lease;
+        assert.equal(r.netuid, 7);
+        assert.equal(r.leased, false);
+        assert.equal(r.lease, null);
+        assert.ok(r.queried_at);
+      },
+    );
+  });
+
+  test("RPC failure degrades leased to null, never a GraphQL error", async () => {
+    await withFetchStub(
+      async () => {
+        throw new Error("network unreachable");
+      },
+      async () => {
+        const { status, body } = await gql(
+          "{ subnet_lease(netuid: 7) { leased } }",
+        );
+        assert.equal(status, 200);
+        assert.equal(body.errors, undefined);
+        assert.equal(body.data.subnet_lease.leased, null);
+      },
+    );
+  });
+
+  test("an out-of-range netuid is BAD_USER_INPUT and never reaches the RPC", async () => {
+    let called = false;
+    await withFetchStub(
+      async () => {
+        called = true;
+        return { ok: true, json: async () => ({ result: null }) };
+      },
+      async () => {
+        const { status, body } = await gql(
+          "{ subnet_lease(netuid: 99999) { leased } }",
+        );
+        assert.equal(status, 200);
+        assert.equal(body.data.subnet_lease, null);
+        assert.ok(
+          body.errors.find((e) => e.extensions?.code === "BAD_USER_INPUT"),
+        );
+        assert.equal(called, false);
+      },
+    );
+  });
+
+  test("a negative netuid is BAD_USER_INPUT", async () => {
+    const { status, body } = await gql(
+      "{ subnet_lease(netuid: -1) { leased } }",
+    );
+    assert.equal(status, 200);
+    assert.ok(body.errors.find((e) => e.extensions?.code === "BAD_USER_INPUT"));
+  });
+
+  test("subnet_lease is weighted like its live-RPC siblings", () => {
+    assert.equal(FIELD_COMPLEXITY.subnet_lease, 10);
+    assert.equal(
+      FIELD_COMPLEXITY.subnet_lease,
+      FIELD_COMPLEXITY.subnet_recycled,
+    );
   });
 });
 
@@ -6276,6 +6756,189 @@ describe("graphql — subnet_concentration_history (#5901, neuron_daily trend + 
   });
 });
 
+describe("graphql — discovery parity (#6989, search/domains/compare_validators)", () => {
+  const HOTKEY_A = "5FnPunMdSFTr8swMhMTdSGFqiZAJTBEDaAgTmrKfSpvRQyaR";
+  const HOTKEY_B = "5CXRfP2ZfvGCe8EQoZnjuBVUkado1RyfHf1zPTMhVpvSJHnp";
+
+  test("search pages the baked full index", async () => {
+    const env = fixtureEnv({
+      "/metagraph/search.json": {
+        documents: [
+          { id: "subnet:1", type: "subnet", title: "Alpha", tokens: "a b" },
+          { id: "subnet:2", type: "subnet", title: "Beta", tokens: "c d" },
+        ],
+      },
+    });
+    const { status, body } = await gql(
+      "{ search(limit: 1) { documents total next_cursor } }",
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    const s = body.data.search;
+    assert.equal(s.total, 2);
+    assert.equal(s.documents.length, 1);
+    assert.equal(s.documents[0].id, "subnet:1");
+    // The full index keeps the per-document token blob.
+    assert.equal(s.documents[0].tokens, "a b");
+    assert.ok(s.next_cursor);
+  });
+
+  test("search_index serves the slim artifact (documents without tokens)", async () => {
+    const env = fixtureEnv({
+      "/metagraph/search-index.json": {
+        documents: [
+          { id: "subnet:1", type: "subnet", title: "Alpha" },
+          { id: "subnet:2", type: "subnet", title: "Beta" },
+        ],
+      },
+    });
+    const { status, body } = await gql(
+      "{ search_index(limit: 1) { documents total next_cursor } }",
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.equal(body.data.search_index.total, 2);
+    assert.equal(body.data.search_index.documents.length, 1);
+    // The slim index drops the per-document token blob the full index keeps.
+    assert.equal(body.data.search_index.documents[0].tokens, undefined);
+    assert.ok(body.data.search_index.next_cursor);
+  });
+
+  test("search degrades to an empty page on a cold artifact", async () => {
+    const { status, body } = await gql("{ search { documents total } }");
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(body.data.search, { documents: [], total: 0 });
+  });
+
+  test("domains rolls up every tag in the fixed taxonomy", async () => {
+    const env = fixtureEnv({
+      "/metagraph/subnets.json": {
+        subnets: [{ netuid: 1, name: "A", categories: ["agents"] }],
+      },
+      "/metagraph/economics.json": {
+        subnets: [{ netuid: 1, total_stake_tao: 100, emission_share: 0.5 }],
+      },
+    });
+    const { status, body } = await gql(
+      "{ domains { schema_version domain_count domains { domain subnet_count netuids total_stake_tao } } }",
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    const d = body.data.domains;
+    assert.equal(d.schema_version, 1);
+    assert.equal(d.domain_count, 14);
+    assert.equal(d.domains.length, 14);
+    const agents = d.domains.find((row) => row.domain === "agents");
+    assert.ok(agents, "expected an agents rollup");
+  });
+
+  test("domain_summary rolls up one tag", async () => {
+    const { status, body } = await gql(
+      '{ domain_summary(tag: "agents") { schema_version domain subnet_count netuids total_stake_tao total_emission_share emission_concentration } }',
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    const s = body.data.domain_summary;
+    assert.equal(s.domain, "agents");
+    assert.equal(s.subnet_count, 0);
+    assert.deepEqual(s.netuids, []);
+    assert.equal(s.emission_concentration, null);
+  });
+
+  test("domain_summary rejects a tag outside the fixed taxonomy", async () => {
+    const { body } = await gql(
+      '{ domain_summary(tag: "not-a-domain") { domain } }',
+    );
+    assert.ok(body.errors, "expected a GraphQL error");
+    assert.ok(/tag must be one of/i.test(body.errors[0].message));
+    assert.equal(body.data?.domain_summary ?? null, null);
+  });
+
+  test("compare_validators places validators side by side (cold tier)", async () => {
+    const { status, body } = await gql(
+      `{ compare_validators(hotkeys: ["${HOTKEY_A}", "${HOTKEY_B}"]) {
+          schema_version netuid validator_count
+          validators { hotkey total_stake_tao subnet_count subnet_context }
+        } }`,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    const c = body.data.compare_validators;
+    assert.equal(c.netuid, null);
+    assert.equal(c.validator_count, 2);
+    assert.equal(c.validators[0].hotkey, HOTKEY_A);
+    assert.equal(c.validators[1].hotkey, HOTKEY_B);
+    assert.equal(c.validators[0].subnet_context, null);
+  });
+
+  test("compare_validators fetches each hotkey from the Postgres tier", async () => {
+    const paths = [];
+    const env = {
+      METAGRAPH_NEURONS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async (req) => {
+          paths.push(new URL(req.url).pathname);
+          return Response.json({
+            schema_version: 1,
+            hotkey: HOTKEY_A,
+            total_stake_tao: 42,
+            subnets: [],
+          });
+        },
+      },
+    };
+    const { status, body } = await gql(
+      `{ compare_validators(hotkeys: ["${HOTKEY_A}"], netuid: 3) { netuid validator_count validators { hotkey total_stake_tao } } }`,
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.equal(paths.length, 1);
+    assert.ok(paths[0].endsWith(`/validators/${HOTKEY_A}`));
+    assert.equal(body.data.compare_validators.netuid, 3);
+    assert.equal(
+      body.data.compare_validators.validators[0].total_stake_tao,
+      42,
+    );
+  });
+
+  test("compare_validators rejects a malformed hotkey list", async () => {
+    const { body } = await gql(
+      '{ compare_validators(hotkeys: ["nope"]) { validator_count } }',
+    );
+    assert.ok(body.errors, "expected a GraphQL error");
+    assert.ok(/hotkeys must be/i.test(body.errors[0].message));
+  });
+
+  test("compare_validators rejects an empty hotkey list", async () => {
+    const { body } = await gql(
+      "{ compare_validators(hotkeys: []) { validator_count } }",
+    );
+    assert.ok(body.errors, "expected a GraphQL error");
+    assert.ok(/hotkeys must be/i.test(body.errors[0].message));
+  });
+
+  test("compare_validators rejects a negative netuid", async () => {
+    const { body } = await gql(
+      `{ compare_validators(hotkeys: ["${HOTKEY_A}"], netuid: -1) { validator_count } }`,
+    );
+    assert.ok(body.errors, "expected a GraphQL error");
+    assert.ok(/netuid/i.test(body.errors[0].message));
+  });
+
+  test("the discovery fields are weighted as fan-out fields", () => {
+    assert.equal(FIELD_COMPLEXITY.search, 5);
+    assert.equal(FIELD_COMPLEXITY.search_index, 5);
+    assert.equal(FIELD_COMPLEXITY.domains, 5);
+    assert.equal(FIELD_COMPLEXITY.domain_summary, 5);
+    assert.equal(FIELD_COMPLEXITY.compare_validators, 5);
+  });
+});
+
 describe("graphql — agent_resources (#6987, baked AI-resources index)", () => {
   test("resolves the baked AI-resources index", async () => {
     const env = fixtureEnv({
@@ -9049,6 +9712,427 @@ describe("graphql — account_stake_moves (#5707, Postgres-tier + zeroed-card fa
     assert.ok(body.errors, "expected a GraphQL error");
     assert.ok(/window|30d/i.test(body.errors[0].message));
     assert.equal(body.data?.account_stake_moves ?? null, null);
+  });
+});
+
+describe("graphql — account_children / account_parents (#6976, live chain RPC via child-hotkey-delegation.mjs)", () => {
+  const SS58 = "5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5";
+  const CHILD_SS58 = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
+
+  function stubFetch(handler) {
+    const orig = globalThis.fetch;
+    globalThis.fetch = handler;
+    return () => {
+      globalThis.fetch = orig;
+    };
+  }
+
+  for (const [field, cacheKeyPrefix, counterpartKey] of [
+    ["account_children", "children", "child"],
+    ["account_parents", "parents", "parent"],
+  ]) {
+    function query(argsClause) {
+      return `{ ${field}${argsClause} {
+        schema_version account queried_at
+        subnets { netuid entries { ${counterpartKey} proportion proportion_fraction } }
+      } }`;
+    }
+
+    test(`${field}: an invalid ss58 is BAD_USER_INPUT and never reaches the RPC`, async () => {
+      let called = false;
+      const restore = stubFetch(async () => {
+        called = true;
+        return { ok: false };
+      });
+      try {
+        const { status, body } = await gql(query('(ss58: "not-an-address")'));
+        assert.equal(status, 200);
+        assert.equal(body.data[field], null);
+        assert.ok(
+          body.errors.find((e) => e.extensions?.code === "BAD_USER_INPUT"),
+        );
+        assert.equal(called, false);
+      } finally {
+        restore();
+      }
+    });
+
+    test(`${field}: subnets is null on an RPC failure, distinct from confirmed-empty`, async () => {
+      const restore = stubFetch(async () => ({ ok: false }));
+      try {
+        const { status, body } = await gql(query(`(ss58: "${SS58}")`));
+        assert.equal(status, 200);
+        assert.equal(body.errors, undefined);
+        assert.equal(body.data[field].subnets, null);
+      } finally {
+        restore();
+      }
+    });
+
+    test(`${field}: subnets:[] when the account genuinely has none, schema-stable`, async () => {
+      const restore = stubFetch(async (_url, init) => {
+        const parsedBody = JSON.parse(init.body);
+        if (parsedBody.method === "state_getKeysPaged") {
+          return { ok: true, json: async () => ({ result: [] }) };
+        }
+        throw new Error("should not reach state_getStorage");
+      });
+      try {
+        const { status, body } = await gql(query(`(ss58: "${SS58}")`));
+        assert.equal(status, 200);
+        assert.equal(body.errors, undefined);
+        assert.deepEqual(body.data[field].subnets, []);
+        assert.equal(body.data[field].account, SS58);
+        assert.equal(body.data[field].schema_version, 1);
+        assert.ok(body.data[field].queried_at);
+      } finally {
+        restore();
+      }
+    });
+
+    test(`${field}: happy path resolves every field from a KV-cached payload`, async () => {
+      const cached = {
+        schema_version: 1,
+        account: SS58,
+        subnets: [
+          {
+            netuid: 3,
+            entries: [
+              {
+                [counterpartKey]: CHILD_SS58,
+                proportion: "9223372036854775807",
+                proportion_fraction: 0.5,
+              },
+            ],
+          },
+        ],
+        queried_at: "2026-07-19T00:00:00.000Z",
+      };
+      const env = fixtureEnv(
+        {},
+        { kv: { [`${cacheKeyPrefix}:${SS58}`]: cached } },
+      );
+      let fetchCalled = false;
+      const restore = stubFetch(async () => {
+        fetchCalled = true;
+        return { ok: false };
+      });
+      try {
+        const { status, body } = await gql(query(`(ss58: "${SS58}")`), env);
+        assert.equal(status, 200);
+        assert.equal(body.errors, undefined);
+        assert.deepEqual(body.data[field], cached);
+        assert.equal(fetchCalled, false);
+      } finally {
+        restore();
+      }
+    });
+  }
+
+  test("account_children/account_parents are weighted at the live-RPC complexity", () => {
+    assert.equal(FIELD_COMPLEXITY.account_children, 10);
+    assert.equal(FIELD_COMPLEXITY.account_parents, 10);
+  });
+});
+
+describe("graphql — account_weight_setters (#6976, Postgres-tier { data, generatedAt } + zeroed-card fallback)", () => {
+  const SS58 = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
+
+  function query(argsClause) {
+    return `{ account_weight_setters${argsClause} {
+      schema_version address window total_weight_sets subnet_count concentration dominant_netuid
+      subnets { netuid weight_sets first_set_at last_set_at }
+    } }`;
+  }
+
+  test("cold store: no Postgres flag returns a schema-stable zeroed card, never null", async () => {
+    const { status, body } = await gql(query(`(ss58: "${SS58}")`));
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(body.data.account_weight_setters, {
+      schema_version: 1,
+      address: SS58,
+      window: "7d",
+      total_weight_sets: 0,
+      subnet_count: 0,
+      concentration: null,
+      dominant_netuid: null,
+      subnets: [],
+    });
+  });
+
+  test("resolves the Postgres-tier footprint for the requested window", async () => {
+    const env = {
+      METAGRAPH_ACCOUNT_EVENTS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async () =>
+          Response.json({
+            data: {
+              schema_version: 1,
+              address: SS58,
+              window: "30d",
+              total_weight_sets: 12,
+              subnet_count: 2,
+              concentration: 0.61,
+              dominant_netuid: 5,
+              subnets: [
+                {
+                  netuid: 5,
+                  weight_sets: 9,
+                  first_set_at: "2026-06-01T00:00:00.000Z",
+                  last_set_at: "2026-07-01T00:00:00.000Z",
+                },
+                {
+                  netuid: 11,
+                  weight_sets: 3,
+                  first_set_at: "2026-06-15T00:00:00.000Z",
+                  last_set_at: "2026-06-20T00:00:00.000Z",
+                },
+              ],
+            },
+            generatedAt: "2026-07-01T00:00:00.000Z",
+          }),
+      },
+    };
+    const { status, body } = await gql(
+      query(`(ss58: "${SS58}", window: "30d")`),
+      env,
+    );
+    assert.equal(status, 200);
+    const r = body.data.account_weight_setters;
+    assert.equal(r.window, "30d");
+    assert.equal(r.total_weight_sets, 12);
+    assert.equal(r.subnet_count, 2);
+    assert.equal(r.concentration, 0.61);
+    assert.equal(r.dominant_netuid, 5);
+    assert.equal(r.subnets[0].netuid, 5);
+    assert.equal(r.subnets[0].weight_sets, 9);
+    assert.equal(r.subnets[1].netuid, 11);
+  });
+
+  test("window is forwarded as a query param to the Postgres tier", async () => {
+    let capturedUrl;
+    const env = {
+      METAGRAPH_ACCOUNT_EVENTS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async (req) => {
+          capturedUrl = new URL(req.url);
+          return Response.json({
+            data: { schema_version: 1, address: SS58, subnets: [] },
+            generatedAt: null,
+          });
+        },
+      },
+    };
+    await gql(query(`(ss58: "${SS58}", window: "30d")`), env);
+    assert.equal(
+      capturedUrl.pathname,
+      `/api/v1/accounts/${SS58}/weight-setters`,
+    );
+    assert.equal(capturedUrl.searchParams.get("window"), "30d");
+  });
+
+  test("a Postgres-tier body missing the data envelope degrades to a schema-stable zeroed card", async () => {
+    const env = {
+      METAGRAPH_ACCOUNT_EVENTS_SOURCE: "postgres",
+      DATA_API: { fetch: async () => Response.json({}) },
+    };
+    const { status, body } = await gql(query(`(ss58: "${SS58}")`), env);
+    assert.equal(status, 200);
+    assert.deepEqual(body.data.account_weight_setters, {
+      schema_version: 1,
+      address: SS58,
+      window: "7d",
+      total_weight_sets: 0,
+      subnet_count: 0,
+      concentration: null,
+      dominant_netuid: null,
+      subnets: [],
+    });
+  });
+
+  test("a partial data envelope degrades missing fields to their defaults", async () => {
+    const env = {
+      METAGRAPH_ACCOUNT_EVENTS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async () => Response.json({ data: {}, generatedAt: null }),
+      },
+    };
+    const { status, body } = await gql(query(`(ss58: "${SS58}")`), env);
+    assert.equal(status, 200);
+    assert.deepEqual(body.data.account_weight_setters, {
+      schema_version: 1,
+      address: SS58,
+      window: "7d",
+      total_weight_sets: 0,
+      subnet_count: 0,
+      concentration: null,
+      dominant_netuid: null,
+      subnets: [],
+    });
+  });
+
+  test("an invalid ss58 is BAD_USER_INPUT and never reaches the Postgres tier", async () => {
+    let called = false;
+    const env = {
+      METAGRAPH_ACCOUNT_EVENTS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async () => {
+          called = true;
+          return Response.json({});
+        },
+      },
+    };
+    const { status, body } = await gql(
+      query('(ss58: "not-a-valid-address")'),
+      env,
+    );
+    assert.equal(status, 200);
+    assert.ok(body.errors.find((e) => e.extensions?.code === "BAD_USER_INPUT"));
+    assert.equal(body.data, null);
+    assert.equal(called, false);
+  });
+
+  test("an unsupported window is a GraphQL error, not a silent card", async () => {
+    const { status, body } = await gql(
+      query(`(ss58: "${SS58}", window: "99d")`),
+    );
+    assert.equal(status, 200);
+    assert.ok(body.errors, "expected a GraphQL error");
+    assert.ok(/window|7d/i.test(body.errors[0].message));
+    assert.equal(body.data, null);
+  });
+
+  test("account_weight_setters is weighted as a fan-out field", () => {
+    assert.equal(FIELD_COMPLEXITY.account_weight_setters, 5);
+  });
+});
+
+describe("graphql — account_entities (#6976, R2 entity labels + Postgres-tier ownership-ties join)", () => {
+  const SS58 = "5G9hfkx9wGB1CLMT9WXkpHSAiYzjZb5o1Boyq4KAdDhjwrc5";
+  const ENTITIES_ARTIFACT_PATH = "/metagraph/entities.json";
+
+  function query(argsClause) {
+    return `{ account_entities${argsClause} {
+      schema_version ss58 ownership_tie_count
+      labels { name category notes source_urls }
+      ownership_ties { netuid role block_number observed_at }
+    } }`;
+  }
+
+  test("cold store: no artifact, no Postgres flag resolves a schema-stable empty card, never null", async () => {
+    const { status, body } = await gql(query(`(ss58: "${SS58}")`));
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(body.data.account_entities, {
+      schema_version: 1,
+      ss58: SS58,
+      ownership_tie_count: 0,
+      labels: [],
+      ownership_ties: [],
+    });
+  });
+
+  test("joins a populated entities.json artifact's labels for this ss58", async () => {
+    const env = fixtureEnv({
+      [ENTITIES_ARTIFACT_PATH]: {
+        schema_version: 1,
+        generated_at: null,
+        entities: [
+          {
+            schema_version: 1,
+            ss58: SS58,
+            name: "Example Foundation",
+            category: "foundation",
+            notes: "Verified operator",
+            source_urls: ["https://example.org/proof"],
+            review: { state: "maintainer-reviewed" },
+          },
+        ],
+      },
+    });
+    const { status, body } = await gql(query(`(ss58: "${SS58}")`), env);
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(body.data.account_entities.labels, [
+      {
+        name: "Example Foundation",
+        category: "foundation",
+        notes: "Verified operator",
+        source_urls: ["https://example.org/proof"],
+      },
+    ]);
+  });
+
+  test("resolves ownership ties from the Postgres tier", async () => {
+    const env = {
+      METAGRAPH_SUBNET_OWNERSHIP_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async () =>
+          Response.json({
+            schema_version: 1,
+            ss58: SS58,
+            labels: [],
+            ownership_tie_count: 1,
+            ownership_ties: [
+              {
+                netuid: 4,
+                role: "gained_ownership",
+                block_number: 123,
+                observed_at: "2026-07-01T00:00:00.000Z",
+              },
+            ],
+          }),
+      },
+    };
+    const { status, body } = await gql(query(`(ss58: "${SS58}")`), env);
+    assert.equal(status, 200);
+    const r = body.data.account_entities;
+    assert.equal(r.ownership_tie_count, 1);
+    assert.equal(r.ownership_ties[0].netuid, 4);
+    assert.equal(r.ownership_ties[0].role, "gained_ownership");
+    assert.equal(r.ownership_ties[0].block_number, 123);
+  });
+
+  test("a malformed Postgres-tier body degrades to a schema-stable empty ownership card", async () => {
+    const env = {
+      METAGRAPH_SUBNET_OWNERSHIP_SOURCE: "postgres",
+      DATA_API: { fetch: async () => Response.json({}) },
+    };
+    const { status, body } = await gql(query(`(ss58: "${SS58}")`), env);
+    assert.equal(status, 200);
+    assert.deepEqual(body.data.account_entities, {
+      schema_version: 1,
+      ss58: SS58,
+      ownership_tie_count: 0,
+      labels: [],
+      ownership_ties: [],
+    });
+  });
+
+  test("an invalid ss58 is BAD_USER_INPUT and never reaches the artifact or Postgres tier", async () => {
+    let called = false;
+    const env = {
+      METAGRAPH_SUBNET_OWNERSHIP_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async () => {
+          called = true;
+          return Response.json({});
+        },
+      },
+    };
+    const { status, body } = await gql(
+      query('(ss58: "not-a-valid-address")'),
+      env,
+    );
+    assert.equal(status, 200);
+    assert.ok(body.errors.find((e) => e.extensions?.code === "BAD_USER_INPUT"));
+    assert.equal(body.data, null);
+    assert.equal(called, false);
+  });
+
+  test("account_entities is weighted as a fan-out field", () => {
+    assert.equal(FIELD_COMPLEXITY.account_entities, 5);
   });
 });
 

@@ -147,8 +147,10 @@ import {
 } from "./health-serving.mjs";
 import { composeLeaderboardsData } from "../workers/request-handlers/analytics-routes.mjs";
 import {
+  COMPARE_VALIDATORS_MAX,
   loadCompareSubnets,
   loadSubnetHealthTrends,
+  parseCompareHotkeyList,
   loadSubnetPercentiles,
   loadSubnetUptime,
   loadSubnetIncidents,
@@ -161,14 +163,34 @@ import {
   buildAccountExtrinsics,
   buildExtrinsic,
   buildExtrinsicFeed,
+  buildBlockExtrinsics,
 } from "./extrinsics.mjs";
 import { buildBlock, buildBlockFeed } from "./blocks.mjs";
+import { loadBlockChainEvents } from "./data-api-mcp.mjs";
 import { buildBlocksSummary } from "./blocks-summary.mjs";
 import { buildRuntimeVersionHistory } from "./runtime-versions.mjs";
 import { buildChainYield } from "./chain-yield.mjs";
 import { loadSubnetRecycled, isU16Netuid } from "./subnet-recycled.mjs";
 import { loadSubnetBurn } from "./subnet-burn.mjs";
+import { loadSubnetLease } from "./subnet-lease.mjs";
 import { loadAccountBalance, isFinneySs58Address } from "./account-balance.mjs";
+// #6976: GraphQL parity for the children/parents/weight-setters/entities account
+// relationship routes, reusing the same loaders/builders REST + MCP already call.
+import {
+  loadAccountChildren,
+  loadAccountParents,
+} from "./child-hotkey-delegation.mjs";
+import {
+  buildAccountWeightSetters,
+  ACCOUNT_WEIGHT_SETTERS_WINDOWS,
+  DEFAULT_ACCOUNT_WEIGHT_SETTERS_WINDOW,
+} from "./account-weight-setters.mjs";
+import {
+  ENTITY_LABELS_ARTIFACT,
+  buildAccountEntities,
+  entityLabelsIndex,
+  labelsForSs58,
+} from "./entity-labels.mjs";
 import { loadSudoKey } from "./sudo-key.mjs";
 import { loadNetworkParameters } from "./network-parameters.mjs";
 import { loadRandomnessStatus } from "./randomness.mjs";
@@ -182,10 +204,13 @@ import {
   buildNeuronDetail,
   buildSubnetValidators,
   buildValidatorDetail,
+  composeValidatorComparison,
   overlayFeaturedValidators,
 } from "./metagraph-neurons.mjs";
 import { buildAlphaVolume } from "./alpha-volume.mjs";
 import { AGENT_RESOURCES_ARTIFACT } from "./agent-resources-mcp.mjs";
+import { buildDomainOverview, buildDomainSummary } from "./domain-summary.mjs";
+import { DOMAIN_TAGS } from "./domain-tags.mjs";
 import {
   buildSubnetOhlc,
   OHLC_INTERVALS,
@@ -212,6 +237,7 @@ import {
   SUBNET_EVENT_SUMMARY_WINDOWS,
   SUBNET_EVENT_SUMMARY_RECENT_LIMIT_DEFAULT,
   SUBNET_EVENT_SUMMARY_RECENT_LIMIT_MAX,
+  buildBlockEvents,
 } from "./account-events.mjs";
 import {
   DEFAULT_PROMETHEUS_WINDOW,
@@ -418,6 +444,16 @@ export const SDL = `
     subnet_volume(netuid: Int!): SubnetVolume!
     "The machine-readable AI-resources index: the copyable agent prompt (/agent.md), MCP server install metadata and tool listing, the Bittensor skill, llms.txt, OpenAPI, and links to the agent-facing APIs. Use it to bootstrap an agent integration before calling the catalog/search fields. Null when the index has not been baked in this environment (rather than a GraphQL error). Opaque JSON passed through verbatim, matching the get_agent_resources MCP/REST shape. Mirrors GET /api/v1/agent-resources."
     agent_resources: JSON
+    "The full compact search index: one document per subnet/surface/provider/doc, each with its id, type, title, subtitle, url, and the per-document token blob that widens server-side recall. Documents are heterogeneous by type, so each is passed through as opaque JSON. Mirrors GET /api/v1/search."
+    search(limit: Int, cursor: String): SearchDocumentList!
+    "The slim search index -- the same documents as search without the per-document token blobs, for fast browser typeahead and listing. Mirrors GET /api/v1/search-index."
+    search_index(limit: Int, cursor: String): SearchDocumentList!
+    "The per-domain rollup overview: every tag in the fixed 14-tag capability taxonomy with its member subnet count, total stake, total emission share, and within-domain emission concentration. Computed live from the subnets index + economics tier. Mirrors GET /api/v1/domains."
+    domains: DomainOverview!
+    "One domain/capability tag's own rollup. tag must be one of the 14 fixed domain tags (the same enum ?domain= validates on subnets); an unknown tag is a BAD_USER_INPUT error. Mirrors GET /api/v1/domains/{tag}/summary."
+    domain_summary(tag: String!): DomainSummary!
+    "Several validators side by side for a stake/delegate decision: each hotkey's take, estimated APY, nominator count, identity, and cross-subnet stake/emission/trust aggregates. hotkeys takes 1-16 distinct SS58 addresses (a real GraphQL list, like the sibling compare field's netuids, rather than REST's comma-separated string); the optional netuid adds each validator's membership row in that subnet. The validator equivalent of the compare field. Mirrors GET /api/v1/compare/validators."
+    compare_validators(hotkeys: [String!]!, netuid: Int): ValidatorComparison!
     "One subnet's alpha-price OHLC candles bucketed by interval (1h or 1d, default 1h) over the trailing days window (default 90, max 365), from the same executed-trade stream subnet_volume reads. A subnet with no trades resolves to a schema-stable empty candle list, never null. Mirrors GET /api/v1/subnets/{netuid}/ohlc."
     subnet_ohlc(netuid: Int!, interval: String, days: Int): SubnetOhlc!
     "A read-only quote for a hypothetical stake/unstake against one subnet's live AMM pool: expected amount out, spot vs effective price, and estimated price impact. Computes nothing on-chain and signs nothing. Mirrors GET /api/v1/subnets/{netuid}/stake-quote."
@@ -506,6 +542,12 @@ export const SDL = `
     blocks(limit: Int, offset: Int, cursor: String): BlockList!
     "One block by numeric height or 0x block hash; block is null when the ref doesn't resolve (schema-stable, never a GraphQL error). Mirrors GET /api/v1/blocks/{ref}."
     block(ref: String!): BlockDetail
+    "The extrinsics in one block by ref (numeric block_number or 0x hash), in natural read order (extrinsic_index ASC), paginated with limit (1-100, default 50)/offset. Returns block_number:null + extrinsics:[] for an unknown ref or cold store, never a GraphQL error. Mirrors GET /api/v1/blocks/{ref}/extrinsics."
+    block_extrinsics(ref: String!, limit: Int, offset: Int): BlockExtrinsics!
+    "The decoded, account-attributed chain events in one block by ref, in read order (event_index ASC), paginated with limit (1-1000, default 100)/offset. Returns block_number:null + events:[] for an unknown ref or cold store, never a GraphQL error. Mirrors GET /api/v1/blocks/{ref}/events."
+    block_events(ref: String!, limit: Int, offset: Int): BlockEvents!
+    "Every raw pallet.method event in one block from the Postgres all-events tier (ADR 0013), by numeric block_number, in read order. Distinct from block_events (the curated account-attributed D1 stream); requires the all-events data Worker, so it is a GraphQL error where that tier is unavailable (e.g. preview deploys). Mirrors GET /api/v1/blocks/{block_number}/chain-events."
+    block_chain_events(block_number: Int!): BlockChainEvents!
     "Block-production summary over the recent-block window -- counts, inter-block timing, throughput, and author-concentration. Every aggregate is null (never a GraphQL error) when the retired-D1 store is cold. Mirrors GET /api/v1/blocks/summary."
     blocks_summary: BlocksSummary!
     "Site-wide runtime spec-version transition timeline: the earliest known block at each distinct spec_version observed (ascending), the current spec_version, and where coverage starts. The empty shape (transition_count 0, current_spec_version null) is schema-stable, never a GraphQL error, when the store has no reading yet. Mirrors GET /api/v1/runtime."
@@ -544,6 +586,10 @@ export const SDL = `
     account_axon_removals(ss58: String!, window: String): AccountAxonRemovals!
     "One account's per-subnet StakeMoved footprint over a 7d/30d/90d window (default 30d): movement count, first/last timestamps, and the alpha price (TAO) at its most recent move per subnet, an HHI concentration of where its re-delegation churn is focused, and the dominant subnet; an address with no moves in the window resolves to a schema-stable zeroed card, never null. Mirrors GET /api/v1/accounts/{ss58}/stake-moves."
     account_stake_moves(ss58: String!, window: String): AccountStakeMoves!
+    "One account's (validator hotkey's) WeightsSet weight-setting footprint per subnet over a 7d/30d window (default 7d): each subnet's weight-set count with the first/last WeightsSet timestamps, plus account totals, an HHI concentration of where its weight-setting activity is focused, and the dominant subnet. An address with no weight-sets in the window resolves to a schema-stable zeroed card, never null. Mirrors GET /api/v1/accounts/{ss58}/weight-setters."
+    account_weight_setters(ss58: String!, window: String): AccountWeightSetters!
+    "One coldkey's community-contributed entity labels (exchange/foundation/operator/other) plus every subnet-ownership tie it has via the chain_events SubnetOwnerChanged stream (either side of an automatic conviction-contest transfer). Only tracks automatic SubnetOwnerChanged transfers, not genesis ownership -- a coldkey that has held a subnet since registration and never lost it to a challenger will not appear in ownership_ties. An address with no labels or ties resolves to a schema-stable empty card, never null. Mirrors GET /api/v1/accounts/{ss58}/entities."
+    account_entities(ss58: String!): AccountEntities!
     "One account's on-chain identity (its latest set_identity values, sanitized at serve time). has_identity is false with every field null for an account that never set one -- the common case, so this is a schema-stable card, never null and never a GraphQL error. Mirrors GET /api/v1/accounts/{ss58}/identity."
     account_identity(ss58: String!): AccountIdentity!
     "One account's on-chain identity change history, newest first -- an append-only diff-tracking timeline (name/url/github/image/discord/description/additional plus a stable hash per entry). Page with limit/offset or cursor (opaque keyset from a prior response's next_cursor). An address with no identity-history rows resolves to a schema-stable empty timeline, never null. Mirrors GET /api/v1/accounts/{ss58}/identity-history."
@@ -620,8 +666,20 @@ export const SDL = `
     subnet_burn(netuid: Int!): SubnetBurn
     "One subnet's validator/neuron-set turnover (entered/exited/retention/0-100 stability) between the boundary snapshots of a 7d/30d/90d/1y/all window (default 30d), from neuron_daily. comparable is false and the churn metrics zeroed on a single-snapshot or cold store, never null. Mirrors GET /api/v1/subnets/{netuid}/turnover."
     subnet_turnover(netuid: Int!, window: String): SubnetTurnover!
+    "Every automatic ownership transfer one subnet has undergone (#6637, part of the conviction/ownership-contest tracker epic #4302), decoded from the chain_events SubnetOwnerChanged stream -- Bittensor subnet ownership is a permissionless, conviction-weighted contest that transfers automatically once a challenger's conviction overtakes the incumbent owner's, no vote required. A subnet that has never changed hands returns an empty list. Reaches the Postgres-only all-events tier directly (no D1 predecessor); an out-of-range netuid or an unavailable tier is a GraphQL error, never a silent empty list. Mirrors GET /api/v1/subnets/{netuid}/ownership-history."
+    subnet_ownership_history(netuid: Int!): SubnetOwnershipHistory!
+    "Live per-subnet conviction leaderboard (#6638, part of the conviction/ownership-contest tracker epic #4302) -- who currently holds the most rolled conviction, i.e. how close the subnet is to an automatic ownership flip. Companion to subnet_ownership_history (that's the event log of past flips; this is the current standings). A subnet with no active challengers/owner lock returns an empty leaderboard. Reaches the Postgres-only all-events tier directly; an out-of-range netuid or an unavailable tier is a GraphQL error, never a silent empty leaderboard. Mirrors GET /api/v1/subnets/{netuid}/conviction."
+    subnet_conviction(netuid: Int!): SubnetConviction!
+    "Live subnet-lease state (#6719, part of the subnet-leasing/crowdloan-tracking epic #6717) -- whether a subnet is currently under a lease (a crowdfunded, time-boxed primary market for new subnets) and, if so, its terms and accumulated-but-undistributed alpha dividends, read directly from chain via RPC (not the Postgres tier). leased is null (not false) on RPC failure, distinct from a confirmed no-lease (leased:false); schema-stable, never a GraphQL error except for an out-of-range netuid. Mirrors GET /api/v1/subnets/{netuid}/lease."
+    subnet_lease(netuid: Int!): SubnetLease
+    "Every SubnetLeaseCreated/SubnetLeaseTerminated event one subnet has had (#6719, part of the subnet-leasing/crowdloan-tracking epic #6717), decoded from the account_events stream. Companion to subnet_lease (that's the current state; this is the event log). A subnet that has never been leased returns an empty list. Reaches the Postgres-only all-events tier directly; an out-of-range netuid or an unavailable tier is a GraphQL error, never a silent empty list. Mirrors GET /api/v1/subnets/{netuid}/lease/history."
+    subnet_lease_history(netuid: Int!): SubnetLeaseHistory!
     "Live free+reserved balance in TAO for one Finney ss58 account, read directly from chain via RPC (KV-cached, not the Postgres tier). balance_tao is null on RPC failure, schema-stable, never a GraphQL error. Mirrors GET /api/v1/accounts/{ss58}/balance."
     account_balance(ss58: String!): AccountBalance
+    "Live child-hotkey delegation graph (#6723) for one Finney ss58 account -- every child hotkey it currently delegates stake-weight to, per subnet, with the proportion charged -- read directly from chain via RPC (KV-cached, not the Postgres tier). subnets is null on RPC failure, distinct from a confirmed-empty [] (the account genuinely has no children on any subnet). Companion to account_parents. Mirrors GET /api/v1/accounts/{ss58}/children."
+    account_children(ss58: String!): AccountChildren
+    "Live parent-hotkey delegation graph (#6723) for one Finney ss58 account -- every hotkey currently delegating stake-weight to it, per subnet -- read directly from chain via RPC (KV-cached, not the Postgres tier). subnets is null on RPC failure, distinct from a confirmed-empty [] (the account genuinely has no parents on any subnet). Companion to account_children. Mirrors GET /api/v1/accounts/{ss58}/parents."
+    account_parents(ss58: String!): AccountParents
     "The network's on-chain sudo (superuser) key hotkey, read live from chain via RPC (not the Postgres tier). hotkey is null on RPC failure or a renounced sudo, schema-stable, never a GraphQL error. Mirrors GET /api/v1/sudo/key."
     sudo_key: SudoKey
     "Live global Subtensor protocol/governance parameters (TaoWeight, StakeThreshold, PendingChildKeyCooldown), read directly from chain via RPC (not the Postgres tier). Each field is independently null on its own RPC failure, schema-stable, never a GraphQL error. Mirrors GET /api/v1/network/parameters."
@@ -2436,6 +2494,59 @@ export const SDL = `
     surfaces: JSON!
   }
 
+  type SearchDocumentList {
+    "Heterogeneous per-type documents (subnet/surface/provider/doc), passed through verbatim as opaque JSON."
+    documents: [JSON!]!
+    total: Int!
+    next_cursor: String
+  }
+
+  "One domain/capability tag's rollup (#6989). Mirrors GET /api/v1/domains/{tag}/summary."
+  type DomainSummary {
+    schema_version: Int!
+    domain: String!
+    subnet_count: Int!
+    netuids: [Int!]!
+    total_stake_tao: Float!
+    total_emission_share: Float!
+    "Within-domain emission HHI; null when the domain has no members."
+    emission_concentration: Float
+  }
+
+  "The per-domain rollup overview across the fixed capability taxonomy (#6989). Mirrors GET /api/v1/domains."
+  type DomainOverview {
+    schema_version: Int!
+    domain_count: Int!
+    domains: [DomainSummary!]!
+  }
+
+  type ComparedValidator {
+    hotkey: String!
+    coldkey: String
+    "The coldkey's self-declared on-chain identity; opaque JSON, matching the REST/MCP shape."
+    coldkey_identity: JSON
+    take: Float
+    apy_estimate: Float
+    apy_estimate_eligible_subnet_count: Int!
+    nominator_count: Int
+    total_stake_tao: Float!
+    total_emission_tao: Float!
+    avg_validator_trust: Float
+    max_validator_trust: Float
+    subnet_count: Int!
+    "This validator's membership row in the requested netuid; null when netuid was omitted or it has no permit there. Opaque JSON, matching the REST/MCP shape."
+    subnet_context: JSON
+  }
+
+  "Several validators placed side by side (#6989). Mirrors GET /api/v1/compare/validators."
+  type ValidatorComparison {
+    schema_version: Int!
+    "The optional subnet context the comparison was scoped to."
+    netuid: Int
+    validator_count: Int!
+    validators: [ComparedValidator!]!
+  }
+
   "One subnet's rolling 24h alpha trading volume (#6979). Mirrors GET /api/v1/subnets/{netuid}/volume' data envelope."
   type SubnetVolume {
     schema_version: Int!
@@ -2654,12 +2765,91 @@ export const SDL = `
     stability_score: Int
   }
 
+  "Every automatic ownership transfer one subnet has undergone, decoded from the chain_events SubnetOwnerChanged stream. Mirrors GET /api/v1/subnets/{netuid}/ownership-history."
+  type SubnetOwnershipHistory {
+    schema_version: Int!
+    netuid: Int!
+    count: Int!
+    ownership_changes: [JSON!]!
+  }
+
+  "Live per-subnet conviction leaderboard -- who currently holds the most rolled conviction, rolled forward from a periodically-captured snapshot using the current live-queried unlock_rate/maturity_rate. Mirrors GET /api/v1/subnets/{netuid}/conviction."
+  type SubnetConviction {
+    schema_version: Int!
+    netuid: Int!
+    queried_at_block: Int
+    unlock_rate: Float
+    maturity_rate: Float
+    king: JSON
+    count: Int!
+    leaderboard: [JSON!]!
+  }
+
+  "Every SubnetLeaseCreated/SubnetLeaseTerminated event one subnet has had, decoded from the account_events stream. Mirrors GET /api/v1/subnets/{netuid}/lease/history."
+  type SubnetLeaseHistory {
+    schema_version: Int!
+    netuid: Int!
+    count: Int!
+    lease_events: [JSON!]!
+  }
+
+  "Live subnet-lease state -- whether a subnet is currently under a lease and, if so, its terms (beneficiary, coldkey, hotkey, emissions_share_percent, end_block, cost_tao) and accumulated-but-undistributed alpha dividends. leased is null (not false) on RPC failure, distinct from a confirmed no-lease (leased:false). Mirrors GET /api/v1/subnets/{netuid}/lease."
+  type SubnetLease {
+    schema_version: Int!
+    netuid: Int!
+    leased: Boolean
+    lease: JSON
+    queried_at: String!
+  }
+
   "Live free+reserved balance in TAO for one Finney ss58 account, read directly from chain via RPC (KV-cached). balance_tao is null on RPC failure (schema-stable, never a GraphQL error). Mirrors GET /api/v1/accounts/{ss58}/balance."
   type AccountBalance {
     schema_version: Int!
     ss58: String!
     balance_tao: Float
     queried_at: String!
+  }
+
+  "Live child-hotkey delegation graph (#6723) for one Finney ss58 account, read directly from chain via RPC (KV-cached). subnets is null on RPC failure, distinct from a confirmed-empty [] (schema-stable, never a GraphQL error). Mirrors GET /api/v1/accounts/{ss58}/children."
+  type AccountChildren {
+    schema_version: Int!
+    account: String!
+    subnets: [AccountChildSubnet!]
+    queried_at: String!
+  }
+
+  "One subnet's child-hotkey delegation entries in an account's live children graph."
+  type AccountChildSubnet {
+    netuid: Int!
+    entries: [AccountChildEntry!]!
+  }
+
+  "One child hotkey's delegated-stake proportion on a subnet. proportion is the raw stringified u64 (0..u64::MAX represents 0..100%); proportion_fraction is the same value pre-divided to a 0..1 float."
+  type AccountChildEntry {
+    child: String!
+    proportion: String!
+    proportion_fraction: Float!
+  }
+
+  "Live parent-hotkey delegation graph (#6723) for one Finney ss58 account, read directly from chain via RPC (KV-cached). subnets is null on RPC failure, distinct from a confirmed-empty [] (schema-stable, never a GraphQL error). Mirrors GET /api/v1/accounts/{ss58}/parents."
+  type AccountParents {
+    schema_version: Int!
+    account: String!
+    subnets: [AccountParentSubnet!]
+    queried_at: String!
+  }
+
+  "One subnet's parent-hotkey delegation entries in an account's live parents graph."
+  type AccountParentSubnet {
+    netuid: Int!
+    entries: [AccountParentEntry!]!
+  }
+
+  "One parent hotkey's delegated-stake proportion on a subnet. proportion is the raw stringified u64 (0..u64::MAX represents 0..100%); proportion_fraction is the same value pre-divided to a 0..1 float."
+  type AccountParentEntry {
+    parent: String!
+    proportion: String!
+    proportion_fraction: Float!
   }
 
   "The network's on-chain sudo (superuser) key, read live from chain via RPC. hotkey is null on RPC failure or a renounced sudo (schema-stable). Mirrors GET /api/v1/sudo/key's data envelope."
@@ -2761,6 +2951,36 @@ export const SDL = `
     top_20pct_share: Float
     entropy: Float
     entropy_normalized: Float
+  }
+
+  "One block's extrinsics list (#6977). Rows are the opaque JSON extrinsic shape the extrinsics feed uses; block_number is null for an unknown ref."
+  type BlockExtrinsics {
+    schema_version: Int
+    ref: String
+    block_number: Int
+    extrinsic_count: Int!
+    limit: Int
+    offset: Int
+    extrinsics: [JSON!]!
+  }
+
+  "One block's decoded, account-attributed events list (#6977). Rows are opaque JSON; block_number is null for an unknown ref."
+  type BlockEvents {
+    schema_version: Int
+    ref: String
+    block_number: Int
+    event_count: Int!
+    limit: Int
+    offset: Int
+    events: [JSON!]!
+  }
+
+  "One block's raw all-events-tier events (#6977) -- every pallet.method event, distinct from the curated block_events stream. Rows are opaque JSON."
+  type BlockChainEvents {
+    schema_version: Int
+    block_number: Int
+    event_count: Int!
+    events: [JSON!]!
   }
 
   type BlockDetail {
@@ -3281,6 +3501,52 @@ export const SDL = `
     last_announced_at: String
   }
 
+  "One account's (validator hotkey's) WeightsSet weight-setting footprint across subnets over a 7d/30d window. Mirrors GET /api/v1/accounts/{ss58}/weight-setters."
+  type AccountWeightSetters {
+    schema_version: Int!
+    address: String!
+    window: String
+    total_weight_sets: Int!
+    subnet_count: Int!
+    "Herfindahl-Hirschman index of weight-sets across subnets: 1 = all on one subnet, -> 1/n as it spreads evenly; null when the account has no weight-sets."
+    concentration: Float
+    dominant_netuid: Int
+    subnets: [AccountWeightSettersSubnet!]!
+  }
+
+  "One subnet's WeightsSet activity in an account's weight-setting footprint, ranked most-active-first."
+  type AccountWeightSettersSubnet {
+    netuid: Int!
+    weight_sets: Int!
+    first_set_at: String
+    last_set_at: String
+  }
+
+  "One coldkey's community-contributed entity labels plus its subnet-ownership ties (#6740). Mirrors GET /api/v1/accounts/{ss58}/entities."
+  type AccountEntities {
+    schema_version: Int!
+    ss58: String!
+    labels: [AccountEntityLabel!]!
+    ownership_tie_count: Int!
+    ownership_ties: [AccountOwnershipTie!]!
+  }
+
+  "A community-contributed entity label for an address (exchange/foundation/operator/other)."
+  type AccountEntityLabel {
+    name: String
+    category: String
+    notes: String
+    source_urls: [String!]!
+  }
+
+  "One SubnetOwnerChanged transfer tying this coldkey to a subnet, either as the gaining or losing side, newest first."
+  type AccountOwnershipTie {
+    netuid: Int
+    role: String!
+    block_number: Int
+    observed_at: String
+  }
+
   "One account's StakeAdded/StakeRemoved staking-behavior scorecard (#5706) across subnets over a 7d/30d/90d window. Mirrors GET /api/v1/accounts/{ss58}/stake-flow."
   type AccountStakeFlow {
     schema_version: Int!
@@ -3544,6 +3810,9 @@ export const FIELD_COMPLEXITY = {
   source_snapshots: RELATIONSHIP_FIELD_COMPLEXITY,
   gaps: RELATIONSHIP_FIELD_COMPLEXITY,
   evidence: RELATIONSHIP_FIELD_COMPLEXITY,
+  block_extrinsics: RELATIONSHIP_FIELD_COMPLEXITY,
+  block_events: RELATIONSHIP_FIELD_COMPLEXITY,
+  block_chain_events: RELATIONSHIP_FIELD_COMPLEXITY,
   profiles: RELATIONSHIP_FIELD_COMPLEXITY,
   health: RELATIONSHIP_FIELD_COMPLEXITY,
   opportunity_boards: RELATIONSHIP_FIELD_COMPLEXITY,
@@ -3584,6 +3853,11 @@ export const FIELD_COMPLEXITY = {
   subnet_health_incidents: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_health_percentiles: RELATIONSHIP_FIELD_COMPLEXITY,
   agent_resources: RELATIONSHIP_FIELD_COMPLEXITY,
+  search: RELATIONSHIP_FIELD_COMPLEXITY,
+  search_index: RELATIONSHIP_FIELD_COMPLEXITY,
+  domains: RELATIONSHIP_FIELD_COMPLEXITY,
+  domain_summary: RELATIONSHIP_FIELD_COMPLEXITY,
+  compare_validators: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_volume: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_ohlc: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_stake_quote: RELATIONSHIP_FIELD_COMPLEXITY,
@@ -3615,6 +3889,9 @@ export const FIELD_COMPLEXITY = {
   subnet_movers: RELATIONSHIP_FIELD_COMPLEXITY,
   chain_turnover: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_turnover: RELATIONSHIP_FIELD_COMPLEXITY,
+  subnet_ownership_history: RELATIONSHIP_FIELD_COMPLEXITY,
+  subnet_conviction: RELATIONSHIP_FIELD_COMPLEXITY,
+  subnet_lease_history: RELATIONSHIP_FIELD_COMPLEXITY,
   chain_calls: RELATIONSHIP_FIELD_COMPLEXITY,
   chain_fees: RELATIONSHIP_FIELD_COMPLEXITY,
   chain_activity: RELATIONSHIP_FIELD_COMPLEXITY,
@@ -3645,12 +3922,17 @@ export const FIELD_COMPLEXITY = {
   account_portfolio: RELATIONSHIP_FIELD_COMPLEXITY,
   account_positions: RELATIONSHIP_FIELD_COMPLEXITY,
   account_subnets: RELATIONSHIP_FIELD_COMPLEXITY,
+  account_weight_setters: RELATIONSHIP_FIELD_COMPLEXITY,
+  account_entities: RELATIONSHIP_FIELD_COMPLEXITY,
   // Fans out into leaderboardProfilesProjection plus several D1 reads and the
   // economics tier -- same cost class as the other relationship fields.
   registry_leaderboards: RELATIONSHIP_FIELD_COMPLEXITY,
   subnet_recycled: LIVE_RPC_FIELD_COMPLEXITY,
   subnet_burn: LIVE_RPC_FIELD_COMPLEXITY,
+  subnet_lease: LIVE_RPC_FIELD_COMPLEXITY,
   account_balance: LIVE_RPC_FIELD_COMPLEXITY,
+  account_children: LIVE_RPC_FIELD_COMPLEXITY,
+  account_parents: LIVE_RPC_FIELD_COMPLEXITY,
   sudo_key: LIVE_RPC_FIELD_COMPLEXITY,
   network_parameters: LIVE_RPC_FIELD_COMPLEXITY,
   network_randomness: LIVE_RPC_FIELD_COMPLEXITY,
@@ -3878,6 +4160,8 @@ const ARTIFACT = {
   surfaces: "/metagraph/surfaces.json",
   endpoints: "/metagraph/endpoints.json",
   profiles: "/metagraph/profiles.json",
+  search: "/metagraph/search.json",
+  searchIndex: "/metagraph/search-index.json",
 };
 const LIVE_HEALTH_KEY = "live:health";
 const LIVE_ECONOMICS_KEY = "live:economics";
@@ -3963,6 +4247,38 @@ function postgresTierRequest(context, pathname, params) {
   pgUrl.pathname = pathname;
   pgUrl.search = params ? params.toString() : "";
   return new Request(pgUrl);
+}
+
+// #6978: the ownership-history/conviction/lease-history routes are
+// Postgres-only all-events tier -- unlike every tryPostgresTier(flagName)
+// call above, there is no D1 predecessor and so no per-table flag to gate on
+// (workers/api.mjs forwards these three paths to DATA_API unconditionally).
+// Mirrors MCP's own loadSubnetOwnershipHistory/loadSubnetConviction/
+// loadSubnetLeaseHistory proxies (src/mcp-server.mjs) byte-for-byte;
+// reimplemented here rather than imported since mcp-server.mjs already
+// imports this file's handleGraphQLRequest and importing back would be
+// circular.
+async function fetchAllEventsTier(context, pathname) {
+  const dataApi = context.env?.DATA_API;
+  if (!dataApi?.fetch) {
+    throw new GraphQLError(
+      "The chain-events tier is unavailable (the all-events data Worker is not bound to this deployment). Try again against the production endpoint.",
+    );
+  }
+  let response;
+  try {
+    response = await dataApi.fetch(postgresTierRequest(context, pathname));
+  } catch {
+    throw new GraphQLError(
+      "The chain-events tier could not be reached. Try again shortly.",
+    );
+  }
+  if (!response.ok) {
+    throw new GraphQLError(
+      `The chain-events tier returned an error (status ${response.status}). Try again shortly.`,
+    );
+  }
+  return response.json();
 }
 
 // --- Node builders (attach lazy relationship resolvers to artifact rows) ---
@@ -5212,6 +5528,89 @@ const rootValue = {
     };
   },
 
+  search({ limit, cursor }, context) {
+    // Same baked search artifact + list-window the REST route serves, paged
+    // through the shared listPage helper the other artifact lists use.
+    return listPage(context, ARTIFACT.search, "documents", {
+      limit,
+      cursor,
+      resultKey: "documents",
+      keyFn: (d) => d.id,
+    });
+  },
+
+  search_index({ limit, cursor }, context) {
+    // The slim companion: identical documents minus the per-document token
+    // blobs, served from its own artifact exactly as REST serves it.
+    return listPage(context, ARTIFACT.searchIndex, "documents", {
+      limit,
+      cursor,
+      resultKey: "documents",
+      keyFn: (d) => d.id,
+    });
+  },
+
+  async domains(_args, context) {
+    // Composed live from the subnets index + economics tier (no static file),
+    // via the same buildDomainOverview the REST route calls.
+    const [subnetRows, economicsRows] = await Promise.all([
+      loadRows(context, ARTIFACT.subnets, "subnets"),
+      loadEconomicsRows(context),
+    ]);
+    return buildDomainOverview(subnetRows, economicsRows);
+  },
+
+  async domain_summary({ tag }, context) {
+    // The same fixed 14-tag enum ?domain= validates on subnets -- an unknown
+    // tag is a GraphQL BAD_USER_INPUT error, not an empty rollup.
+    if (!DOMAIN_TAGS.includes(tag)) {
+      throw new GraphQLError(`tag must be one of: ${DOMAIN_TAGS.join(", ")}.`, {
+        extensions: { code: "BAD_USER_INPUT" },
+      });
+    }
+    const [subnetRows, economicsRows] = await Promise.all([
+      loadRows(context, ARTIFACT.subnets, "subnets"),
+      loadEconomicsRows(context),
+    ]);
+    return buildDomainSummary(tag, subnetRows, economicsRows);
+  },
+
+  async compare_validators({ hotkeys, netuid }, context) {
+    // Same parse/validate contract the REST route + compare_validators MCP
+    // tool share: 1..COMPARE_VALIDATORS_MAX distinct SS58 addresses.
+    const parsed = parseCompareHotkeyList(hotkeys);
+    if (!parsed) {
+      throw new GraphQLError(
+        `hotkeys must be a non-empty list of 1-${COMPARE_VALIDATORS_MAX} distinct valid SS58 validator addresses.`,
+        { extensions: { code: "BAD_USER_INPUT" } },
+      );
+    }
+    if (netuid != null && (!Number.isInteger(netuid) || netuid < 0)) {
+      throw new GraphQLError("netuid must be a non-negative integer.", {
+        extensions: { code: "BAD_USER_INPUT" },
+      });
+    }
+    // One detail load per hotkey via the exact Postgres-tier-or-empty path the
+    // validator detail field uses -- no new data source, just the same
+    // cross-subnet aggregate fetched per compared validator, then projected
+    // side by side. Sequential to keep the request pattern identical to the
+    // REST/MCP fan-out.
+    const details = [];
+    for (const hotkey of parsed) {
+      details.push(
+        (await tryPostgresTier(
+          context.env,
+          postgresTierRequest(
+            context,
+            `/api/v1/validators/${encodeURIComponent(hotkey)}`,
+          ),
+          "METAGRAPH_NEURONS_SOURCE",
+        )) ?? buildValidatorDetail([], hotkey),
+      );
+    }
+    return composeValidatorComparison(details, { netuid: netuid ?? null });
+  },
+
   async agent_resources(_args, context) {
     // Same baked artifact the REST route + get_agent_resources MCP tool read.
     // The MCP tool raises not_found when it is absent; GraphQL degrades to
@@ -5834,6 +6233,71 @@ const rootValue = {
       prev_block_number: data.prev_block_number ?? null,
       next_block_number: data.next_block_number ?? null,
     };
+  },
+
+  // #6977: block-scoped extrinsics/events/chain-events lists, mirroring the same
+  // Postgres tier + schema-stable fallback builder REST and MCP already use. The
+  // /blocks/:ref/{extrinsics,events} routes wrap their body in `{ data }` (unlike
+  // the flat /blocks/:ref route), so the tier result is destructured accordingly.
+  async block_extrinsics({ ref, limit, offset }, context) {
+    const safeLimit = Number.isFinite(limit)
+      ? Math.max(1, Math.min(100, Math.floor(limit)))
+      : 50;
+    const safeOffset = Number.isFinite(offset)
+      ? Math.max(0, Math.floor(offset))
+      : 0;
+    const params = new URLSearchParams();
+    params.set("limit", String(safeLimit));
+    params.set("offset", String(safeOffset));
+    const { data } = (await tryPostgresTier(
+      context.env,
+      postgresTierRequest(
+        context,
+        `/api/v1/blocks/${encodeURIComponent(ref)}/extrinsics`,
+        params,
+      ),
+      "METAGRAPH_EXTRINSICS_SOURCE",
+    )) ?? {
+      data: buildBlockExtrinsics([], ref, null, {
+        limit: safeLimit,
+        offset: safeOffset,
+      }),
+    };
+    return data;
+  },
+
+  async block_events({ ref, limit, offset }, context) {
+    const safeLimit = Number.isFinite(limit)
+      ? Math.max(1, Math.min(1000, Math.floor(limit)))
+      : 100;
+    const safeOffset = Number.isFinite(offset)
+      ? Math.max(0, Math.floor(offset))
+      : 0;
+    const params = new URLSearchParams();
+    params.set("limit", String(safeLimit));
+    params.set("offset", String(safeOffset));
+    const { data } = (await tryPostgresTier(
+      context.env,
+      postgresTierRequest(
+        context,
+        `/api/v1/blocks/${encodeURIComponent(ref)}/events`,
+        params,
+      ),
+      "METAGRAPH_EXTRINSICS_SOURCE",
+    )) ?? {
+      data: buildBlockEvents([], ref, null, {
+        limit: safeLimit,
+        offset: safeOffset,
+      }),
+    };
+    return data;
+  },
+
+  // Reuses loadBlockChainEvents unchanged (the get_block_chain_events tool's own
+  // loader); it throws invalid_params on a bad block_number and tier_unavailable
+  // where the all-events Worker is absent -- both surface as normal GraphQL errors.
+  block_chain_events({ block_number: blockNumber }, context) {
+    return loadBlockChainEvents(context, blockNumber);
   },
 
   async validators({ sort, limit }, context) {
@@ -6516,6 +6980,90 @@ const rootValue = {
         last_moved_at: s.last_moved_at ?? null,
         price_tao_at_last_move: s.price_tao_at_last_move ?? null,
       })),
+    };
+  },
+
+  async account_weight_setters({ ss58, window }, context) {
+    if (!SS58_ADDRESS_PATTERN.test(ss58)) {
+      throw new GraphQLError("ss58 must be a valid SS58 address.", {
+        extensions: { code: "BAD_USER_INPUT" },
+      });
+    }
+    const requestedWindow = window ?? DEFAULT_ACCOUNT_WEIGHT_SETTERS_WINDOW;
+    if (!Object.hasOwn(ACCOUNT_WEIGHT_SETTERS_WINDOWS, requestedWindow)) {
+      throw new GraphQLError(
+        unsupportedWindowMessage(
+          requestedWindow,
+          ACCOUNT_WEIGHT_SETTERS_WINDOWS,
+        ),
+        { extensions: { code: "BAD_USER_INPUT" } },
+      );
+    }
+    const params = new URLSearchParams();
+    params.set("window", requestedWindow);
+    // Same tryPostgresTier(METAGRAPH_ACCOUNT_EVENTS_SOURCE) -> { data, generatedAt }
+    // envelope handleAccountWeightSetters (makeAccountEventHandler) uses; a cold
+    // or absent tier degrades to buildAccountWeightSetters' own zeroed card.
+    const pg = await tryPostgresTier(
+      context.env,
+      postgresTierRequest(
+        context,
+        `/api/v1/accounts/${encodeURIComponent(ss58)}/weight-setters`,
+        params,
+      ),
+      "METAGRAPH_ACCOUNT_EVENTS_SOURCE",
+    );
+    const data =
+      pg?.data ??
+      buildAccountWeightSetters([], ss58, { window: requestedWindow });
+    return {
+      schema_version: data.schema_version ?? 1,
+      address: data.address ?? ss58,
+      window: data.window ?? requestedWindow,
+      total_weight_sets: data.total_weight_sets ?? 0,
+      subnet_count: data.subnet_count ?? 0,
+      concentration: data.concentration ?? null,
+      dominant_netuid: data.dominant_netuid ?? null,
+      subnets: data.subnets || [],
+    };
+  },
+
+  async account_entities({ ss58 }, context) {
+    if (!SS58_ADDRESS_PATTERN.test(ss58)) {
+      throw new GraphQLError("ss58 must be a valid SS58 address.", {
+        extensions: { code: "BAD_USER_INPUT" },
+      });
+    }
+    // Same R2 entities.json + Postgres-tier ownership join handleAccountEntities
+    // uses (workers/request-handlers/entities.mjs): the entity-label artifact
+    // read and the SubnetOwnerChanged ownership-tie lookup are independent
+    // sources, fetched in parallel. A cold/absent Postgres tier degrades to
+    // buildAccountEntities' own zeroed card; a cold/absent R2 artifact degrades
+    // to an empty labels list.
+    const [entitiesArtifact, ownershipData] = await Promise.all([
+      readArtifact(context.env, ENTITY_LABELS_ARTIFACT),
+      tryPostgresTier(
+        context.env,
+        postgresTierRequest(
+          context,
+          `/api/v1/accounts/${encodeURIComponent(ss58)}/entities`,
+        ),
+        "METAGRAPH_SUBNET_OWNERSHIP_SOURCE",
+      ),
+    ]);
+    const data = ownershipData ?? buildAccountEntities(ss58, { entities: [] });
+    const labels = labelsForSs58(
+      entityLabelsIndex(
+        entitiesArtifact.ok ? entitiesArtifact.data?.entities : [],
+      ),
+      ss58,
+    );
+    return {
+      schema_version: data.schema_version ?? 1,
+      ss58: data.ss58 ?? ss58,
+      labels,
+      ownership_tie_count: data.ownership_tie_count ?? 0,
+      ownership_ties: data.ownership_ties || [],
     };
   },
 
@@ -8356,6 +8904,83 @@ const rootValue = {
     };
   },
 
+  async subnet_ownership_history({ netuid }, context) {
+    if (!isU16Netuid(netuid)) {
+      throw new GraphQLError(
+        "netuid must be an integer in the u16 range 0..65535.",
+        { extensions: { code: "BAD_USER_INPUT" } },
+      );
+    }
+    const data = await fetchAllEventsTier(
+      context,
+      `/api/v1/subnets/${netuid}/ownership-history`,
+    );
+    return {
+      schema_version: data?.schema_version ?? 1,
+      netuid,
+      count: data?.count ?? 0,
+      ownership_changes: Array.isArray(data?.ownership_changes)
+        ? data.ownership_changes
+        : [],
+    };
+  },
+
+  async subnet_conviction({ netuid }, context) {
+    if (!isU16Netuid(netuid)) {
+      throw new GraphQLError(
+        "netuid must be an integer in the u16 range 0..65535.",
+        { extensions: { code: "BAD_USER_INPUT" } },
+      );
+    }
+    const data = await fetchAllEventsTier(
+      context,
+      `/api/v1/subnets/${netuid}/conviction`,
+    );
+    return {
+      schema_version: data?.schema_version ?? 1,
+      netuid,
+      queried_at_block: data?.queried_at_block ?? null,
+      unlock_rate: data?.unlock_rate ?? null,
+      maturity_rate: data?.maturity_rate ?? null,
+      king: data?.king ?? null,
+      count: data?.count ?? 0,
+      leaderboard: Array.isArray(data?.leaderboard) ? data.leaderboard : [],
+    };
+  },
+
+  async subnet_lease_history({ netuid }, context) {
+    if (!isU16Netuid(netuid)) {
+      throw new GraphQLError(
+        "netuid must be an integer in the u16 range 0..65535.",
+        { extensions: { code: "BAD_USER_INPUT" } },
+      );
+    }
+    const data = await fetchAllEventsTier(
+      context,
+      `/api/v1/subnets/${netuid}/lease/history`,
+    );
+    return {
+      schema_version: data?.schema_version ?? 1,
+      netuid,
+      count: data?.count ?? 0,
+      lease_events: Array.isArray(data?.lease_events) ? data.lease_events : [],
+    };
+  },
+
+  async subnet_lease({ netuid }, context) {
+    if (!isU16Netuid(netuid)) {
+      throw new GraphQLError(
+        "netuid must be an integer in the u16 range 0..65535.",
+        { extensions: { code: "BAD_USER_INPUT" } },
+      );
+    }
+    // Live chain RPC, not the Postgres tier -- reuses loadSubnetLease's own
+    // KV cache/TTL, matching REST's handleSubnetLease and MCP's
+    // get_subnet_lease exactly. leased/lease stay null on RPC failure
+    // (schema-stable), never a GraphQL error.
+    return loadSubnetLease(context.env, netuid);
+  },
+
   async account_balance({ ss58 }, context) {
     if (!isFinneySs58Address(ss58)) {
       throw new GraphQLError("ss58 must be a valid Finney ss58 address.", {
@@ -8368,6 +8993,34 @@ const rootValue = {
     // loadAccountBalance always sets schema_version/ss58/queried_at
     // unconditionally, so no `??` fallback is needed for those.
     return loadAccountBalance(context.env, ss58);
+  },
+
+  async account_children({ ss58 }, context) {
+    if (!isFinneySs58Address(ss58)) {
+      throw new GraphQLError("ss58 must be a valid Finney ss58 address.", {
+        extensions: { code: "BAD_USER_INPUT" },
+      });
+    }
+    // Live chain RPC, not the Postgres tier -- reuses loadAccountChildren's own
+    // KV cache/TTL, matching REST's handleAccountChildren exactly. subnets stays
+    // null on RPC failure (schema-stable), distinct from a confirmed-empty [].
+    // loadAccountChildren always sets schema_version/account/queried_at
+    // unconditionally, so no `??` fallback is needed for those.
+    return loadAccountChildren(context.env, ss58);
+  },
+
+  async account_parents({ ss58 }, context) {
+    if (!isFinneySs58Address(ss58)) {
+      throw new GraphQLError("ss58 must be a valid Finney ss58 address.", {
+        extensions: { code: "BAD_USER_INPUT" },
+      });
+    }
+    // Live chain RPC, not the Postgres tier -- reuses loadAccountParents' own
+    // KV cache/TTL, matching REST's handleAccountParents exactly. subnets stays
+    // null on RPC failure (schema-stable), distinct from a confirmed-empty [].
+    // loadAccountParents always sets schema_version/account/queried_at
+    // unconditionally, so no `??` fallback is needed for those.
+    return loadAccountParents(context.env, ss58);
   },
 
   async sudo_key(_args, context) {
