@@ -63,6 +63,33 @@ test("GET /accounts/{ss58}/root-claim applies per-client RPC rate limiting", asy
   assert.equal((await res.json()).error.code, "root_claim_rate_limited");
 });
 
+test("GET /accounts/{ss58}/root-claim proceeds when the RPC rate limiter allows", async () => {
+  let limiterKey;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => {
+      throw new Error("rpc down");
+    }),
+  );
+  const res = await handleRequest(
+    new Request(`https://api.metagraph.sh/api/v1/accounts/${SS58}/root-claim`, {
+      headers: { "cf-connecting-ip": "9.9.9.9" },
+    }),
+    {
+      RPC_RATE_LIMITER: {
+        async limit({ key }) {
+          limiterKey = key;
+          return { success: true };
+        },
+      },
+    },
+    {},
+  );
+  assert.equal(res.status, 200);
+  assert.match(limiterKey, /^root-claim:/);
+  assert.equal((await res.json()).data.hotkeys, null);
+});
+
 test("GET /accounts/{ss58}/root-claim serves from KV cache", async () => {
   const cached = {
     schema_version: 1,

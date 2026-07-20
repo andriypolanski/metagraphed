@@ -516,6 +516,17 @@ describe("loadAccountRootClaim", () => {
     assert.equal(decodeClaimableMap(toHex(Uint8Array.of(0x01))), null);
     // Truncated mode-2 compact (needs 4 bytes)
     assert.equal(decodeClaimableMap(toHex(Uint8Array.of(0x02, 0, 0))), null);
+    // Successful mode-2 compact (4-byte length): count=0 encoded as 0b10
+    assert.deepEqual(
+      decodeClaimableMap(toHex(Uint8Array.of(0x02, 0, 0, 0))),
+      [],
+    );
+    // Successful mode-2 compact with one claimable entry (count=1 → 0x06)
+    const mode2One = toHex(
+      concatBytes(Uint8Array.of(0x06, 0, 0, 0), u16Le(11), i128LeFromFloat(3)),
+    );
+    assert.equal(decodeClaimableMap(mode2One)[0].netuid, 11);
+    assert.equal(decodeClaimableMap(mode2One)[0].claimable_rate, 3);
     assert.equal(decodeClaimableMap("0xzz"), null);
     assert.deepEqual(decodeAccountIdVec(null), []);
     assert.equal(decodeAccountIdVec("0xzz"), null);

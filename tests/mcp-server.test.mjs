@@ -12720,6 +12720,41 @@ describe("MCP account tools (get_account + events + subnets)", () => {
     assert.equal(limiterKey, "root-claim:mcp:anonymous");
   });
 
+  test("get_account_root_claim proceeds when the RPC rate limiter allows", async () => {
+    const orig = globalThis.fetch;
+    let limiterKey;
+    globalThis.fetch = async () => {
+      throw new Error("rpc down");
+    };
+    try {
+      const res = await callTool(
+        "get_account_root_claim",
+        { ss58: SS58 },
+        {
+          env: {
+            MCP_RATE_LIMITER: {
+              async limit() {
+                return { success: true };
+              },
+            },
+            RPC_RATE_LIMITER: {
+              async limit({ key }) {
+                limiterKey = key;
+                return { success: true };
+              },
+            },
+          },
+        },
+      );
+      const out = res.body.result.structuredContent;
+      assert.equal(limiterKey, "root-claim:mcp:anonymous");
+      assert.equal(out.ss58, SS58);
+      assert.equal(out.hotkeys, null);
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
+
   test("get_account_children returns subnets:[] when the account has no children", async () => {
     const orig = globalThis.fetch;
     globalThis.fetch = async (_url, init) => {
