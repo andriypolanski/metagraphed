@@ -14912,3 +14912,89 @@ describe("graphql — chain_signers (#5882, Postgres-tier + D1-live fallback)", 
     );
   });
 });
+
+describe("graphql — adapter (#6984, reuses loadAdapter / MCP get_adapter)", () => {
+  const SAMPLE = {
+    schema_version: 1,
+    contract_version: "2026-07-01",
+    generated_at: "2026-07-01T00:00:00.000Z",
+    slug: "gittensor",
+    subnet: "Gittensor",
+    netuid: 74,
+    notes: ["public-safe only"],
+    snapshot: { status: "captured", adapter_kind: "gittensor" },
+    extensions: { gittensor: { kind: "gittensor" } },
+  };
+
+  const query = `{ adapter(slug: "gittensor") {
+    schema_version contract_version generated_at slug subnet netuid
+    notes snapshot extensions
+  } }`;
+
+  test("resolves a baked adapter artifact via loadAdapter", async () => {
+    const env = fixtureEnv({ "/metagraph/adapters/gittensor.json": SAMPLE });
+    const { status, body } = await gql(query, env);
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(body.data.adapter, SAMPLE);
+  });
+
+  test("a missing slug resolves to null (schema-stable), never a GraphQL error", async () => {
+    const env = fixtureEnv({
+      "/metagraph/adapters/gittensor.json": SAMPLE,
+    });
+    const { status, body } = await gql(
+      '{ adapter(slug: "missing") { slug } }',
+      env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.equal(body.data.adapter, null);
+  });
+
+  test("cold/absent store resolves to null", async () => {
+    const { status, body } = await gql(query);
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.equal(body.data.adapter, null);
+  });
+
+  test("an invalid slug is BAD_USER_INPUT, matching MCP get_adapter", async () => {
+    const { status, body } = await gql(
+      '{ adapter(slug: "Gittensor") { slug } }',
+    );
+    assert.equal(status, 200);
+    assert.ok(body.errors.find((e) => e.extensions?.code === "BAD_USER_INPUT"));
+    assert.equal(body.data?.adapter ?? null, null);
+  });
+
+  test("an empty slug is BAD_USER_INPUT", async () => {
+    const { status, body } = await gql('{ adapter(slug: "  ") { slug } }');
+    assert.equal(status, 200);
+    assert.ok(body.errors.find((e) => e.extensions?.code === "BAD_USER_INPUT"));
+    assert.equal(body.data?.adapter ?? null, null);
+  });
+
+  test("a non-toolError from the artifact read is propagated", async () => {
+    const env = {
+      METAGRAPH_R2_LATEST_PREFIX: "latest/",
+      METAGRAPH_ARCHIVE: {
+        async get() {
+          return {
+            async json() {
+              throw new Error("corrupt adapter artifact");
+            },
+          };
+        },
+      },
+    };
+    const { status, body } = await gql(query, env);
+    assert.equal(status, 200);
+    assert.ok(body.errors?.length > 0);
+    assert.equal(body.data?.adapter ?? null, null);
+  });
+
+  test("is priced at the relationship-field complexity weight", () => {
+    assert.equal(FIELD_COMPLEXITY.adapter, FIELD_COMPLEXITY.provider);
+  });
+});

@@ -15,6 +15,9 @@ import { tryPostgresTier } from "../workers/postgres-tier.mjs";
 import { loadEndpointPoolsList } from "./endpoint-pools-mcp.mjs";
 import { loadRpcPoolsList } from "./rpc-pools-mcp.mjs";
 import { loadEndpointIncidentsList } from "./endpoint-incidents-mcp.mjs";
+// #6984: GraphQL parity for GET /api/v1/adapters/{slug}, reusing loadAdapter that
+// MCP get_adapter already calls (#3255) -- not a reimplementation.
+import { loadAdapter } from "./adapters-mcp.mjs";
 import {
   buildChainAxonRemovals,
   CHAIN_AXON_REMOVALS_WINDOWS,
@@ -386,6 +389,8 @@ export const SDL = `
     providers(limit: Int, cursor: String): ProviderList!
     "One provider with its subnets."
     provider(id: String!): Provider
+    "One adapter-backed public metrics snapshot by slug (e.g. 'gittensor', 'allways', 'sn-64'): the captured adapter snapshot, extension metadata, and netuid linkage. An invalid slug is a BAD_USER_INPUT error; a missing slug resolves to null (schema-stable, never a GraphQL error). Mirrors GET /api/v1/adapters/{slug}."
+    adapter(slug: String!): Adapter
     "Paginated per-subnet economic + validator metrics."
     economics(limit: Int, cursor: String): EconomicsList!
     "Curated public interface surfaces, optionally scoped to one subnet."
@@ -593,6 +598,22 @@ export const SDL = `
     netuids: [Int]!
     "The subnets this provider operates surfaces on."
     subnets: [Subnet!]!
+  }
+
+  "One adapter-backed public metrics snapshot. snapshot and extensions are opaque JSON -- their shape is adapter-specific. Mirrors GET /api/v1/adapters/{slug}'s data envelope."
+  type Adapter {
+    schema_version: Int!
+    contract_version: String
+    generated_at: String
+    slug: String!
+    subnet: String
+    netuid: Int
+    "Public-safe notes; may be a string or a string list depending on the adapter."
+    notes: JSON
+    "Captured adapter metrics payload; shape is adapter-specific."
+    snapshot: JSON
+    "Per-adapter extension metadata keyed by provider id; each value's shape is adapter-specific."
+    extensions: JSON
   }
 
   type EconomicsList {
@@ -3072,6 +3093,7 @@ export const FIELD_COMPLEXITY = {
   subnet: RELATIONSHIP_FIELD_COMPLEXITY,
   providers: RELATIONSHIP_FIELD_COMPLEXITY,
   provider: RELATIONSHIP_FIELD_COMPLEXITY,
+  adapter: RELATIONSHIP_FIELD_COMPLEXITY,
   economics: RELATIONSHIP_FIELD_COMPLEXITY,
   surfaces: RELATIONSHIP_FIELD_COMPLEXITY,
   endpoints: RELATIONSHIP_FIELD_COMPLEXITY,
@@ -4509,6 +4531,26 @@ const rootValue = {
     const data = await loadArtifact(context, `/metagraph/providers/${id}.json`);
     if (!data) return null;
     return providerNode(data.provider ?? data);
+  },
+
+  // #6984: reuse loadAdapter (the same loader MCP get_adapter already calls)
+  // unchanged -- same slug validation and artifact path as REST
+  // /api/v1/adapters/{slug}. invalid_params becomes BAD_USER_INPUT; any other
+  // loader miss (not_found / cold R2 / unavailable) resolves to null
+  // (schema-stable), matching provider's cold/absent convention -- never a
+  // GraphQL error for an unregistered slug.
+  async adapter({ slug }, context) {
+    try {
+      return await loadAdapter(context, { slug }, { readArtifact });
+    } catch (err) {
+      if (err?.toolError && err.code === "invalid_params") {
+        throw new GraphQLError(err.message, {
+          extensions: { code: "BAD_USER_INPUT" },
+        });
+      }
+      if (err?.toolError) return null;
+      throw err;
+    }
   },
 
   async economics({ limit, cursor }, context) {
