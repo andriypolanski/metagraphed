@@ -848,9 +848,7 @@ const checks = [
       );
       assert.equal("claim_type" in body.data, true);
       assert.equal("hotkeys" in body.data, true);
-      assert.ok(
-        body.data.hotkeys === null || Array.isArray(body.data.hotkeys),
-      );
+      assert.ok(body.data.hotkeys === null || Array.isArray(body.data.hotkeys));
     },
   ],
   [
