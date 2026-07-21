@@ -278,6 +278,2732 @@
       },
       "source_urls": ["https://api.green-compute.com/openapi.json"],
       "url": "https://api.green-compute.com/_metrics"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-audit",
+      "kind": "subnet-api",
+      "name": "Green Compute audit",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /audit/ on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/audit/"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-audit-download",
+      "kind": "subnet-api",
+      "name": "Green Compute audit download",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /audit/download on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/audit/download"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-audit-miner-data",
+      "kind": "subnet-api",
+      "name": "Green Compute audit miner data",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /audit/miner_data on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/audit/miner_data"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-bounties",
+      "kind": "subnet-api",
+      "name": "Green Compute bounties",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /bounties on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/bounties"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-e2e-instances-workload-id",
+      "kind": "subnet-api",
+      "name": "Green Compute e2e instances workload id",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /e2e/instances/{workload_id} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/e2e/instances/%7Bworkload_id%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-e2e-invoke",
+      "kind": "subnet-api",
+      "name": "Green Compute e2e invoke",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /e2e/invoke on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/e2e/invoke"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-guess-vllm-config",
+      "kind": "subnet-api",
+      "name": "Green Compute guess vllm config",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /guess/vllm_config on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/guess/vllm_config"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-idp-authorize",
+      "kind": "subnet-api",
+      "name": "Green Compute idp authorize",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /idp/authorize on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/idp/authorize"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-idp-scopes",
+      "kind": "subnet-api",
+      "name": "Green Compute idp scopes",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /idp/scopes on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Live-verified 2026-07-21: anonymous GET returns HTTP 501 Not Implemented.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/idp/scopes"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-idp-token",
+      "kind": "subnet-api",
+      "name": "Green Compute idp token",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /idp/token on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/idp/token"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-logos",
+      "kind": "subnet-api",
+      "name": "Green Compute logos",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /logos on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/logos"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-logos-logo-id-ext",
+      "kind": "subnet-api",
+      "name": "Green Compute logos logo id ext",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /logos/{logo_id}.{ext} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/logos/%7Blogo_id%7D.%7Bext%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-misc-hf-repo-info",
+      "kind": "subnet-api",
+      "name": "Green Compute misc hf repo info",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /misc/hf_repo_info on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/misc/hf_repo_info"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-misc-proxy",
+      "kind": "subnet-api",
+      "name": "Green Compute misc proxy",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /misc/proxy on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/misc/proxy"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-admin-analytics-active-rentals",
+      "kind": "subnet-api",
+      "name": "Green Compute platform admin analytics active-rentals",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/admin/analytics/active-rentals on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/admin/analytics/active-rentals"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-admin-analytics-gross-revenue",
+      "kind": "subnet-api",
+      "name": "Green Compute platform admin analytics gross-revenue",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/admin/analytics/gross-revenue on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/admin/analytics/gross-revenue"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-admin-analytics-revenue-by-miner",
+      "kind": "subnet-api",
+      "name": "Green Compute platform admin analytics revenue-by-miner",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/admin/analytics/revenue-by-miner on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/admin/analytics/revenue-by-miner"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-admin-analytics-top-renters",
+      "kind": "subnet-api",
+      "name": "Green Compute platform admin analytics top-renters",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/admin/analytics/top-renters on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/admin/analytics/top-renters"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-admin-capacity-overrides",
+      "kind": "subnet-api",
+      "name": "Green Compute platform admin capacity-overrides",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/admin/capacity-overrides on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/admin/capacity-overrides"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-admin-capacity-overrides-gpu-model",
+      "kind": "subnet-api",
+      "name": "Green Compute platform admin capacity-overrides gpu model",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) PUT and DELETE /platform/admin/capacity-overrides/{gpu_model} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares PUT and DELETE on this URL; one surface per URL per registry collision policy. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/admin/capacity-overrides/%7Bgpu_model%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-api-keys",
+      "kind": "subnet-api",
+      "name": "Green Compute platform api-keys",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET and POST /platform/api-keys on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET and POST on this URL; one surface per URL per registry collision policy.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/api-keys"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-api-keys-key-id",
+      "kind": "subnet-api",
+      "name": "Green Compute platform api-keys key id",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET and DELETE /platform/api-keys/{key_id} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET and DELETE on this URL; one surface per URL per registry collision policy. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/api-keys/%7Bkey_id%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-billing-admin-credit",
+      "kind": "subnet-api",
+      "name": "Green Compute platform billing admin credit",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/billing/admin/credit on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/billing/admin/credit"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-billing-admin-crypto-invoices",
+      "kind": "subnet-api",
+      "name": "Green Compute platform billing admin crypto invoices",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/billing/admin/crypto/invoices on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/billing/admin/crypto/invoices"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-billing-admin-debit",
+      "kind": "subnet-api",
+      "name": "Green Compute platform billing admin debit",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/billing/admin/debit on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/billing/admin/debit"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-billing-admin-miner-revenue",
+      "kind": "subnet-api",
+      "name": "Green Compute platform billing admin miner-revenue",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/billing/admin/miner-revenue on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/billing/admin/miner-revenue"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-billing-balance",
+      "kind": "subnet-api",
+      "name": "Green Compute platform billing balance",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/billing/balance on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/billing/balance"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-billing-crypto-invoices",
+      "kind": "subnet-api",
+      "name": "Green Compute platform billing crypto invoices",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/billing/crypto/invoices on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/billing/crypto/invoices"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-billing-crypto-invoice-id-confirm",
+      "kind": "subnet-api",
+      "name": "Green Compute platform billing crypto invoice id confirm",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/billing/crypto/{invoice_id}/confirm on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/billing/crypto/%7Binvoice_id%7D/confirm"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-billing-crypto-invoice-id-reject",
+      "kind": "subnet-api",
+      "name": "Green Compute platform billing crypto invoice id reject",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/billing/crypto/{invoice_id}/reject on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/billing/crypto/%7Binvoice_id%7D/reject"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-billing-crypto-invoice-id-report-tx",
+      "kind": "subnet-api",
+      "name": "Green Compute platform billing crypto invoice id report-tx",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/billing/crypto/{invoice_id}/report-tx on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/billing/crypto/%7Binvoice_id%7D/report-tx"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-billing-ledger",
+      "kind": "subnet-api",
+      "name": "Green Compute platform billing ledger",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/billing/ledger on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/billing/ledger"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-billing-topup-crypto",
+      "kind": "subnet-api",
+      "name": "Green Compute platform billing topup crypto",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/billing/topup/crypto on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/billing/topup/crypto"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-billing-topup-stripe",
+      "kind": "subnet-api",
+      "name": "Green Compute platform billing topup stripe",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/billing/topup/stripe on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/billing/topup/stripe"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-billing-webhook-stripe",
+      "kind": "subnet-api",
+      "name": "Green Compute platform billing webhook stripe",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/billing/webhook/stripe on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/billing/webhook/stripe"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/builds on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-recovery",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds recovery",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/builds/recovery on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/recovery"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-recovery-status",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds recovery status",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/builds/recovery/status on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/recovery/status"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/builds/{build_id} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-attempts",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id attempts",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/builds/{build_id}/attempts on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/attempts"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-attempts-attempt",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id attempts attempt",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/builds/{build_id}/attempts/{attempt} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/attempts/%7Battempt%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-cancel",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id cancel",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/builds/{build_id}/cancel on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/cancel"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-cleanup",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id cleanup",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/builds/{build_id}/cleanup on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/cleanup"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-context",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id context",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/builds/{build_id}/context on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/context"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-events",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id events",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/builds/{build_id}/events on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/events"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-jobs",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id jobs",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/builds/{build_id}/jobs on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/jobs"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-jobs-latest",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id jobs latest",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/builds/{build_id}/jobs/latest on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/jobs/latest"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-jobs-latest-cancel",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id jobs latest cancel",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/builds/{build_id}/jobs/latest/cancel on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/jobs/latest/cancel"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-jobs-latest-restart",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id jobs latest restart",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/builds/{build_id}/jobs/latest/restart on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/jobs/latest/restart"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-jobs-latest-timeline",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id jobs latest timeline",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/builds/{build_id}/jobs/latest/timeline on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/jobs/latest/timeline"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-logs",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id logs",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/builds/{build_id}/logs on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/logs"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-logs-stream",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id logs stream",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/builds/{build_id}/logs/stream on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/logs/stream"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-recovery-summary",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id recovery-summary",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/builds/{build_id}/recovery-summary on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/recovery-summary"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-builds-build-id-retry",
+      "kind": "subnet-api",
+      "name": "Green Compute platform builds build id retry",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/builds/{build_id}/retry on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/builds/%7Bbuild_id%7D/retry"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-deployments",
+      "kind": "subnet-api",
+      "name": "Green Compute platform deployments",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET and POST /platform/deployments on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET and POST on this URL; one surface per URL per registry collision policy.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/deployments"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-deployments-deployment-id",
+      "kind": "subnet-api",
+      "name": "Green Compute platform deployments deployment id",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET, PATCH, and DELETE /platform/deployments/{deployment_id} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET, PATCH, and DELETE on this URL; one surface per URL per registry collision policy. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/deployments/%7Bdeployment_id%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-deployments-deployment-id-resume",
+      "kind": "subnet-api",
+      "name": "Green Compute platform deployments deployment id resume",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/deployments/{deployment_id}/resume on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/deployments/%7Bdeployment_id%7D/resume"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-deployments-deployment-id-ssh",
+      "kind": "subnet-api",
+      "name": "Green Compute platform deployments deployment id ssh",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/deployments/{deployment_id}/ssh on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/deployments/%7Bdeployment_id%7D/ssh"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-deployments-deployment-id-stats",
+      "kind": "subnet-api",
+      "name": "Green Compute platform deployments deployment id stats",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/deployments/{deployment_id}/stats on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/deployments/%7Bdeployment_id%7D/stats"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-images",
+      "kind": "subnet-api",
+      "name": "Green Compute platform images",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET and POST /platform/images on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET and POST on this URL; one surface per URL per registry collision policy.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/images"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-images-contexts",
+      "kind": "subnet-api",
+      "name": "Green Compute platform images contexts",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/images/contexts on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/images/contexts"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-images-image-history",
+      "kind": "subnet-api",
+      "name": "Green Compute platform images image history",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/images/{image}/history on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/images/%7Bimage%7D/history"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-model-aliases",
+      "kind": "subnet-api",
+      "name": "Green Compute platform model-aliases",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET and POST /platform/model-aliases on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET and POST on this URL; one surface per URL per registry collision policy.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/model-aliases"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-model-aliases-alias",
+      "kind": "subnet-api",
+      "name": "Green Compute platform model-aliases alias",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) DELETE /platform/model-aliases/{alias} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/model-aliases/%7Balias%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-nodes-supported",
+      "kind": "subnet-api",
+      "name": "Green Compute platform nodes supported",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/nodes/supported on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/nodes/supported"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-provider-servers",
+      "kind": "subnet-api",
+      "name": "Green Compute platform provider servers",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET and POST /platform/provider/servers on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET and POST on this URL; one surface per URL per registry collision policy.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/provider/servers"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-provider-servers-server-id",
+      "kind": "subnet-api",
+      "name": "Green Compute platform provider servers server id",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET and DELETE /platform/provider/servers/{server_id} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET and DELETE on this URL; one surface per URL per registry collision policy. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/provider/servers/%7Bserver_id%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-register",
+      "kind": "subnet-api",
+      "name": "Green Compute platform register",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /platform/register on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/register"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-sales-bare-metal-inquiries",
+      "kind": "subnet-api",
+      "name": "Green Compute platform sales bare-metal-inquiries",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET and POST /platform/sales/bare-metal-inquiries on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET and POST on this URL; one surface per URL per registry collision policy.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/sales/bare-metal-inquiries"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-sales-bare-metal-inquiries-inquiry-id",
+      "kind": "subnet-api",
+      "name": "Green Compute platform sales bare-metal-inquiries inquiry id",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) PATCH /platform/sales/bare-metal-inquiries/{inquiry_id} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/sales/bare-metal-inquiries/%7Binquiry_id%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-sales-inquiries",
+      "kind": "subnet-api",
+      "name": "Green Compute platform sales inquiries",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET and POST /platform/sales/inquiries on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET and POST on this URL; one surface per URL per registry collision policy.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/sales/inquiries"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-sales-inquiries-inquiry-id",
+      "kind": "subnet-api",
+      "name": "Green Compute platform sales inquiries inquiry id",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) PATCH /platform/sales/inquiries/{inquiry_id} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/sales/inquiries/%7Binquiry_id%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-secrets",
+      "kind": "subnet-api",
+      "name": "Green Compute platform secrets",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET and POST /platform/secrets on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET and POST on this URL; one surface per URL per registry collision policy.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/secrets"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-secrets-secret-id",
+      "kind": "subnet-api",
+      "name": "Green Compute platform secrets secret id",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) DELETE /platform/secrets/{secret_id} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/secrets/%7Bsecret_id%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-users",
+      "kind": "subnet-api",
+      "name": "Green Compute platform users",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/users on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/users"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-users-user-id",
+      "kind": "subnet-api",
+      "name": "Green Compute platform users user id",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET and PATCH /platform/users/{user_id} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET and PATCH on this URL; one surface per URL per registry collision policy. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/users/%7Buser_id%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-users-user-id-balance",
+      "kind": "subnet-api",
+      "name": "Green Compute platform users user id balance",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/users/{user_id}/balance on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/users/%7Buser_id%7D/balance"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-v1-debug-build-failures",
+      "kind": "subnet-api",
+      "name": "Green Compute platform v1 debug build-failures",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/v1/debug/build-failures on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/v1/debug/build-failures"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-v1-debug-invocation-failures",
+      "kind": "subnet-api",
+      "name": "Green Compute platform v1 debug invocation-failures",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/v1/debug/invocation-failures on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/v1/debug/invocation-failures"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-v1-debug-route-model",
+      "kind": "subnet-api",
+      "name": "Green Compute platform v1 debug route model",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/v1/debug/route/{model} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/v1/debug/route/%7Bmodel%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-v1-debug-routing-decisions",
+      "kind": "subnet-api",
+      "name": "Green Compute platform v1 debug routing-decisions",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/v1/debug/routing-decisions on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/v1/debug/routing-decisions"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-v1-invocations",
+      "kind": "subnet-api",
+      "name": "Green Compute platform v1 invocations",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/v1/invocations on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/v1/invocations"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-v1-invocations-exports-recent",
+      "kind": "subnet-api",
+      "name": "Green Compute platform v1 invocations exports recent",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/v1/invocations/exports/recent on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/v1/invocations/exports/recent"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-v1-invocations-invocation-id",
+      "kind": "subnet-api",
+      "name": "Green Compute platform v1 invocations invocation id",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/v1/invocations/{invocation_id} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/v1/invocations/%7Binvocation_id%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-v1-metrics",
+      "kind": "subnet-api",
+      "name": "Green Compute platform v1 metrics",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/v1/metrics on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/v1/metrics"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-v1-payment-summary",
+      "kind": "subnet-api",
+      "name": "Green Compute platform v1 payment summary",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/v1/payment/summary on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/v1/payment/summary"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-workloads",
+      "kind": "subnet-api",
+      "name": "Green Compute platform workloads",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET and POST /platform/workloads on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET and POST on this URL; one surface per URL per registry collision policy.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/workloads"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-workloads-workload-id",
+      "kind": "subnet-api",
+      "name": "Green Compute platform workloads workload id",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET, PATCH, and DELETE /platform/workloads/{workload_id} on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET, PATCH, and DELETE on this URL; one surface per URL per registry collision policy. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/workloads/%7Bworkload_id%7D"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-workloads-workload-id-shares",
+      "kind": "subnet-api",
+      "name": "Green Compute platform workloads workload id shares",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET and POST /platform/workloads/{workload_id}/shares on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. OpenAPI declares GET and POST on this URL; one surface per URL per registry collision policy. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/workloads/%7Bworkload_id%7D/shares"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-workloads-workload-id-utilization",
+      "kind": "subnet-api",
+      "name": "Green Compute platform workloads workload id utilization",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/workloads/{workload_id}/utilization on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/workloads/%7Bworkload_id%7D/utilization"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-platform-workloads-workload-id-warmup",
+      "kind": "subnet-api",
+      "name": "Green Compute platform workloads workload id warmup",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /platform/workloads/{workload_id}/warmup on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Path-parameterized; template uses literal {param} placeholders URI-encoded in url.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/platform/workloads/%7Bworkload_id%7D/warmup"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-registry-auth",
+      "kind": "subnet-api",
+      "name": "Green Compute registry auth",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /registry/auth on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/registry/auth"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-v1-completions",
+      "kind": "subnet-api",
+      "name": "Green Compute v1 completions",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /v1/completions on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Live-verified 2026-07-21: unauthenticated POST returns HTTP 400 (body validated before auth).",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/v1/completions"
+    },
+    {
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "The Green Compute Gateway OpenAPI schema declares no securitySchemes for most paths (a documentation gap), but anonymous callers receive HTTP 401 on live spot-checks during metagraphed#7121 reopen (/platform/nodes/supported, /bounties, /registry/auth, /platform/model-aliases, /guess/vllm_config, and admin/billing/debug groups). /idp/scopes returns 501 Not Implemented. POST /v1/completions validates the request body before auth (HTTP 400 without credentials), same caveat as the sibling chat-completions surface."
+      },
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-110-green-compute-v1-embeddings",
+      "kind": "subnet-api",
+      "name": "Green Compute v1 embeddings",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /v1/embeddings on api.green-compute.com -- from the SN110 Green Compute Gateway OpenAPI schema (99 paths / 117 operations). Registered per metagraphed#7121 reopen full-API-parity policy with auth_required:true and probe.enabled:false. Live-verified 2026-07-21: unauthenticated POST returns HTTP 401.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "green-compute",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.green-compute.com/openapi.json",
+        "https://www.green-compute.com/"
+      ],
+      "url": "https://api.green-compute.com/v1/embeddings"
     }
   ],
   "website_url": "https://www.green-compute.com/"
