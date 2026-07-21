@@ -664,9 +664,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/auth/register",
       "auth": {
         "scheme": "custom",
@@ -692,9 +690,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/auth/login",
       "auth": {
         "scheme": "custom",
@@ -720,9 +716,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/auth/create-key",
       "auth": {
         "scheme": "custom",
@@ -748,9 +742,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/auth/me",
       "auth": {
         "scheme": "api-key",
@@ -777,9 +769,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/deposits/address",
       "auth": {
         "scheme": "custom",
@@ -805,9 +795,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/deposits/withdraw",
       "auth": {
         "scheme": "custom",
@@ -833,9 +821,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/deposits/balance",
       "auth": {
         "scheme": "custom",
@@ -861,9 +847,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/models/load",
       "auth": {
         "scheme": "custom",
@@ -889,9 +873,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/models/unload",
       "auth": {
         "scheme": "custom",
@@ -917,9 +899,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/models/refresh",
       "auth": {
         "scheme": "custom",
@@ -945,9 +925,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/chat/%7Bconversation_id%7D",
       "auth": {
         "scheme": "custom",
@@ -973,9 +951,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/conversations/",
       "auth": {
         "scheme": "custom",
@@ -1001,9 +977,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/conversations/%7Bconversation_id%7D",
       "auth": {
         "scheme": "custom",
@@ -1029,9 +1003,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/conversations/claim",
       "auth": {
         "scheme": "custom",
@@ -1057,9 +1029,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/api/docs/%7Bslug%7D"
     },
     {
@@ -1081,9 +1051,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://verathos.ai/openapi.json"],
       "url": "https://verathos.ai/install.sh"
     },
     {
@@ -1105,9 +1073,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/capacity/audit/v1/receipt",
       "auth": {
         "scheme": "custom",
@@ -1133,9 +1099,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/capacity/audit/v1/proof",
       "auth": {
         "scheme": "custom",
@@ -1161,9 +1125,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/miner-debug/help"
     },
     {
@@ -1185,9 +1147,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/miner-debug/%7Buid%7D"
     },
     {
@@ -1209,9 +1169,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/miner-debug/%7Buid%7D/entries/%7Bmodel_index%7D"
     },
     {
@@ -1233,9 +1191,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/auth/challenge",
       "auth": {
         "scheme": "custom",
@@ -1261,9 +1217,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/auth/register",
       "auth": {
         "scheme": "custom",
@@ -1289,9 +1243,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/auth/login",
       "auth": {
         "scheme": "custom",
@@ -1317,9 +1269,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/auth/keys",
       "auth": {
         "scheme": "custom",
@@ -1345,9 +1295,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/api-keys",
       "auth": {
         "scheme": "custom",
@@ -1373,9 +1321,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/auth/wallet",
       "auth": {
         "scheme": "custom",
@@ -1401,9 +1347,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/api-keys/%7Bkey_hash%7D",
       "auth": {
         "scheme": "custom",
@@ -1429,9 +1373,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/admin/x402/stats",
       "auth": {
         "scheme": "custom",
@@ -1457,9 +1399,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/admin/sponsored-keys",
       "auth": {
         "scheme": "custom",
@@ -1485,9 +1425,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/balance",
       "auth": {
         "scheme": "custom",
@@ -1513,9 +1451,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/usage",
       "auth": {
         "scheme": "custom",
@@ -1541,9 +1477,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/user/me",
       "auth": {
         "scheme": "custom",
@@ -1569,9 +1503,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/user/deposit-address",
       "auth": {
         "scheme": "custom",
@@ -1597,9 +1529,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/user/withdraw",
       "auth": {
         "scheme": "custom",
@@ -1625,9 +1555,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/chat/completions",
       "auth": {
         "scheme": "custom",
@@ -1653,9 +1581,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/tee/chat/completions",
       "auth": {
         "scheme": "custom",
@@ -1681,9 +1607,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/tee/chat/completions/stream",
       "auth": {
         "scheme": "custom",
@@ -1709,9 +1633,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://api.verathos.ai/openapi.json"
-      ],
+      "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/debug/chat/completions",
       "auth": {
         "scheme": "custom",
