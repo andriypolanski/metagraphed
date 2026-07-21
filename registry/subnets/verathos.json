@@ -644,6 +644,1079 @@
       },
       "source_urls": ["https://api.verathos.ai/openapi.json"],
       "url": "https://api.verathos.ai/v1/price"
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-auth-register",
+      "kind": "subnet-api",
+      "name": "Verathos api/auth/register",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /api/auth/register on verathos.ai -- from sn-96-verathos-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/auth/register",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-auth-login",
+      "kind": "subnet-api",
+      "name": "Verathos api/auth/login",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /api/auth/login on verathos.ai -- from sn-96-verathos-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/auth/login",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-auth-create-key",
+      "kind": "subnet-api",
+      "name": "Verathos api/auth/create key",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /api/auth/create-key on verathos.ai -- from sn-96-verathos-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/auth/create-key",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-auth-me",
+      "kind": "subnet-api",
+      "name": "Verathos api/auth/me",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /api/auth/me on verathos.ai -- from sn-96-verathos-openapi.  Live-verified 2026-07-22: HTTP 401 for anonymous GET. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/auth/me",
+      "auth": {
+        "scheme": "api-key",
+        "location": "header",
+        "scopes_note": "Anonymous GET returns HTTP 401 (live-verified 2026-07-22). Header name not documented in spec."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-deposits-address",
+      "kind": "subnet-api",
+      "name": "Verathos api/deposits/address",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /api/deposits/address on verathos.ai -- from sn-96-verathos-openapi.  Live spot-check 2026-07-22: HTTP 503 preview-mode message. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/deposits/address",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-deposits-withdraw",
+      "kind": "subnet-api",
+      "name": "Verathos api/deposits/withdraw",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /api/deposits/withdraw on verathos.ai -- from sn-96-verathos-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/deposits/withdraw",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-deposits-balance",
+      "kind": "subnet-api",
+      "name": "Verathos api/deposits/balance",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /api/deposits/balance on verathos.ai -- from sn-96-verathos-openapi.  Live spot-check 2026-07-22: HTTP 503 preview-mode message. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/deposits/balance",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-models-load",
+      "kind": "subnet-api",
+      "name": "Verathos api/models/load",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /api/models/load on verathos.ai -- from sn-96-verathos-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/models/load",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-models-unload",
+      "kind": "subnet-api",
+      "name": "Verathos api/models/unload",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /api/models/unload on verathos.ai -- from sn-96-verathos-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/models/unload",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-models-refresh",
+      "kind": "subnet-api",
+      "name": "Verathos api/models/refresh",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /api/models/refresh on verathos.ai -- from sn-96-verathos-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/models/refresh",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-chat-conversation-id",
+      "kind": "subnet-api",
+      "name": "Verathos api/chat/conversation id",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /api/chat/{conversation_id} on verathos.ai -- from sn-96-verathos-openapi. Path-param endpoint (Phase 2 of #7013) -- probe.enabled:false because template URL is not fixed-callable today. Not spot-verified individually. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/chat/%7Bconversation_id%7D",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-conversations",
+      "kind": "subnet-api",
+      "name": "Verathos api/conversations",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET, POST /api/conversations/ on verathos.ai -- from sn-96-verathos-openapi. Primary method GET; same URL also supports POST (not registered separately -- url collision).  Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": true,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/conversations/",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-conversations-conversation-id",
+      "kind": "subnet-api",
+      "name": "Verathos api/conversations/conversation id",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET, PATCH, DELETE /api/conversations/{conversation_id} on verathos.ai -- from sn-96-verathos-openapi. Primary method GET; same URL also supports PATCH/DELETE (not registered separately -- url collision). Path-param endpoint (Phase 2 of #7013) -- probe.enabled:false because template URL is not fixed-callable today. Not spot-verified individually. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/conversations/%7Bconversation_id%7D",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-conversations-claim",
+      "kind": "subnet-api",
+      "name": "Verathos api/conversations/claim",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /api/conversations/claim on verathos.ai -- from sn-96-verathos-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/conversations/claim",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": false,
+      "authority": "community",
+      "id": "sn-96-verathos-api-api-docs-slug",
+      "kind": "subnet-api",
+      "name": "Verathos api/docs/slug",
+      "notes": "Public no-auth GET /api/docs/{slug} on verathos.ai -- from sn-96-verathos-openapi. Path-param endpoint (Phase 2 of #7013) -- probe.enabled:false because template URL is not fixed-callable today. Not spot-verified individually. Live-verified 2026-07-22: HTTP 200 with slug intro. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/api/docs/%7Bslug%7D"
+    },
+    {
+      "auth_required": false,
+      "authority": "community",
+      "id": "sn-96-verathos-api-install-sh",
+      "kind": "data-artifact",
+      "name": "Verathos install sh",
+      "notes": "Public no-auth GET /install.sh on verathos.ai -- from sn-96-verathos-openapi.  Live-verified 2026-07-22: HTTP 307 redirect to published install script. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": true,
+        "expect": "any",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://verathos.ai/openapi.json"
+      ],
+      "url": "https://verathos.ai/install.sh"
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-capacity-audit-v1-receipt",
+      "kind": "subnet-api",
+      "name": "Verathos capacity/audit/v1/receipt",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /capacity/audit/v1/receipt on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/capacity/audit/v1/receipt",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-capacity-audit-v1-proof",
+      "kind": "subnet-api",
+      "name": "Verathos capacity/audit/v1/proof",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /capacity/audit/v1/proof on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/capacity/audit/v1/proof",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": false,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-miner-debug-help",
+      "kind": "subnet-api",
+      "name": "Verathos v1/miner debug/help",
+      "notes": "Public no-auth GET /v1/miner-debug/help on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi.  Live-verified 2026-07-22: HTTP 200 application/json for anonymous GET. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": true,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/miner-debug/help"
+    },
+    {
+      "auth_required": false,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-miner-debug-uid",
+      "kind": "subnet-api",
+      "name": "Verathos v1/miner debug/uid",
+      "notes": "Public no-auth GET /v1/miner-debug/{uid} on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. Path-param endpoint (Phase 2 of #7013) -- probe.enabled:false because template URL is not fixed-callable today. Not spot-verified individually. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/miner-debug/%7Buid%7D"
+    },
+    {
+      "auth_required": false,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-miner-debug-uid-entries-model-index",
+      "kind": "subnet-api",
+      "name": "Verathos v1/miner debug/uid/entries/model index",
+      "notes": "Public no-auth GET /v1/miner-debug/{uid}/entries/{model_index} on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. Path-param endpoint (Phase 2 of #7013) -- probe.enabled:false because template URL is not fixed-callable today. Not spot-verified individually. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/miner-debug/%7Buid%7D/entries/%7Bmodel_index%7D"
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-auth-challenge",
+      "kind": "subnet-api",
+      "name": "Verathos v1/auth/challenge",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /v1/auth/challenge on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi.  Live spot-check 2026-07-22: HTTP 503 (capacity/preview-dependent). Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/auth/challenge",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-auth-register",
+      "kind": "subnet-api",
+      "name": "Verathos v1/auth/register",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /v1/auth/register on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/auth/register",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-auth-login",
+      "kind": "subnet-api",
+      "name": "Verathos v1/auth/login",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /v1/auth/login on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/auth/login",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-auth-keys",
+      "kind": "subnet-api",
+      "name": "Verathos v1/auth/keys",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /v1/auth/keys on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/auth/keys",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-api-keys",
+      "kind": "subnet-api",
+      "name": "Verathos v1/api keys",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET, POST /v1/api-keys on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. Primary method GET; same URL also supports POST (not registered separately -- url collision).  Live spot-check 2026-07-22: HTTP 503 (capacity/preview-dependent). Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/api-keys",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-auth-wallet",
+      "kind": "subnet-api",
+      "name": "Verathos v1/auth/wallet",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /v1/auth/wallet on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/auth/wallet",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-api-keys-key-hash",
+      "kind": "subnet-api",
+      "name": "Verathos v1/api keys/key hash",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) DELETE /v1/api-keys/{key_hash} on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. Path-param endpoint (Phase 2 of #7013) -- probe.enabled:false because template URL is not fixed-callable today. Not spot-verified individually. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/api-keys/%7Bkey_hash%7D",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-admin-x402-stats",
+      "kind": "subnet-api",
+      "name": "Verathos v1/admin/x402/stats",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /v1/admin/x402/stats on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi.  Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/admin/x402/stats",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-admin-sponsored-keys",
+      "kind": "subnet-api",
+      "name": "Verathos v1/admin/sponsored keys",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /v1/admin/sponsored-keys on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/admin/sponsored-keys",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-balance",
+      "kind": "subnet-api",
+      "name": "Verathos v1/balance",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /v1/balance on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi.  Live spot-check 2026-07-22: HTTP 503 (capacity/preview-dependent). Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/balance",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-usage",
+      "kind": "subnet-api",
+      "name": "Verathos v1/usage",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /v1/usage on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi.  Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/usage",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-user-me",
+      "kind": "subnet-api",
+      "name": "Verathos v1/user/me",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /v1/user/me on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi.  Live spot-check 2026-07-22: HTTP 503 (capacity/preview-dependent). Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/user/me",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-user-deposit-address",
+      "kind": "subnet-api",
+      "name": "Verathos v1/user/deposit address",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) GET /v1/user/deposit-address on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi.  Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/user/deposit-address",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-user-withdraw",
+      "kind": "subnet-api",
+      "name": "Verathos v1/user/withdraw",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /v1/user/withdraw on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/user/withdraw",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-chat-completions",
+      "kind": "subnet-api",
+      "name": "Verathos v1/chat/completions",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /v1/chat/completions on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. State-changing route; probe.enabled:false. Live-verified 2026-07-22: unauthenticated POST with empty body returned HTTP 422. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/chat/completions",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-tee-chat-completions",
+      "kind": "subnet-api",
+      "name": "Verathos v1/tee/chat/completions",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /v1/tee/chat/completions on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/tee/chat/completions",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-tee-chat-completions-stream",
+      "kind": "subnet-api",
+      "name": "Verathos v1/tee/chat/completions/stream",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /v1/tee/chat/completions/stream on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/tee/chat/completions/stream",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
+    },
+    {
+      "auth_required": true,
+      "authority": "community",
+      "id": "sn-96-verathos-v1-debug-chat-completions",
+      "kind": "subnet-api",
+      "name": "Verathos v1/debug/chat/completions",
+      "notes": "Auth-gated (Phase 3 credential passthrough, not built yet) POST /v1/debug/chat/completions on api.verathos.ai -- from sn-96-verathos-validator-proxy-openapi. State-changing route; probe.enabled:false. Registered per metagraphed#7108 reopen.",
+      "probe": {
+        "enabled": false,
+        "expect": "json",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "verathos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://api.verathos.ai/openapi.json"
+      ],
+      "url": "https://api.verathos.ai/v1/debug/chat/completions",
+      "auth": {
+        "scheme": "custom",
+        "scopes_note": "Registered auth_required:true per metagraphed#7108 full-API-parity policy despite undeclared OpenAPI security."
+      }
     }
   ],
   "website_url": "https://verathos.ai/"
