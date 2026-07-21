@@ -234,9 +234,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/competition/timeframe/current"
     },
     {
@@ -262,9 +260,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/competition/%7Bcompetition_id%7D/aggregate"
     },
     {
@@ -290,9 +286,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/competitions-list"
     },
     {
@@ -318,9 +312,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/miners/%7Bcomp_id%7D"
     },
     {
@@ -346,9 +338,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/miners/%7Bcomp_id%7D/%7Bhotkey%7D"
     },
     {
@@ -374,9 +364,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/miners/%7Bcomp_id%7D/%7Bhotkey%7D/competition"
     },
     {
@@ -402,9 +390,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/miners/%7Bcomp_id%7D/%7Bhotkey%7D/competition/challenges"
     },
     {
@@ -430,9 +416,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/miners/%7Bcomp_id%7D/%7Bhotkey%7D/screener"
     },
     {
@@ -458,9 +442,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/miners/%7Bcomp_id%7D/%7Bhotkey%7D/screener/challenges"
     },
     {
@@ -486,9 +468,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/miners/%7Bhotkey%7D/competition/challenges/%7Bbatch_challenge_id%7D"
     },
     {
@@ -514,9 +494,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/summary"
     },
     {
@@ -542,9 +520,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/swe/miners/%7Bcomp_id%7D"
     },
     {
@@ -570,9 +546,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/swe/miners/%7Bcomp_id%7D/%7Bhotkey%7D"
     },
     {
@@ -598,9 +572,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/swe/miners/%7Bcomp_id%7D/%7Bhotkey%7D/penalties"
     },
     {
@@ -626,9 +598,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/swe/miners/%7Bcomp_id%7D/%7Bhotkey%7D/tasks"
     },
     {
@@ -654,9 +624,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/swe/miners/%7Bcomp_id%7D/%7Bhotkey%7D/tasks/%7Btask_name%7D"
     },
     {
@@ -682,9 +650,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/swe/miners/%7Bcomp_id%7D/%7Bhotkey%7D/tasks/%7Btask_name%7D/runs"
     },
     {
@@ -710,9 +676,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/frontend/validators"
     },
     {
@@ -738,9 +702,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/incentives/competitions/%7Bcompetition_id%7D/candidates"
     },
     {
@@ -766,9 +728,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/incentives/top-miners/%7Btop_miner_id%7D/approval"
     },
     {
@@ -794,9 +754,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/private/sandbox/compact-bench/report"
     },
     {
@@ -822,9 +780,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/competition/timeframe/current"
     },
     {
@@ -850,9 +806,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/competitions-list"
     },
     {
@@ -878,9 +832,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/miners/%7Bcomp_id%7D"
     },
     {
@@ -906,9 +858,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/miners/%7Bcomp_id%7D/%7Bhotkey%7D"
     },
     {
@@ -934,9 +884,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/miners/%7Bcomp_id%7D/%7Bhotkey%7D/competition"
     },
     {
@@ -962,9 +910,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/miners/%7Bcomp_id%7D/%7Bhotkey%7D/competition/challenges"
     },
     {
@@ -990,9 +936,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/miners/%7Bcomp_id%7D/%7Bhotkey%7D/screener"
     },
     {
@@ -1018,9 +962,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/miners/%7Bcomp_id%7D/%7Bhotkey%7D/screener/challenges"
     },
     {
@@ -1046,9 +988,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/miners/%7Bhotkey%7D/competition/challenges/%7Bbatch_challenge_id%7D"
     },
     {
@@ -1074,9 +1014,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/summary"
     },
     {
@@ -1102,9 +1040,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/swe/miners/%7Bcomp_id%7D"
     },
     {
@@ -1130,9 +1066,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/swe/miners/%7Bcomp_id%7D/%7Bhotkey%7D"
     },
     {
@@ -1158,9 +1092,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/swe/miners/%7Bcomp_id%7D/%7Bhotkey%7D/penalties"
     },
     {
@@ -1186,9 +1118,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/swe/miners/%7Bcomp_id%7D/%7Bhotkey%7D/tasks"
     },
     {
@@ -1214,9 +1144,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/swe/miners/%7Bcomp_id%7D/%7Bhotkey%7D/tasks/%7Btask_name%7D"
     },
     {
@@ -1242,9 +1170,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/swe/miners/%7Bcomp_id%7D/%7Bhotkey%7D/tasks/%7Btask_name%7D/runs"
     },
     {
@@ -1270,9 +1196,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/api/public/frontend-key/validators"
     },
     {
@@ -1298,9 +1222,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/miner/openrouter-key/add"
     },
     {
@@ -1326,9 +1248,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/miner/openrouter-key/delete"
     },
     {
@@ -1354,9 +1274,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/miner/openrouter-key/update"
     },
     {
@@ -1382,9 +1300,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/miner/upload"
     },
     {
@@ -1410,9 +1326,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/validator/get_best_miners"
     },
     {
@@ -1438,9 +1352,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/validator/get_swebench_validation"
     },
     {
@@ -1466,9 +1378,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/validator/register"
     },
     {
@@ -1494,9 +1404,7 @@
         "state": "community-submitted",
         "submitted_by": "andriypolanski"
       },
-      "source_urls": [
-        "https://platform.thesoma.ai/openapi.json"
-      ],
+      "source_urls": ["https://platform.thesoma.ai/openapi.json"],
       "url": "https://platform.thesoma.ai/validator/submit_swebench_validation_score"
     }
   ],
