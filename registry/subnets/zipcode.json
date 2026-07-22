@@ -1155,6 +1155,31 @@
       },
       "source_urls": ["https://zipcode.ai/openapi.json"],
       "url": "https://zipcode.ai/api/v1/real_estate/evaluate/results/%7Bid%7D"
+    },
+    {
+      "auth_required": false,
+      "authority": "community",
+      "id": "sn-46-zipcode-api-docs",
+      "kind": "subnet-api",
+      "name": "Zipcode combined OpenAPI docs",
+      "notes": "Public GET /api/docs on zipcode.ai — combined OpenAPI spec entry point from metagraphed#7060 additional scope (distinct from the openapi-kind sn-46-zipcode-openapi and sn-46-zipcode-dashboard-openapi surfaces). Live-verified 2026-07-21: HTTP 302 redirect to /openapi.json; following the redirect yields byte-identical content to sn-46-zipcode-openapi. Registered as its own callable route per JSONbored reopen — catalog everything the subnet exposes.",
+      "probe": {
+        "enabled": true,
+        "expect": "any",
+        "method": "GET",
+        "timeout_ms": 10000
+      },
+      "provider": "zipcode",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "andriypolanski"
+      },
+      "source_urls": [
+        "https://zipcode.ai/openapi.json",
+        "https://github.com/resi-labs-ai/RESI-models"
+      ],
+      "url": "https://zipcode.ai/api/docs"
     }
   ],
   "website_url": "https://zipcode.ai/"
