@@ -258,7 +258,7 @@ import {
   RPC_USAGE_BUCKETS,
   resolveClientIp,
   ROLLUP_TOKEN_HEADER,
-} from "./config.mjs";
+} from "./config.ts";
 import {
   formatBulkTrends,
   formatTrends,
@@ -493,7 +493,7 @@ import {
   clampLimit as clampRequestLimit,
   clampOffset as clampRequestOffset,
   parseLimitParam,
-} from "./request-params.mjs";
+} from "./request-params.ts";
 import {
   buildSubnetMetagraph,
   buildSubnetValidators,
@@ -535,7 +535,7 @@ function validEventFilter(value) {
 // Reached only via the main Worker's DATA_API service binding (no public
 // routes of its own) -- see workers/api.mjs's handleNeuronsSyncProxy, which
 // forwards the request here unchanged. The shared-secret check below is the
-// only auth gate in the whole path, mirroring workers/registry-sync-api.mjs's
+// only auth gate in the whole path, mirroring workers/registry-sync-api.ts's
 // shape (shared-secret POST, no R2/HMAC envelope needed since the secret
 // header IS the transport's auth).
 //

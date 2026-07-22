@@ -6,7 +6,7 @@ import {
   specifiedRules,
   validate,
 } from "graphql";
-import { readArtifact, readHealthKv } from "../workers/storage.mjs";
+import { readArtifact, readHealthKv } from "../workers/storage.ts";
 // #6986: GraphQL parity for source-snapshots, reusing list_source_snapshots'
 // own loader unchanged (same artifact read, filter, sort, and page logic REST
 // and MCP already use) -- not a reimplementation.
@@ -31,8 +31,8 @@ import {
 // unchanged (same artifact read, filter, sort, and page logic REST and MCP
 // already use) -- not a reimplementation.
 import { loadProfilesList } from "./profiles-mcp.mjs";
-import { contractVersion } from "../workers/responses.mjs";
-import { tryPostgresTier } from "../workers/postgres-tier.mjs";
+import { contractVersion } from "../workers/responses.ts";
+import { tryPostgresTier } from "../workers/postgres-tier.ts";
 // #6985: GraphQL parity for the endpoint-pools/rpc-pools/endpoint-incidents REST
 // routes, reusing the same shaping functions list_endpoint_pools/list_rpc_pools/
 // list_endpoint_incidents already call for MCP parity -- not a reimplementation.
@@ -155,14 +155,14 @@ import {
 import {
   analyticsWindow,
   loadGlobalIncidentsLedger,
-} from "../workers/request-handlers/analytics.mjs";
+} from "../workers/request-handlers/analytics.ts";
 import {
   BLOCK_PAGINATION,
   DAY_PATTERN,
   FEED_PAGINATION,
   clampLimit,
   clampOffset,
-} from "../workers/request-params.mjs";
+} from "../workers/request-params.ts";
 import { buildSubnetIdentityHistory } from "./subnet-identity-history.mjs";
 import { buildChainIdentityHistory } from "./chain-identity-history.mjs";
 import {
@@ -187,7 +187,7 @@ import {
   TOP_HOLDERS_LIMIT_MAX,
   TOP_HOLDERS_SORTS,
 } from "./top-holders.mjs";
-import { composeLeaderboardsData } from "../workers/request-handlers/analytics-routes.mjs";
+import { composeLeaderboardsData } from "../workers/request-handlers/analytics-routes.ts";
 import {
   COMPARE_VALIDATORS_MAX,
   loadCompareSubnets,
@@ -200,7 +200,7 @@ import {
   parseCompareNetuidList,
   parseUptimeWindow,
 } from "./analytics-live.mjs";
-import { UPTIME_WINDOWS } from "../workers/config.mjs";
+import { UPTIME_WINDOWS } from "../workers/config.ts";
 import {
   buildAccountExtrinsics,
   buildExtrinsic,
@@ -339,7 +339,7 @@ import {
   ANALYTICS_WINDOWS,
   DEFAULT_ANALYTICS_WINDOW,
   SS58_ADDRESS_PATTERN,
-} from "../workers/config.mjs";
+} from "../workers/config.ts";
 import { loadRpcUsage } from "./rpc-usage-loader.mjs";
 import {
   CHAIN_SIGNERS_SORTS,
