@@ -16,7 +16,7 @@
 // rasterize the SVG satori returns into a PNG. Confirmed to render the same
 // card design as the old live path.
 //
-// Tolerant by design, matching refresh-native-snapshot.mjs/refresh-candidates.mjs
+// Tolerant by design, matching refresh-native-snapshot.mjs/refresh-candidates.ts
 // in this same productionSteps() phase: ANY failure (missing/cold
 // registry-summary.json, a Google Fonts fetch failure, a satori/resvg error)
 // logs a warning and exits 0 WITHOUT writing a new PNG, leaving whatever card
@@ -36,7 +36,7 @@ import satori from "satori";
 import { html } from "satori-html";
 import { R2_STAGING_RELATIVE_ROOT } from "../src/artifact-storage.ts";
 import { buildStatParts, renderMarkup } from "../src/og-image.ts";
-import { repoRoot, stableStringify } from "./lib.mjs";
+import { repoRoot, stableStringify } from "./lib.ts";
 import { initSentry, endSessionAndFlush } from "./observability.ts";
 import * as Sentry from "@sentry/node";
 

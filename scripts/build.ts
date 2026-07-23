@@ -4,7 +4,7 @@ import {
   dirtyTrackedPaths,
   resolveBaseRemote,
   stableStringify,
-} from "./lib.mjs";
+} from "./lib.ts";
 
 interface Step {
   name: string;
@@ -131,7 +131,7 @@ function revertDeployOwnedArtifactsIfChanged(): void {
     [
       "",
       "note: build produced non-deterministic deploy-owned artifact(s), auto-reverted to",
-      `${baseRemote}/main (see DEPLOY_OWNED_ARTIFACTS in scripts/lib.mjs):`,
+      `${baseRemote}/main (see DEPLOY_OWNED_ARTIFACTS in scripts/lib.ts):`,
       ...dirty.map((file) => `  - ${file}`),
       "",
     ].join("\n"),
@@ -167,7 +167,7 @@ function productionSteps(): Step[] {
     // now that the sync PR is retired (#571). Runs AFTER native-snapshot
     // (discover-candidates reads it); tolerant like native-snapshot — a live
     // network failure keeps the last committed data and the publish proceeds.
-    nodeStep("refresh-candidates", "scripts/refresh-candidates.mjs"),
+    nodeStep("refresh-candidates", "scripts/refresh-candidates.ts"),
     // Capture live OpenAPI/Swagger specs (full document + auth) before
     // build-artifacts, so the per-surface schema files carry the real spec for
     // get_api_schema. build-artifacts grabs the document before its staging wipe

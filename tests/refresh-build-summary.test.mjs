@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "vitest";
-import { r2StagingRoot, repoRoot } from "../scripts/lib.mjs";
+import { r2StagingRoot, repoRoot } from "../scripts/lib.ts";
 
 // build-summary.json lives at the R2 staging root (#1003). It is the artifact the
 // refresh script rewrites, so — like the canonical writer in build-artifacts.mjs
@@ -12,7 +12,7 @@ import { r2StagingRoot, repoRoot } from "../scripts/lib.mjs";
 // artifact_count / artifact_size_bytes and embed a hash of the pre-rewrite file.
 //
 // This test rewrites the REAL build-summary.json at the R2 staging root in
-// place (refresh-build-summary.mjs re-scans the whole staging tree to
+// place (refresh-build-summary.ts re-scans the whole staging tree to
 // compute the count/size fields, so there's no isolated-fixture equivalent),
 // which raced other tests concurrently reading/writing that same tree under
 // vitest's default parallel file execution -- pinned to serial execution in
@@ -25,7 +25,7 @@ test("refresh-build-summary excludes build-summary.json from its own inventory",
     return;
   }
 
-  execFileSync(process.execPath, ["scripts/refresh-build-summary.mjs"], {
+  execFileSync(process.execPath, ["scripts/refresh-build-summary.ts"], {
     cwd: repoRoot,
     encoding: "utf8",
     stdio: "pipe",
