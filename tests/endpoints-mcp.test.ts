@@ -173,8 +173,14 @@ describe("endpoints-mcp (#7892)", () => {
   });
 
   test("endpointsQueryUrl clamps invalid limit values to the REST default", () => {
-    assert.equal(endpointsQueryUrl({ limit: -1 }).searchParams.get("limit"), "50");
-    assert.equal(endpointsQueryUrl({ limit: 0 }).searchParams.get("limit"), "50");
+    assert.equal(
+      endpointsQueryUrl({ limit: -1 }).searchParams.get("limit"),
+      "50",
+    );
+    assert.equal(
+      endpointsQueryUrl({ limit: 0 }).searchParams.get("limit"),
+      "50",
+    );
     assert.equal(
       endpointsQueryUrl({ limit: Number.NaN }).searchParams.get("limit"),
       "50",
