@@ -256,7 +256,7 @@ describe("rpc-endpoints-mcp (#7886, #7893)", () => {
     const out = await loadRpcEndpointsList(
       {
         env: {},
-        readArtifact: async (_env, path) =>
+        readArtifact: async (_env: unknown, path: string) =>
           path === RPC_ENDPOINTS_ARTIFACT
             ? {
                 ok: true,
