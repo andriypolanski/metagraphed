@@ -2522,7 +2522,7 @@ export type Query = {
   evm_address_mapping?: Maybe<EvmAddressMapping>;
   /** One extrinsic by hash or composite block_number-extrinsic_index ref; extrinsic is null when the ref doesn't resolve (schema-stable, never a GraphQL error). Mirrors GET /api/v1/extrinsics/{ref}. */
   extrinsic?: Maybe<ExtrinsicDetail>;
-  /** Recent-extrinsic feed (newest first), optionally filtered. Mirrors GET /api/v1/extrinsics. */
+  /** Recent-extrinsic feed (newest first), optionally filtered. Optionally narrow by call_hash, block (exact height), block_start/block_end (inclusive height range), or from/to (observed_at epoch-ms range — String args because epoch-ms exceeds GraphQL Int's 32-bit range, matching account_history) — the same filters GET /api/v1/extrinsics and the list_extrinsics MCP tool accept. Mirrors GET /api/v1/extrinsics. */
   extrinsics: ExtrinsicList;
   /** One captured live request/response fixture by surface_id — the sanitized sample get_fixture / GET /api/v1/fixtures/{surface_id} return. Resolves deprecated surface_id aliases the same way MCP does. Null when no fixture exists for the id (rather than a GraphQL error). An invalid surface_id is BAD_USER_INPUT. Opaque JSON passed through verbatim. Mirrors GET /api/v1/fixtures/{surface_id}. */
   fixture?: Maybe<Scalars['JSON']['output']>;
@@ -3191,13 +3191,18 @@ export type QueryExtrinsicArgs = {
 
 export type QueryExtrinsicsArgs = {
   block?: InputMaybe<Scalars['Int']['input']>;
+  block_end?: InputMaybe<Scalars['Int']['input']>;
+  block_start?: InputMaybe<Scalars['Int']['input']>;
   call_function?: InputMaybe<Scalars['String']['input']>;
+  call_hash?: InputMaybe<Scalars['String']['input']>;
   call_module?: InputMaybe<Scalars['String']['input']>;
   cursor?: InputMaybe<Scalars['String']['input']>;
+  from?: InputMaybe<Scalars['String']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
   signer?: InputMaybe<Scalars['String']['input']>;
   success?: InputMaybe<Scalars['Boolean']['input']>;
+  to?: InputMaybe<Scalars['String']['input']>;
 };
 
 
