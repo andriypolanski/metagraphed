@@ -3284,6 +3284,94 @@ describe("graphql — sudo (#5895, Postgres-tier feed)", () => {
     assert.equal(capturedUrl!.searchParams.get("signer"), null);
   });
 
+  test("sudo: a block_start/block_end height range is forwarded to the Postgres tier (#7874)", async () => {
+    let capturedUrl: URL | undefined;
+    const env = {
+      METAGRAPH_EXTRINSICS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async (req: Request) => {
+          capturedUrl = new URL(req.url);
+          return Response.json({
+            schema_version: 1,
+            extrinsic_count: 0,
+            limit: 50,
+            offset: 0,
+            next_cursor: null,
+            extrinsics: [],
+          });
+        },
+      },
+    };
+    await gql(
+      `{ sudo(block_start: 100, block_end: 500) { total } }`,
+      env as unknown as Env,
+    );
+    assert.equal(capturedUrl!.pathname, "/api/v1/sudo");
+    assert.equal(capturedUrl!.searchParams.get("block_start"), "100");
+    assert.equal(capturedUrl!.searchParams.get("block_end"), "500");
+    assert.equal(capturedUrl!.searchParams.has("from"), false);
+    assert.equal(capturedUrl!.searchParams.has("to"), false);
+  });
+
+  test("sudo: a from/to observed_at range is forwarded to the Postgres tier (#7874)", async () => {
+    let capturedUrl: URL | undefined;
+    const env = {
+      METAGRAPH_EXTRINSICS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async (req: Request) => {
+          capturedUrl = new URL(req.url);
+          return Response.json({
+            schema_version: 1,
+            extrinsic_count: 0,
+            limit: 50,
+            offset: 0,
+            next_cursor: null,
+            extrinsics: [],
+          });
+        },
+      },
+    };
+    await gql(
+      `{ sudo(from: "1750000000000", to: "1760000000000") { total } }`,
+      env as unknown as Env,
+    );
+    assert.equal(capturedUrl!.searchParams.get("from"), "1750000000000");
+    assert.equal(capturedUrl!.searchParams.get("to"), "1760000000000");
+    assert.equal(capturedUrl!.searchParams.has("block_start"), false);
+    assert.equal(capturedUrl!.searchParams.has("block_end"), false);
+  });
+
+  test("introspection: sudo exposes block_start/block_end (Int) and from/to (String) args (#7874)", async () => {
+    const { status, body } = await gql(
+      `{ __type(name: "Query") { fields {
+          name
+          args { name type { kind name ofType { kind name } } }
+        } } }`,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    const sudo = body.data.__type.fields.find((f: Row) => f.name === "sudo");
+    const argType = (name: string) => {
+      const a = sudo.args.find((x: Row) => x.name === name);
+      assert.ok(a, `expected a ${name} arg on sudo`);
+      return a.type;
+    };
+    for (const name of ["block_start", "block_end"]) {
+      assert.deepEqual(argType(name), {
+        kind: "SCALAR",
+        name: "Int",
+        ofType: null,
+      });
+    }
+    for (const name of ["from", "to"]) {
+      assert.deepEqual(argType(name), {
+        kind: "SCALAR",
+        name: "String",
+        ofType: null,
+      });
+    }
+  });
+
   test("sudo: a cursor arg is forwarded as a query param to the Postgres tier", async () => {
     let capturedUrl: URL | undefined;
     const env = {

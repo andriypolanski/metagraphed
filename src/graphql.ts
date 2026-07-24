@@ -3776,7 +3776,18 @@ const rootValue = {
   },
 
   async sudo(
-    { limit, offset, cursor, block, call_function: callFunction, success }: Row,
+    {
+      limit,
+      offset,
+      cursor,
+      block,
+      block_start: blockStart,
+      block_end: blockEnd,
+      from,
+      to,
+      call_function: callFunction,
+      success,
+    }: Row,
     context: GqlContext,
   ) {
     // The Sudo governance feed is the /extrinsics feed with call_module fixed
@@ -3794,6 +3805,14 @@ const rootValue = {
     params.set("offset", String(safeOffset));
     if (cursor) params.set("cursor", cursor);
     if (block != null) params.set("block", String(block));
+    // #7874: block_start/block_end (inclusive height range) and from/to
+    // (observed_at epoch-ms range) forwarded straight through to the same
+    // /api/v1/sudo route get_sudo uses. from/to are String args (epoch-ms
+    // overflows GraphQL Int's 32 bits), matching account_history's from/to.
+    if (blockStart != null) params.set("block_start", String(blockStart));
+    if (blockEnd != null) params.set("block_end", String(blockEnd));
+    if (from != null) params.set("from", from);
+    if (to != null) params.set("to", to);
     if (callFunction) params.set("call_function", callFunction);
     if (success != null) params.set("success", String(success));
     const data =
