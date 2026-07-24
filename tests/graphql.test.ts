@@ -3627,6 +3627,116 @@ describe("graphql — blocks / block (#5575, Postgres-tier feed)", () => {
     assert.equal(capturedUrl!.searchParams.get("cursor"), "abc123");
   });
 
+  test("blocks: the REST-parity filters are all forwarded as query params to the Postgres tier (#7870)", async () => {
+    let capturedUrl: URL | undefined;
+    const env = {
+      METAGRAPH_BLOCKS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async (req: Request) => {
+          capturedUrl = new URL(req.url);
+          return Response.json({
+            schema_version: 1,
+            block_count: 0,
+            limit: 50,
+            offset: 0,
+            next_cursor: null,
+            blocks: [],
+          });
+        },
+      },
+    };
+    await gql(
+      `{ blocks(
+          author: "5Author"
+          spec_version: 200
+          block_start: 100
+          block_end: 500
+          from: "1750000000000"
+          to: "1760000000000"
+          min_extrinsics: 2
+          min_events: 3
+        ) { total } }`,
+      env as unknown as Env,
+    );
+    assert.equal(capturedUrl!.pathname, "/api/v1/blocks");
+    assert.equal(capturedUrl!.searchParams.get("author"), "5Author");
+    assert.equal(capturedUrl!.searchParams.get("spec_version"), "200");
+    assert.equal(capturedUrl!.searchParams.get("block_start"), "100");
+    assert.equal(capturedUrl!.searchParams.get("block_end"), "500");
+    assert.equal(capturedUrl!.searchParams.get("from"), "1750000000000");
+    assert.equal(capturedUrl!.searchParams.get("to"), "1760000000000");
+    assert.equal(capturedUrl!.searchParams.get("min_extrinsics"), "2");
+    assert.equal(capturedUrl!.searchParams.get("min_events"), "3");
+  });
+
+  test("blocks: a single filter is forwarded and the unset filters are omitted (#7870)", async () => {
+    let capturedUrl: URL | undefined;
+    const env = {
+      METAGRAPH_BLOCKS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async (req: Request) => {
+          capturedUrl = new URL(req.url);
+          return Response.json({
+            schema_version: 1,
+            block_count: 0,
+            limit: 50,
+            offset: 0,
+            next_cursor: null,
+            blocks: [],
+          });
+        },
+      },
+    };
+    await gql(`{ blocks(author: "5Solo") { total } }`, env as unknown as Env);
+    assert.equal(capturedUrl!.searchParams.get("author"), "5Solo");
+    assert.equal(capturedUrl!.searchParams.has("spec_version"), false);
+    assert.equal(capturedUrl!.searchParams.has("block_start"), false);
+    assert.equal(capturedUrl!.searchParams.has("block_end"), false);
+    assert.equal(capturedUrl!.searchParams.has("from"), false);
+    assert.equal(capturedUrl!.searchParams.has("to"), false);
+    assert.equal(capturedUrl!.searchParams.has("min_extrinsics"), false);
+    assert.equal(capturedUrl!.searchParams.has("min_events"), false);
+  });
+
+  test("introspection: blocks exposes the new REST-parity filter args with the right scalar types (#7870)", async () => {
+    const { status, body } = await gql(
+      `{ __type(name: "Query") { fields {
+          name
+          args { name type { kind name ofType { kind name } } }
+        } } }`,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    const blocks = body.data.__type.fields.find(
+      (f: Row) => f.name === "blocks",
+    );
+    const argType = (name: string) => {
+      const a = blocks.args.find((x: Row) => x.name === name);
+      assert.ok(a, `expected a ${name} arg on blocks`);
+      return a.type;
+    };
+    for (const name of ["author", "from", "to"]) {
+      assert.deepEqual(argType(name), {
+        kind: "SCALAR",
+        name: "String",
+        ofType: null,
+      });
+    }
+    for (const name of [
+      "spec_version",
+      "block_start",
+      "block_end",
+      "min_extrinsics",
+      "min_events",
+    ]) {
+      assert.deepEqual(argType(name), {
+        kind: "SCALAR",
+        name: "Int",
+        ofType: null,
+      });
+    }
+  });
+
   test("blocks: a malformed Postgres-tier body degrades to a schema-stable empty page", async () => {
     const env = {
       METAGRAPH_BLOCKS_SOURCE: "postgres",
