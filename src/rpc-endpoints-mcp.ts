@@ -390,7 +390,8 @@ export const LIST_RPC_ENDPOINTS_MCP_TOOL = {
         oneOf: [
           {
             type: "integer",
-            description: "Pagination cursor from a prior response's next_cursor.",
+            description:
+              "Pagination cursor from a prior response's next_cursor.",
             minimum: 0,
           },
           {
