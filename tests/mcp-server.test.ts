@@ -2923,6 +2923,45 @@ describe("MCP tools (injected deps)", () => {
     assert.equal(rowOut.targets[0].rank, null);
   });
 
+  test("list_enrichment_targets filters by agent_status (#7898)", async () => {
+    const callable = await callTool(
+      "list_enrichment_targets",
+      { agent_status: "callable" },
+      { deps },
+    );
+    const callableOut = callable.body.result.structuredContent;
+    assert.equal(callableOut.returned, 1);
+    assert.equal(callableOut.targets[0].netuid, 7);
+    assert.equal(callableOut.filters.agent_status, "callable");
+
+    const blocked = await callTool(
+      "list_enrichment_targets",
+      { agent_status: "blocked" },
+      { deps },
+    );
+    const blockedOut = blocked.body.result.structuredContent;
+    assert.equal(blockedOut.returned, 1);
+    assert.equal(blockedOut.targets[0].netuid, 31);
+    assert.equal(blockedOut.filters.agent_status, "blocked");
+
+    const none = await callTool(
+      "list_enrichment_targets",
+      { agent_status: "candidate" },
+      { deps },
+    );
+    assert.equal(none.body.result.structuredContent.returned, 0);
+  });
+
+  test("list_enrichment_targets rejects an unsupported agent_status (#7898)", async () => {
+    const res = await callTool(
+      "list_enrichment_targets",
+      { agent_status: "not-a-status" },
+      { deps },
+    );
+    assert.equal(res.body.result.isError, true);
+    assert.match(res.body.result.content[0].text, /agent_status/);
+  });
+
   test("list_enrichment_targets reports missing coverage-depth artifact", async () => {
     const missingDeps = makeDeps({});
     const res = await callTool(

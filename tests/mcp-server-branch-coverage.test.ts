@@ -246,6 +246,14 @@ describe("list_enrichment_targets — row fallback + filter branches", () => {
     );
     assert.equal(wrongSeverity.body.result.structuredContent.returned, 0);
 
+    // agent_status filter mismatches → false on the agent_status arm.
+    const wrongAgentStatus = await callTool(
+      "list_enrichment_targets",
+      { agent_status: "blocked" },
+      { deps },
+    );
+    assert.equal(wrongAgentStatus.body.result.structuredContent.returned, 0);
+
     // Matching tier + severity passes both arms.
     const ok = await callTool(
       "list_enrichment_targets",

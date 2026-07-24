@@ -2343,8 +2343,12 @@ function coverageDepthTarget(row: Row, rank = null) {
   };
 }
 
-function coverageDepthMatches(row: Row, { tier, severity, gapCode }: Row) {
+function coverageDepthMatches(
+  row: Row,
+  { tier, severity, gapCode, agentStatus }: Row,
+) {
   if (tier && row.tier !== tier) return false;
+  if (agentStatus && row.agent_status !== agentStatus) return false;
   if (gapCode && !(row.top_gap_codes || []).includes(gapCode)) return false;
   if (
     severity &&
@@ -10577,6 +10581,12 @@ export const MCP_TOOLS = [
             "Optional stable gap code filter, e.g. missing-fixture or missing-schema.",
           pattern: "^[a-z0-9-]+$",
         },
+        agent_status: {
+          type: "string",
+          enum: QUERY_ENUMS.agentReadinessStatus,
+          description:
+            "Optional agent-readiness filter (callable, base-layer, candidate, needs-evidence, blocked), matching GET /api/v1/coverage-depth.",
+        },
         netuid: {
           type: "integer",
           description:
@@ -10595,6 +10605,11 @@ export const MCP_TOOLS = [
         COVERAGE_DEPTH_SEVERITIES,
       );
       const gapCode = optionalGapCode(args);
+      const agentStatus = optionalEnum(
+        args,
+        "agent_status",
+        QUERY_ENUMS.agentReadinessStatus,
+      );
       const netuid =
         args?.netuid === undefined || args?.netuid === null
           ? null
@@ -10626,10 +10641,16 @@ export const MCP_TOOLS = [
           }))
           .filter((entry: Row) => Number.isInteger(entry.row?.netuid));
       }
-      const filters = { tier, severity, gap_code: gapCode, netuid };
+      const filters = {
+        tier,
+        severity,
+        gap_code: gapCode,
+        agent_status: agentStatus,
+        netuid,
+      };
       const targets = candidates
         .filter(({ row }: Row) =>
-          coverageDepthMatches(row, { tier, severity, gapCode }),
+          coverageDepthMatches(row, { tier, severity, gapCode, agentStatus }),
         )
         .slice(0, limit)
         .map(({ row, rank }: Row) => coverageDepthTarget(row, rank));
