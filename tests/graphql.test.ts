@@ -3527,6 +3527,75 @@ describe("graphql — extrinsics / extrinsic (#5580, Postgres-tier feed)", () =>
     assert.equal(capturedUrl!.searchParams.get("success"), "true");
   });
 
+  test("extrinsics: call_hash, block-range, and time-range filters are forwarded to the Postgres tier (#7872)", async () => {
+    let capturedUrl: URL | undefined;
+    const env = {
+      METAGRAPH_EXTRINSICS_SOURCE: "postgres",
+      DATA_API: {
+        fetch: async (req: Request) => {
+          capturedUrl = new URL(req.url);
+          return Response.json({
+            schema_version: 1,
+            extrinsic_count: 0,
+            limit: 50,
+            offset: 0,
+            next_cursor: null,
+            extrinsics: [],
+          });
+        },
+      },
+    };
+    await gql(
+      `{ extrinsics(
+          call_hash: "0xabc"
+          block_start: 100
+          block_end: 500
+          from: "1750000000000"
+          to: "1760000000000"
+        ) { total } }`,
+      env as unknown as Env,
+    );
+    assert.equal(capturedUrl!.pathname, "/api/v1/extrinsics");
+    assert.equal(capturedUrl!.searchParams.get("call_hash"), "0xabc");
+    assert.equal(capturedUrl!.searchParams.get("block_start"), "100");
+    assert.equal(capturedUrl!.searchParams.get("block_end"), "500");
+    assert.equal(capturedUrl!.searchParams.get("from"), "1750000000000");
+    assert.equal(capturedUrl!.searchParams.get("to"), "1760000000000");
+  });
+
+  test("introspection: extrinsics exposes call_hash/from/to (String) and block_start/block_end (Int) args (#7872)", async () => {
+    const { status, body } = await gql(
+      `{ __type(name: "Query") { fields {
+          name
+          args { name type { kind name ofType { kind name } } }
+        } } }`,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    const extrinsics = body.data.__type.fields.find(
+      (f: Row) => f.name === "extrinsics",
+    );
+    const argType = (name: string) => {
+      const a = extrinsics.args.find((x: Row) => x.name === name);
+      assert.ok(a, `expected a ${name} arg on extrinsics`);
+      return a.type;
+    };
+    for (const name of ["call_hash", "from", "to"]) {
+      assert.deepEqual(argType(name), {
+        kind: "SCALAR",
+        name: "String",
+        ofType: null,
+      });
+    }
+    for (const name of ["block_start", "block_end"]) {
+      assert.deepEqual(argType(name), {
+        kind: "SCALAR",
+        name: "Int",
+        ofType: null,
+      });
+    }
+  });
+
   test("extrinsics: a cursor arg is forwarded as a query param to the Postgres tier", async () => {
     let capturedUrl: URL | undefined;
     const env = {

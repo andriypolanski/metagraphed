@@ -3728,6 +3728,11 @@ const rootValue = {
       call_module: callModule,
       call_function: callFunction,
       success,
+      call_hash: callHash,
+      block_start: blockStart,
+      block_end: blockEnd,
+      from,
+      to,
     }: Row,
     context: GqlContext,
   ) {
@@ -3747,6 +3752,15 @@ const rootValue = {
     if (callModule) params.set("call_module", callModule);
     if (callFunction) params.set("call_function", callFunction);
     if (success != null) params.set("success", String(success));
+    // #7872: mirror list_extrinsics' filter set — call_hash plus block_start/
+    // block_end (inclusive height range) and from/to (observed_at epoch-ms
+    // range), forwarded to the same /api/v1/extrinsics route. from/to are String
+    // args (epoch-ms overflows GraphQL Int's 32 bits), matching account_history.
+    if (callHash) params.set("call_hash", callHash);
+    if (blockStart != null) params.set("block_start", String(blockStart));
+    if (blockEnd != null) params.set("block_end", String(blockEnd));
+    if (from != null) params.set("from", from);
+    if (to != null) params.set("to", to);
     const data =
       ((await tryPostgresTier(
         context.env,
