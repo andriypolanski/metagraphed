@@ -16143,6 +16143,67 @@ describe("MCP parity tools — provider + discovery bundle (artifact-backed)", (
     assert.equal(out.endpoints[0].netuid, 2);
   });
 
+  test("list_endpoints sorts by netuid, honoring order (default asc)", async () => {
+    const deps = endpointsDeps();
+    const asc = (await callTool("list_endpoints", { sort: "netuid" }, { deps }))
+      .body.result.structuredContent;
+    assert.deepEqual(
+      asc.endpoints.map((e: Row) => e.netuid),
+      [7, 7, 12],
+    );
+
+    const desc = (
+      await callTool(
+        "list_endpoints",
+        { sort: "netuid", order: "desc" },
+        { deps },
+      )
+    ).body.result.structuredContent;
+    assert.deepEqual(
+      desc.endpoints.map((e: Row) => e.netuid),
+      [12, 7, 7],
+    );
+  });
+
+  test("list_endpoints projects only the requested fields", async () => {
+    const deps = endpointsDeps();
+    const res = await callTool(
+      "list_endpoints",
+      { netuid: 12, fields: "netuid,provider" },
+      { deps },
+    );
+    const out = res.body.result.structuredContent;
+    assert.equal(out.endpoints.length, 1);
+    assert.deepEqual(Object.keys(out.endpoints[0]).sort(), [
+      "netuid",
+      "provider",
+    ]);
+  });
+
+  test("list_endpoints rejects an unknown sort/order/fields value", async () => {
+    const deps = endpointsDeps();
+    const badSort = await callTool(
+      "list_endpoints",
+      { sort: "not-a-field" },
+      { deps },
+    );
+    assert.equal(badSort.body.result.isError, true);
+
+    const badOrder = await callTool(
+      "list_endpoints",
+      { sort: "netuid", order: "sideways" },
+      { deps },
+    );
+    assert.equal(badOrder.body.result.isError, true);
+
+    const badFields = await callTool(
+      "list_endpoints",
+      { fields: "not_a_column" },
+      { deps },
+    );
+    assert.equal(badFields.body.result.isError, true);
+  });
+
   test("list_evidence returns filtered claim rows", async () => {
     const deps = makeDeps({
       "/metagraph/evidence-ledger.json": {
