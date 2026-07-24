@@ -1112,6 +1112,131 @@ describe("graphql — broadened Subnet + nested relationships", () => {
     assert.equal(reads.has("latest/endpoints.json"), false);
   });
 
+  // #7885: the nested Subnet.surfaces field takes the same filter/sort/page
+  // arguments as GET /api/v1/subnets/{netuid}/surfaces.
+  function nestedSurfacesEnv(reads?: Map<string, number>) {
+    return fixtureEnv(
+      {
+        "/metagraph/subnets/7.json": {
+          subnet: { netuid: 7, name: "Allways", slug: "allways" },
+          surfaces: [
+            { id: "s-a", netuid: 7, kind: "subnet-api", provider: "alpha" },
+            { id: "s-b", netuid: 7, kind: "openapi", provider: "alpha" },
+            { id: "s-c", netuid: 7, kind: "subnet-api", provider: "beta" },
+          ],
+          endpoints: [],
+        },
+      },
+      reads ? { reads } : {},
+    ) as unknown as Env;
+  }
+
+  test("nested Subnet.surfaces filters by kind (#7885)", async () => {
+    const { status, body } = await gql(
+      `{ subnet(netuid: 7) { surfaces(kind: "subnet-api") { id kind } } }`,
+      nestedSurfacesEnv(),
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(
+      body.data.subnet.surfaces.map((s: Row) => s.id),
+      ["s-a", "s-c"],
+    );
+  });
+
+  test("nested Subnet.surfaces filters by provider (#7885)", async () => {
+    const { body } = await gql(
+      `{ subnet(netuid: 7) { surfaces(provider: "alpha") { id provider } } }`,
+      nestedSurfacesEnv(),
+    );
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(
+      body.data.subnet.surfaces.map((s: Row) => s.id),
+      ["s-a", "s-b"],
+    );
+  });
+
+  test("nested Subnet.surfaces combines filters, sorts, and pages (#7885)", async () => {
+    const first = await gql(
+      `{ subnet(netuid: 7) { surfaces(kind: "subnet-api", sort: "id", order: "asc", limit: 1) { id } } }`,
+      nestedSurfacesEnv(),
+    );
+    assert.equal(first.body.errors, undefined);
+    assert.deepEqual(
+      first.body.data.subnet.surfaces.map((s: Row) => s.id),
+      ["s-a"],
+    );
+
+    const second = await gql(
+      `{ subnet(netuid: 7) { surfaces(kind: "subnet-api", sort: "id", order: "asc", limit: 1, cursor: 1) { id } } }`,
+      nestedSurfacesEnv(),
+    );
+    assert.deepEqual(
+      second.body.data.subnet.surfaces.map((s: Row) => s.id),
+      ["s-c"],
+    );
+  });
+
+  test("nested Subnet.surfaces matches an exact id (#7885)", async () => {
+    const { body } = await gql(
+      `{ subnet(netuid: 7) { surfaces(id: "s-b") { id kind } } }`,
+      nestedSurfacesEnv(),
+    );
+    assert.equal(body.errors, undefined);
+    assert.equal(body.data.subnet.surfaces.length, 1);
+    assert.equal(body.data.subnet.surfaces[0].id, "s-b");
+  });
+
+  test("nested Subnet.surfaces returns the full list unchanged with no arguments (#7885)", async () => {
+    const { body } = await gql(
+      "{ subnet(netuid: 7) { surfaces { id } } }",
+      nestedSurfacesEnv(),
+    );
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(
+      body.data.subnet.surfaces.map((s: Row) => s.id),
+      ["s-a", "s-b", "s-c"],
+    );
+  });
+
+  test("nested Subnet.surfaces rejects an unsupported filter or sort (#7885)", async () => {
+    for (const arg of ['kind: "bogus"', 'sort: "not_a_column"']) {
+      const { body } = await gql(
+        `{ subnet(netuid: 7) { surfaces(${arg}) { id } } }`,
+        nestedSurfacesEnv(),
+      );
+      assert.ok(body.errors, `expected a GraphQL error for ${arg}`);
+      assert.equal(body.errors[0].extensions.code, "BAD_USER_INPUT");
+    }
+  });
+
+  test("nested Subnet.surfaces still filters the lazily-loaded list (#7885)", async () => {
+    // A subnet reached through the list has no bundled surfaces -- the thunk
+    // loads them per-netuid. Filtering must apply to that path too, not
+    // collapse it to an empty list.
+    const env = fixtureEnv({
+      "/metagraph/subnets.json": {
+        subnets: [{ netuid: 7, name: "Allways", slug: "allways" }],
+      },
+      "/metagraph/surfaces.json": {
+        surfaces: [
+          { id: "s-a", netuid: 7, kind: "subnet-api", provider: "alpha" },
+          { id: "s-b", netuid: 7, kind: "openapi", provider: "alpha" },
+        ],
+      },
+    });
+    const { body } = await gql(
+      `{ subnets { items { netuid surfaces(kind: "openapi") { id kind } } } }`,
+      env as unknown as Env,
+    );
+    assert.equal(body.errors, undefined);
+    const item = body.data.subnets.items[0];
+    assert.deepEqual(
+      item.surfaces.map((s: Row) => s.id),
+      ["s-b"],
+    );
+  });
+
   test("subnet.health resolves from the live health snapshot by netuid", async () => {
     const env = fixtureEnv(
       {
@@ -1316,6 +1441,134 @@ describe("graphql — surfaces / endpoints / health roots", () => {
       env as unknown as Env,
     );
     assert.equal(second.body.data.endpoints.items[0].id, "e2");
+  });
+
+  test("endpoints applies combined REST filters plus sort/order (#7887)", async () => {
+    const env = fixtureEnv({
+      "/metagraph/endpoints.json": {
+        endpoints: [
+          {
+            id: "a",
+            netuid: 1,
+            kind: "openapi",
+            layer: "subnet-app",
+            status: "ok",
+            latency_ms: 120,
+          },
+          {
+            id: "b",
+            netuid: 1,
+            kind: "openapi",
+            layer: "subnet-app",
+            status: "ok",
+            latency_ms: 40,
+          },
+          {
+            id: "c",
+            netuid: 2,
+            kind: "website",
+            layer: "data-provider",
+            status: "failed",
+            latency_ms: 200,
+          },
+        ],
+      },
+    });
+    const { status, body } = await gql(
+      '{ endpoints(kind: "openapi", layer: "subnet-app", status: "ok", sort: "latency_ms", order: "asc") { items { id latency_ms } total } }',
+      env as unknown as Env,
+    );
+    assert.equal(status, 200);
+    assert.equal(body.errors, undefined);
+    assert.equal(body.data.endpoints.total, 2);
+    assert.deepEqual(
+      body.data.endpoints.items.map((e: Row) => e.id),
+      ["b", "a"],
+    );
+  });
+
+  test("endpoints applies latency/score ranges and pool_eligible (#7887)", async () => {
+    const env = fixtureEnv({
+      "/metagraph/endpoints.json": {
+        endpoints: [
+          { id: "a", latency_ms: 50, score: 80, pool_eligible: true },
+          { id: "b", latency_ms: 500, score: 80, pool_eligible: true },
+          { id: "c", latency_ms: 50, score: 10, pool_eligible: true },
+          { id: "d", latency_ms: 50, score: 80, pool_eligible: false },
+        ],
+      },
+    });
+    const { body } = await gql(
+      "{ endpoints(min_latency_ms: 0, max_latency_ms: 100, min_score: 50, max_score: 100, pool_eligible: true) { items { id } total } }",
+      env as unknown as Env,
+    );
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(
+      body.data.endpoints.items.map((e: Row) => e.id),
+      ["a"],
+    );
+    assert.equal(body.data.endpoints.total, 1);
+  });
+
+  test("endpoints filters by provider and publication_state (#7887)", async () => {
+    const env = fixtureEnv({
+      "/metagraph/endpoints.json": {
+        endpoints: [
+          { id: "a", provider: "prov-x", publication_state: "verified" },
+          { id: "b", provider: "prov-y", publication_state: "verified" },
+          { id: "c", provider: "prov-x", publication_state: "candidate" },
+        ],
+      },
+    });
+    const { body } = await gql(
+      '{ endpoints(provider: "prov-x", publication_state: "verified") { items { id } total } }',
+      env as unknown as Env,
+    );
+    assert.equal(body.errors, undefined);
+    assert.equal(body.data.endpoints.total, 1);
+    assert.equal(body.data.endpoints.items[0].id, "a");
+  });
+
+  test("endpoints projects rows with the fields argument (#7887)", async () => {
+    const env = fixtureEnv({
+      "/metagraph/endpoints.json": {
+        endpoints: [{ id: "a", netuid: 1, status: "ok", kind: "openapi" }],
+      },
+    });
+    const { body } = await gql(
+      '{ endpoints(fields: ["id", "status"]) { items { id status kind } } }',
+      env as unknown as Env,
+    );
+    assert.equal(body.errors, undefined);
+    assert.equal(body.data.endpoints.items[0].id, "a");
+    assert.equal(body.data.endpoints.items[0].status, "ok");
+    // kind was projected out of the row, so it resolves to null.
+    assert.equal(body.data.endpoints.items[0].kind, null);
+  });
+
+  test("endpoints maps an unsupported filter to BAD_USER_INPUT (#7887)", async () => {
+    const env = fixtureEnv({
+      "/metagraph/endpoints.json": {
+        endpoints: [{ id: "a", kind: "openapi" }],
+      },
+    });
+    const { body } = await gql(
+      '{ endpoints(kind: "not-a-kind") { items { id } } }',
+      env as unknown as Env,
+    );
+    assert.ok(body.errors, "expected a GraphQL error for an invalid filter");
+    assert.equal(body.errors[0].extensions.code, "BAD_USER_INPUT");
+  });
+
+  test("endpoints degrades to an empty list on a cold artifact (#7887)", async () => {
+    const { body } = await gql(
+      '{ endpoints(kind: "openapi") { items { id } total next_cursor } }',
+      emptyEnv as unknown as Env,
+    );
+    assert.equal(body.errors, undefined);
+    assert.deepEqual(body.data.endpoints.items, []);
+    assert.equal(body.data.endpoints.total, 0);
+    assert.equal(body.data.endpoints.next_cursor, null);
   });
 
   test("health lifts the live rollup and exposes per-subnet summaries", async () => {
@@ -8798,69 +9051,95 @@ describe("graphql — agent_resources (#6987, baked AI-resources index)", () => 
 
 describe("graphql — candidates / fixtures / agent_catalog / freshness / top_holders (#6991)", () => {
   const CANDIDATES = {
+    generated_at: "2026-07-01T00:00:00.000Z",
     candidates: [
-      { id: "c1", netuid: 1, kind: "docs", provider: "acme", state: "new" },
-      { id: "c2", netuid: 2, kind: "api", provider: "beta", state: "verified" },
+      {
+        id: "c1",
+        netuid: 1,
+        kind: "docs",
+        provider: "acme",
+        state: "schema-valid",
+        confidence: "low",
+      },
+      {
+        id: "c2",
+        netuid: 2,
+        kind: "openapi",
+        provider: "beta",
+        state: "verified",
+        confidence: "high",
+      },
     ],
   };
 
-  test("candidates resolves the ledger with total and next_cursor", async () => {
+  test("candidates resolves the ledger with the REST pagination envelope", async () => {
     const env = fixtureEnv({ "/metagraph/candidates.json": CANDIDATES });
     const { status, body } = await gql("{ candidates }", env);
     assert.equal(status, 200);
     assert.equal(body.errors, undefined);
     assert.equal(body.data.candidates.total, 2);
-    assert.equal(body.data.candidates.items.length, 2);
+    assert.equal(body.data.candidates.candidates.length, 2);
+    assert.equal(body.data.candidates.generated_at, "2026-07-01T00:00:00.000Z");
   });
 
   test("candidates applies the netuid/kind/provider/state filters", async () => {
     const env = fixtureEnv({ "/metagraph/candidates.json": CANDIDATES });
     const { body } = await gql(
-      '{ candidates(netuid: 2, kind: "api", provider: "beta", state: "verified") }',
+      '{ candidates(netuid: 2, kind: "openapi", provider: "beta", state: "verified") }',
       env as unknown as Env,
     );
     assert.equal(body.errors, undefined);
     assert.equal(body.data.candidates.total, 1);
-    assert.equal(body.data.candidates.items[0].id, "c2");
+    assert.equal(body.data.candidates.candidates[0].id, "c2");
   });
 
-  test("candidates keys the cursor off `key` when a row has no id", async () => {
-    const env = fixtureEnv({
-      "/metagraph/candidates.json": {
-        candidates: [
-          {
-            key: "k1",
-            netuid: 1,
-            kind: "docs",
-            provider: "acme",
-            state: "new",
-          },
-          { key: "k2", netuid: 2, kind: "api", provider: "beta", state: "new" },
-        ],
-      },
-    });
-    const { body } = await gql("{ candidates(limit: 1) }", env);
+  test("candidates filters by id (#7871)", async () => {
+    const env = fixtureEnv({ "/metagraph/candidates.json": CANDIDATES });
+    const { body } = await gql('{ candidates(id: "c1") }', env);
     assert.equal(body.errors, undefined);
-    assert.equal(body.data.candidates.next_cursor, "k1");
+    assert.equal(body.data.candidates.total, 1);
+    assert.equal(body.data.candidates.candidates[0].id, "c1");
+  });
+
+  test("candidates filters by confidence (#7871)", async () => {
+    const env = fixtureEnv({ "/metagraph/candidates.json": CANDIDATES });
+    const { body } = await gql('{ candidates(confidence: "high") }', env);
+    assert.equal(body.errors, undefined);
+    assert.equal(body.data.candidates.total, 1);
+    assert.equal(body.data.candidates.candidates[0].id, "c2");
+  });
+
+  test("candidates sorts with sort + order (#7871)", async () => {
+    const env = fixtureEnv({ "/metagraph/candidates.json": CANDIDATES });
+    const { body } = await gql(
+      '{ candidates(sort: "netuid", order: "desc") }',
+      env,
+    );
+    assert.equal(body.errors, undefined);
+    assert.equal(body.data.candidates.candidates[0].id, "c2");
+    assert.equal(body.data.candidates.candidates[1].id, "c1");
   });
 
   test("candidates pages with limit and hands back a next_cursor", async () => {
     const env = fixtureEnv({ "/metagraph/candidates.json": CANDIDATES });
     const { body } = await gql("{ candidates(limit: 1) }", env);
     assert.equal(body.errors, undefined);
-    assert.equal(body.data.candidates.items.length, 1);
+    assert.equal(body.data.candidates.candidates.length, 1);
     assert.equal(body.data.candidates.total, 2);
-    assert.equal(body.data.candidates.next_cursor, "c1");
+    assert.equal(body.data.candidates.returned, 1);
+    assert.ok(body.data.candidates.next_cursor != null);
   });
 
-  test("candidates resolves an empty ledger when the artifact is cold", async () => {
-    const { body } = await gql("{ candidates }");
-    assert.equal(body.errors, undefined);
-    assert.deepEqual(body.data.candidates, {
-      items: [],
-      total: 0,
-      next_cursor: null,
-    });
+  test("candidates surfaces an invalid sort as a GraphQL error (#7871)", async () => {
+    const env = fixtureEnv({ "/metagraph/candidates.json": CANDIDATES });
+    const { body } = await gql('{ candidates(sort: "bogus") }', env);
+    assert.ok(body.errors?.length);
+  });
+
+  test("candidates surfaces a cold/missing artifact as a GraphQL error", async () => {
+    const { body } = await gql("{ candidates }", emptyEnv);
+    assert.ok(body.errors?.length);
+    assert.equal(body.data.candidates, null);
   });
 
   test("fixtures resolves the baked fixture index", async () => {

@@ -1,5 +1,6 @@
 import {
   GraphQLError,
+  type GraphQLObjectType,
   buildSchema,
   execute,
   parse,
@@ -66,6 +67,10 @@ import { loadProvidersList } from "./providers-mcp.ts";
 // reusing each list_* MCP loader unchanged (same artifact read, filter, sort,
 // and page logic REST and MCP already use) -- not a reimplementation.
 import { loadAdapterCandidatesList } from "./adapter-candidates-mcp.ts";
+// #7871: GraphQL parity for GET /api/v1/candidates' id/confidence/sort/order
+// filters, reusing loadCandidatesList that MCP list_candidates already calls --
+// not a reimplementation.
+import { loadCandidatesList } from "./candidates-mcp.ts";
 import { loadEnrichmentEvidenceList } from "./enrichment-evidence-mcp.ts";
 import { loadEnrichmentQueueList } from "./enrichment-queue-mcp.ts";
 import { loadReviewEnrichmentTargetsList } from "./review-enrichment-targets-mcp.ts";
@@ -568,6 +573,55 @@ export const schema = buildSchema(SDL);
 // that also needs subscriptions. context.chainFirehose is supplied by
 // whichever Durable Object drives the graphql-ws server (workers/chain-firehose-hub.mjs)
 // -- see GRAPHQL_SUBSCRIPTION_CONTEXT_KEY below.
+// #7885: the nested Subnet.surfaces field takes the same filter/sort/page
+// arguments as GET /api/v1/subnets/{netuid}/surfaces. A nested field needs an
+// explicit resolve to see its own args (the default field resolver ignores
+// them and just reads the parent property), attached here the same way the
+// subscription's `subscribe` is below -- buildSchema carries no resolver map.
+// The query itself runs through applyQueryFilters against the same
+// curated-surfaces collection the REST route uses, so the allowlists cannot
+// drift; with no arguments the parent's surfaces pass through untouched.
+const SUBNET_SURFACES_FILTER_NAMES = ["kind", "provider", "id"];
+(schema.getType("Subnet") as GraphQLObjectType).getFields().surfaces.resolve =
+  async function subnetSurfaces(
+    parent: Row,
+    args: Row,
+    context: GqlContext,
+    info: unknown,
+  ) {
+    // subnetNode -- the only producer of Subnet objects -- always exposes
+    // `surfaces` as a thunk (bundled rows via `() => rows ?? []`, or a lazy
+    // per-netuid artifact load), which the default field resolver would have
+    // invoked. Do the same here so adding arguments does not turn the lazy path
+    // into an empty list.
+    const surfaces = (await parent.surfaces(args, context, info)) as Row[];
+    const queryUrl = new URL("https://graphql.internal/subnets/surfaces");
+    for (const [name, value] of [
+      ["kind", args?.kind],
+      ["provider", args?.provider],
+      ["id", args?.id],
+      ["sort", args?.sort],
+      ["order", args?.order],
+      ["limit", args?.limit],
+      ["cursor", args?.cursor],
+    ] as const) {
+      if (value != null) queryUrl.searchParams.set(name, String(value));
+    }
+    if ([...queryUrl.searchParams].length === 0) return surfaces;
+    const transformed = applyQueryFilters(
+      { surfaces },
+      queryUrl,
+      "curated-surfaces",
+      SUBNET_SURFACES_FILTER_NAMES,
+    );
+    if (transformed.error) {
+      throw new GraphQLError(transformed.error.message, {
+        extensions: { code: "BAD_USER_INPUT" },
+      });
+    }
+    return (transformed.data as Row).surfaces;
+  };
+
 export const GRAPHQL_SUBSCRIPTION_CONTEXT_KEY = "chainFirehose";
 schema.getSubscriptionType()!.getFields().chainEvents.subscribe =
   async function* chainEventsSubscribe(
@@ -1459,6 +1513,67 @@ async function listPage(
   };
 }
 
+// #7887: full REST filter parity for the root `endpoints` field, mirroring
+// the sibling rpc_endpoints (#7886)/endpoint_pools/rpc_pools fields. The baked
+// endpoints collection is filtered/sorted/projected by applyQueryFilters over
+// the very same "endpoints" query-collection config the REST route (GET
+// /api/v1/endpoints) and the list_endpoints MCP tool use -- kind/layer/
+// provider/publication_state/status/pool_eligible, the min_/max_latency_ms and
+// min_/max_score ranges, sort/order, and the fields projection -- so the
+// GraphQL filter allowlist cannot drift from REST. Only the filter/sort/
+// projection params are handed to applyQueryFilters (never limit/cursor): with
+// neither present it returns the full matching set unpaged, and the existing
+// keyFn string-cursor paginate() below then owns paging, preserving
+// EndpointList's items/total/next_cursor shape and its backward-compatible
+// String cursor unchanged. An unsupported filter/sort surfaces as a
+// BAD_USER_INPUT GraphQL error, matching endpoint_pools/rpc_pools/rpc_endpoints
+// "not a silently substituted default" convention.
+function endpointsListQueryUrl(args: Row): URL {
+  const url = new URL("https://graphql.internal/endpoints");
+  const set = (key: string, value: unknown) => {
+    if (value !== undefined) url.searchParams.set(key, String(value));
+  };
+  set("netuid", args.netuid);
+  set("kind", args.kind);
+  set("layer", args.layer);
+  set("provider", args.provider);
+  set("publication_state", args.publication_state);
+  set("status", args.status);
+  set("pool_eligible", args.pool_eligible);
+  set("min_latency_ms", args.min_latency_ms);
+  set("max_latency_ms", args.max_latency_ms);
+  set("min_score", args.min_score);
+  set("max_score", args.max_score);
+  set("sort", args.sort);
+  set("order", args.order);
+  set("fields", args.fields);
+  return url;
+}
+
+async function loadEndpointsPage(context: GqlContext, args: Row) {
+  const blob = await loadArtifact(context, ARTIFACT.endpoints);
+  const rows = Array.isArray(blob?.endpoints) ? (blob.endpoints as Row[]) : [];
+  const transformed = applyQueryFilters(
+    { endpoints: rows },
+    endpointsListQueryUrl(args),
+    "endpoints",
+    [],
+  );
+  if (transformed.error) {
+    throw new GraphQLError(transformed.error.message, {
+      extensions: { code: "BAD_USER_INPUT" },
+    });
+  }
+  const filtered = (transformed.data as Row).endpoints as Row[];
+  const { page, total, nextCursor } = paginate(
+    filtered,
+    args.limit,
+    args.cursor,
+    (e: Row) => e.id ?? e.surface_id,
+  );
+  return { items: page, total, next_cursor: nextCursor };
+}
+
 // readArtifact's static-asset tier resolves the path through a URL parser that
 // collapses "../", so an unvalidated provider id could escape the providers/
 // namespace. Constrain it to the safe slug charset the other id-bearing artifact
@@ -1684,26 +1799,13 @@ const rootValue = {
   // #6991: five registry-meta routes that had an MCP tool but no GraphQL
   // field. Each reads the same baked artifact (and applies the same overlay /
   // builder) its MCP tool does, so REST, MCP, and GraphQL can't drift.
-  async candidates(
-    { netuid, kind, provider, state, limit, cursor }: Row,
-    context: GqlContext,
-  ) {
-    const data = await loadArtifact(context, "/metagraph/candidates.json");
-    const all = Array.isArray(data?.candidates) ? data.candidates : [];
-    const filtered = all.filter(
-      (c: Row) =>
-        (netuid == null || c.netuid === netuid) &&
-        (kind == null || c.kind === kind) &&
-        (provider == null || c.provider === provider) &&
-        (state == null || c.state === state),
-    );
-    const { page, total, nextCursor } = paginate(
-      filtered,
-      limit,
-      cursor,
-      (c: Row) => c.id ?? c.key,
-    );
-    return { items: page, total, next_cursor: nextCursor };
+  // #7871: reuse list_candidates' own loader unchanged so REST, MCP, and
+  // GraphQL share one filter/sort/page contract -- id/confidence/sort/order now
+  // included, matching GET /api/v1/candidates. An invalid filter/sort value or a
+  // cold/absent artifact throws, becoming a GraphQL error (matching the sibling
+  // gaps / subnet_candidates convention), rather than a silent default.
+  candidates(args: Row, context: GqlContext) {
+    return loadCandidatesList(mcpCtx(context), args, { readArtifact });
   },
 
   fixtures(_args: unknown, context: GqlContext) {
@@ -2833,13 +2935,8 @@ const rootValue = {
     });
   },
 
-  endpoints({ netuid, limit, cursor }: Row, context: GqlContext) {
-    return listPage(context, ARTIFACT.endpoints, "endpoints", {
-      limit,
-      cursor,
-      netuid,
-      keyFn: (e: Row) => e.id ?? e.surface_id,
-    });
+  endpoints(args: Row, context: GqlContext) {
+    return loadEndpointsPage(context, args);
   },
 
   // #7868: reuse list_provider_endpoints' own loader unchanged (provider-

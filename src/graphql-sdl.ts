@@ -79,14 +79,18 @@ export const SDL = /* GraphQL */ `
     agent_resources: JSON
     "Curation states by subnet — each subnet's registry curation level and review state. Null when the artifact has not been baked. Opaque JSON passed through verbatim, matching the list_curation MCP/REST shape. Mirrors GET /api/v1/curation."
     curation: JSON
-    "The discovered candidate-surface ledger: every machine-discovered surface awaiting review, with its subnet (netuid), kind, provider, and review state. Filter by netuid/kind/provider/state and page with limit/cursor, exactly like the REST route. Resolves to {items,total,next_cursor} as opaque JSON. Mirrors GET /api/v1/candidates."
+    "The discovered candidate-surface ledger: every machine-discovered surface awaiting review, with its subnet (netuid), kind, provider, and review state. Filter by netuid/kind/provider/state/id/confidence, sort with sort + order, and page with limit (1-1000) / cursor, exactly like the REST route — an unsupported filter/sort value is a GraphQL error, not a silently substituted default. The envelope carries the same pagination meta REST returns (total, returned, limit, cursor, next_cursor, sort, order) alongside the candidates rows, as opaque JSON. A cold/absent artifact is a GraphQL error (matching REST/MCP not_found). Mirrors GET /api/v1/candidates."
     candidates(
       netuid: Int
       kind: String
       provider: String
       state: String
+      id: String
+      confidence: String
+      sort: String
+      order: String
       limit: Int
-      cursor: String
+      cursor: Int
     ): JSON
     "Run one maintainer-curated saved-query template by id, with its template-defined params object -- the same parameterized query library REST and the run_saved_query MCP tool execute. Resolves to {query_id, params, data} as opaque JSON. An unknown id or invalid params is a BAD_USER_INPUT error listing the valid template ids, not a silently substituted default. Mirrors GET /api/v1/queries/{id}."
     saved_query(id: String!, params: JSON): JSON
@@ -251,8 +255,25 @@ export const SDL = /* GraphQL */ `
     economics(limit: Int, cursor: String): EconomicsList!
     "Curated public interface surfaces, optionally scoped to one subnet."
     surfaces(netuid: Int, limit: Int, cursor: String): SurfaceList!
-    "Endpoint/resource registry, optionally scoped to one subnet."
-    endpoints(netuid: Int, limit: Int, cursor: String): EndpointList!
+    "Endpoint/resource registry with full REST filter parity: optionally scope to one subnet (netuid) and filter by kind/layer/provider/publication_state/status/pool_eligible, threshold with min_/max_latency_ms and min_/max_score, project with fields, sort with sort/order, and page with limit/cursor. An invalid filter/sort is a GraphQL error (matching endpoint_pools/rpc_pools/rpc_endpoints), not a silently substituted default. Mirrors GET /api/v1/endpoints."
+    endpoints(
+      netuid: Int
+      kind: String
+      layer: String
+      provider: String
+      publication_state: String
+      status: String
+      pool_eligible: Boolean
+      min_latency_ms: Int
+      max_latency_ms: Int
+      min_score: Float
+      max_score: Float
+      sort: String
+      order: String
+      fields: [String!]
+      limit: Int
+      cursor: String
+    ): EndpointList!
     "One provider's endpoint rows with full REST filter parity: filter by kind/layer/publication_state/status, latency and score ranges, sort + order, and page with limit/cursor. Composed live from the baked /metagraph/providers/{slug}/endpoints.json artifact. An unsupported filter/sort or an unknown provider is a GraphQL error (matching REST/MCP), not a silently substituted default. Opaque JSON passed through verbatim, matching the list_provider_endpoints MCP/REST shape. Mirrors GET /api/v1/providers/{slug}/endpoints."
     provider_endpoints(
       slug: String!
@@ -854,8 +875,16 @@ export const SDL = /* GraphQL */ `
     health: SubnetHealth
     "Per-subnet economic + validator metrics."
     economics: SubnetEconomics
-    "Curated public interface surfaces of this subnet."
-    surfaces: [Surface!]!
+    "Curated public interface surfaces of this subnet. Filter with kind, provider, and id; sort with sort + order; and page with limit / cursor, exactly as GET /api/v1/subnets/{netuid}/surfaces does -- an unsupported filter/sort value is a GraphQL error, not a silently substituted default. With no arguments the full list is returned unchanged."
+    surfaces(
+      kind: String
+      provider: String
+      id: String
+      sort: String
+      order: String
+      limit: Int
+      cursor: Int
+    ): [Surface!]!
     "Endpoint/resource registry rows for this subnet."
     endpoints: [Endpoint!]!
   }

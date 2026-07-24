@@ -2434,7 +2434,7 @@ export type Query = {
   blocks_summary: BlocksSummary;
   /** The generated build summary: artifact inventory counts and sizes, subnet/provider/surface totals, coverage rollup, and publish metadata. Resolves to a GraphQL error (not null) when the build-summary artifact has not been baked in this environment, matching the REST route's 404 and the get_build MCP tool. Mirrors GET /api/v1/build. */
   build: BuildSummary;
-  /** The discovered candidate-surface ledger: every machine-discovered surface awaiting review, with its subnet (netuid), kind, provider, and review state. Filter by netuid/kind/provider/state and page with limit/cursor, exactly like the REST route. Resolves to {items,total,next_cursor} as opaque JSON. Mirrors GET /api/v1/candidates. */
+  /** The discovered candidate-surface ledger: every machine-discovered surface awaiting review, with its subnet (netuid), kind, provider, and review state. Filter by netuid/kind/provider/state/id/confidence, sort with sort + order, and page with limit (1-1000) / cursor, exactly like the REST route — an unsupported filter/sort value is a GraphQL error, not a silently substituted default. The envelope carries the same pagination meta REST returns (total, returned, limit, cursor, next_cursor, sort, order) alongside the candidates rows, as opaque JSON. A cold/absent artifact is a GraphQL error (matching REST/MCP not_found). Mirrors GET /api/v1/candidates. */
   candidates?: Maybe<Scalars['JSON']['output']>;
   /** Per-UTC-day network activity series over a 7d/30d window (default 7d): each UTC day's block count, extrinsic count (with its successful-extrinsic count and success rate), on-chain event count, and distinct signer count, newest day first. Computed live from the extrinsics/blocks tiers; a cold store yields a schema-stable empty series, never a GraphQL error. Mirrors GET /api/v1/chain/activity. */
   chain_activity: ChainActivity;
@@ -2512,7 +2512,7 @@ export type Query = {
   endpoint_incidents: IncidentList;
   /** Generalized endpoint pool scores -- each pool's kind, eligible/total endpoint count, and probe-derived routing score. Filter by id/kind, threshold with min_/max_eligible_count and min_/max_endpoint_count, sort with sort/order, and page with limit (1-100)/cursor. An invalid filter/sort/limit/cursor is a GraphQL error, not a silently substituted default. Mirrors GET /api/v1/endpoint-pools. */
   endpoint_pools: PoolList;
-  /** Endpoint/resource registry, optionally scoped to one subnet. */
+  /** Endpoint/resource registry with full REST filter parity: optionally scope to one subnet (netuid) and filter by kind/layer/provider/publication_state/status/pool_eligible, threshold with min_/max_latency_ms and min_/max_score, project with fields, sort with sort/order, and page with limit/cursor. An invalid filter/sort is a GraphQL error (matching endpoint_pools/rpc_pools/rpc_endpoints), not a silently substituted default. Mirrors GET /api/v1/endpoints. */
   endpoints: EndpointList;
   /** Network-wide public evidence ledger -- the append-only provenance record behind registry surfaces. Search with q across subject/claim/source_url/support_summary, sort with sort/order, project with fields, and page with limit (1-100)/cursor. An invalid sort/limit/cursor is a GraphQL error, not a silently substituted default. Distinct from subnet_evidence(netuid) (one subnet's claims). Mirrors GET /api/v1/evidence. */
   evidence: EvidenceList;
@@ -2940,11 +2940,15 @@ export type QueryBlocksArgs = {
 
 
 export type QueryCandidatesArgs = {
-  cursor?: InputMaybe<Scalars['String']['input']>;
+  confidence?: InputMaybe<Scalars['String']['input']>;
+  cursor?: InputMaybe<Scalars['Int']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
   kind?: InputMaybe<Scalars['String']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
   netuid?: InputMaybe<Scalars['Int']['input']>;
+  order?: InputMaybe<Scalars['String']['input']>;
   provider?: InputMaybe<Scalars['String']['input']>;
+  sort?: InputMaybe<Scalars['String']['input']>;
   state?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -3142,8 +3146,21 @@ export type QueryEndpoint_PoolsArgs = {
 
 export type QueryEndpointsArgs = {
   cursor?: InputMaybe<Scalars['String']['input']>;
+  fields?: InputMaybe<Array<Scalars['String']['input']>>;
+  kind?: InputMaybe<Scalars['String']['input']>;
+  layer?: InputMaybe<Scalars['String']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
+  max_latency_ms?: InputMaybe<Scalars['Int']['input']>;
+  max_score?: InputMaybe<Scalars['Float']['input']>;
+  min_latency_ms?: InputMaybe<Scalars['Int']['input']>;
+  min_score?: InputMaybe<Scalars['Float']['input']>;
   netuid?: InputMaybe<Scalars['Int']['input']>;
+  order?: InputMaybe<Scalars['String']['input']>;
+  pool_eligible?: InputMaybe<Scalars['Boolean']['input']>;
+  provider?: InputMaybe<Scalars['String']['input']>;
+  publication_state?: InputMaybe<Scalars['String']['input']>;
+  sort?: InputMaybe<Scalars['String']['input']>;
+  status?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -4151,10 +4168,21 @@ export type Subnet = {
   status?: Maybe<Scalars['String']['output']>;
   subnet_type?: Maybe<Scalars['String']['output']>;
   surface_count?: Maybe<Scalars['Int']['output']>;
-  /** Curated public interface surfaces of this subnet. */
+  /** Curated public interface surfaces of this subnet. Filter with kind, provider, and id; sort with sort + order; and page with limit / cursor, exactly as GET /api/v1/subnets/{netuid}/surfaces does -- an unsupported filter/sort value is a GraphQL error, not a silently substituted default. With no arguments the full list is returned unchanged. */
   surfaces: Array<Surface>;
   symbol?: Maybe<Scalars['String']['output']>;
   website_url?: Maybe<Scalars['String']['output']>;
+};
+
+
+export type SubnetSurfacesArgs = {
+  cursor?: InputMaybe<Scalars['Int']['input']>;
+  id?: InputMaybe<Scalars['String']['input']>;
+  kind?: InputMaybe<Scalars['String']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  order?: InputMaybe<Scalars['String']['input']>;
+  provider?: InputMaybe<Scalars['String']['input']>;
+  sort?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type SubnetAxonRemovals = {
@@ -8108,7 +8136,7 @@ export type SubnetResolvers<ContextType = GqlContext, ParentType extends Resolve
   status?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   subnet_type?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   surface_count?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  surfaces?: Resolver<Array<ResolversTypes['Surface']>, ParentType, ContextType>;
+  surfaces?: Resolver<Array<ResolversTypes['Surface']>, ParentType, ContextType, Partial<SubnetSurfacesArgs>>;
   symbol?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   website_url?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 }>;
