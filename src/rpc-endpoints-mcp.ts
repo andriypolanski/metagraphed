@@ -1,9 +1,12 @@
-// RPC endpoint catalog loader for GraphQL/REST parity on GET /api/v1/rpc/endpoints.
+// RPC endpoint list loader for MCP parity on GET /api/v1/rpc/endpoints (#7893).
 // Applies the same list-query transforms as the REST route over the baked
 // /metagraph/rpc-endpoints.json artifact, after the live 15-minute cron overlay
-// (mergeRpcEndpoints) — same order REST's liveHealthOverlay -> applyQueryFilters
-// pipeline uses. Structurally mirrors provider-endpoints-mcp.ts (endpoints
-// collection filters) and rpc-pools-mcp.ts (live overlay before filter).
+// (mergeRpcEndpoints) — same order REST's liveHealthOverlay ->
+// applyQueryFilters pipeline uses for the "rpc-endpoints" route id, so a
+// filter like status or min_/max_latency_ms reads live health, not a stale
+// baked value. GraphQL rpc_endpoints (#7966) shares this loader. Structurally
+// mirrors provider-endpoints-mcp.ts (endpoints collection filters) and
+// rpc-pools-mcp.ts (live overlay before filter).
 
 import { applyQueryFilters, type Row } from "../workers/list-query.ts";
 import type { StorageReadResult } from "../workers/storage.ts";
@@ -293,3 +296,139 @@ export async function loadRpcEndpointsList(
     order: page.order ?? null,
   };
 }
+
+export const LIST_RPC_ENDPOINTS_MCP_TOOL = {
+  name: "list_rpc_endpoints",
+  title: "List Bittensor RPC endpoints",
+  description:
+    "Fetch the catalog of monitored Bittensor base-layer RPC endpoints and " +
+    "their status (each endpoint's URL, network, and probe-derived " +
+    "health/latency). Filter by kind/layer/netuid/provider/" +
+    "publication_state/status/pool_eligible, threshold with min_/" +
+    "max_latency_ms and min_/max_score, sort with sort + order, and page " +
+    "with limit / cursor. This is the full-catalog view; use " +
+    "get_best_rpc_endpoint instead to pick one live-healthy endpoint. " +
+    "Mirrors GET /api/v1/rpc/endpoints.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      kind: {
+        type: "string",
+        enum: SURFACE_KINDS,
+        description: "Surface kind, e.g. 'subtensor-rpc' or 'subtensor-wss'.",
+      },
+      layer: {
+        type: "string",
+        enum: ENDPOINT_LAYERS,
+        description: "Endpoint layer, e.g. 'bittensor-base'.",
+      },
+      netuid: { type: "integer", description: "Subnet netuid.", minimum: 0 },
+      provider: {
+        type: "string",
+        description: "Provider slug, e.g. 'opentensor'.",
+      },
+      publication_state: {
+        type: "string",
+        enum: PUBLICATION_STATES,
+        description: "Filter by publication state.",
+      },
+      status: {
+        type: "string",
+        enum: HEALTH_STATUSES,
+        description: "Filter by probe-derived health status.",
+      },
+      pool_eligible: {
+        type: "boolean",
+        description: "Only endpoints eligible (or not) for RPC pooling.",
+      },
+      min_latency_ms: {
+        type: "number",
+        description: "Keep endpoints with latency_ms >= this bound.",
+      },
+      max_latency_ms: {
+        type: "number",
+        description: "Keep endpoints with latency_ms <= this bound.",
+      },
+      min_score: {
+        type: "number",
+        description: "Keep endpoints with score >= this bound.",
+      },
+      max_score: {
+        type: "number",
+        description: "Keep endpoints with score <= this bound.",
+      },
+      sort: {
+        type: "string",
+        enum: ENDPOINT_SORT_FIELDS,
+        description: "Field to sort by before paging.",
+      },
+      order: {
+        type: "string",
+        enum: ["asc", "desc"],
+        description: "Sort direction for sort (default asc).",
+      },
+      fields: {
+        oneOf: [
+          {
+            type: "string",
+            description:
+              "Comma-separated projection of endpoint row fields to return.",
+          },
+          {
+            type: "array",
+            items: { type: "string" },
+            description: "Field names to return.",
+          },
+        ],
+      },
+      limit: {
+        type: "integer",
+        description: "Max rows to return (clamped to REST parity).",
+        minimum: 1,
+      },
+      cursor: {
+        oneOf: [
+          {
+            type: "integer",
+            description:
+              "Pagination cursor from a prior response's next_cursor.",
+            minimum: 0,
+          },
+          {
+            type: "string",
+            description: "String-form pagination cursor.",
+          },
+        ],
+      },
+    },
+    additionalProperties: false,
+  },
+};
+
+const NULLABLE_STRING = { type: ["string", "null"] };
+const NULLABLE_INT = { type: ["integer", "null"] };
+
+export const LIST_RPC_ENDPOINTS_OUTPUT_SCHEMA = {
+  type: "object",
+  additionalProperties: true,
+  required: ["endpoints"],
+  properties: {
+    generated_at: NULLABLE_STRING,
+    notes: {
+      type: ["array", "string", "null"],
+      items: { type: "string" },
+    },
+    schema_version: NULLABLE_INT,
+    summary: { type: ["object", "null"] },
+    source: NULLABLE_STRING,
+    operational_observed_at: NULLABLE_STRING,
+    endpoints: { type: "array", items: { type: "object" } },
+    total: { type: "integer" },
+    returned: { type: "integer" },
+    limit: { type: "integer" },
+    cursor: { type: "integer" },
+    next_cursor: NULLABLE_INT,
+    sort: NULLABLE_STRING,
+    order: NULLABLE_STRING,
+  },
+};

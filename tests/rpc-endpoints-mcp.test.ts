@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import { describe, test, vi } from "vitest";
+import { Ajv2020 } from "ajv/dist/2020.js";
 import * as listQuery from "../workers/list-query.ts";
 import {
   RPC_ENDPOINTS_ARTIFACT,
+  LIST_RPC_ENDPOINTS_MCP_TOOL,
+  LIST_RPC_ENDPOINTS_OUTPUT_SCHEMA,
   loadRpcEndpointsList,
   rpcEndpointsMcpError,
   rpcEndpointsQueryUrl,
 } from "../src/rpc-endpoints-mcp.ts";
 import type { Row } from "./row-type.ts";
+import { MCP_TOOLS } from "../src/mcp-server.ts";
 
 type Ctx = Parameters<typeof loadRpcEndpointsList>[0];
 type Deps = Parameters<typeof loadRpcEndpointsList>[2];
@@ -64,7 +68,7 @@ function readArtifact(_env: unknown, path: string) {
   return Promise.resolve({ ok: false, code: "artifact_not_found" });
 }
 
-describe("rpc-endpoints-mcp (#7886)", () => {
+describe("rpc-endpoints-mcp (#7886, #7893)", () => {
   test("rpcEndpointsMcpError is shaped for toolError handling", () => {
     const err = rpcEndpointsMcpError("invalid_params", "bad sort");
     assert.equal(err.code, "invalid_params");
@@ -142,6 +146,10 @@ describe("rpc-endpoints-mcp (#7886)", () => {
       (err: Row) => err.code === "invalid_params",
     );
     assert.throws(
+      () => rpcEndpointsQueryUrl({ netuid: 1.5 }),
+      (err: Row) => err.code === "invalid_params",
+    );
+    assert.throws(
       () => rpcEndpointsQueryUrl({ pool_eligible: "yes" }),
       (err: Row) => err.code === "invalid_params",
     );
@@ -188,6 +196,23 @@ describe("rpc-endpoints-mcp (#7886)", () => {
     assert.equal(out.order, "asc");
   });
 
+  test("loadRpcEndpointsList combines provider + range filters + sort/order", async () => {
+    const out = await loadRpcEndpointsList(
+      { env: {}, readArtifact } as unknown as Ctx,
+      {
+        provider: "opentensor",
+        min_latency_ms: 40,
+        sort: "latency_ms",
+        order: "desc",
+      },
+    );
+    assert.equal(out.returned, 2);
+    assert.deepEqual(
+      out.endpoints.map((e) => e.id),
+      ["finney-wss", "finney-rpc"],
+    );
+  });
+
   test("loadRpcEndpointsList applies the live overlay before filtering", async () => {
     const out = await loadRpcEndpointsList(
       {
@@ -225,6 +250,24 @@ describe("rpc-endpoints-mcp (#7886)", () => {
     );
     assert.equal(out.source, null);
     assert.equal(out.endpoints.length, 3);
+  });
+
+  test("loadRpcEndpointsList falls back to the static artifact when no live pool is present", async () => {
+    const out = await loadRpcEndpointsList(
+      {
+        env: {},
+        readArtifact: async (_env: unknown, path: string) =>
+          path === RPC_ENDPOINTS_ARTIFACT
+            ? {
+                ok: true,
+                data: { ...SAMPLE_BLOB, source: "static-build" },
+              }
+            : { ok: false, code: "artifact_not_found" },
+      } as unknown as Ctx,
+      {},
+    );
+    assert.equal(out.source, "static-build");
+    assert.equal(out.returned, 3);
   });
 
   test("loadRpcEndpointsList uses an injected readArtifact dep", async () => {
@@ -318,6 +361,17 @@ describe("rpc-endpoints-mcp (#7886)", () => {
     );
   });
 
+  test("loadRpcEndpointsList rejects contradictory range bounds", async () => {
+    await assert.rejects(
+      () =>
+        loadRpcEndpointsList({ env: {}, readArtifact } as unknown as Ctx, {
+          min_latency_ms: 900,
+          max_latency_ms: 100,
+        }),
+      (err: Row) => err.code === "invalid_params",
+    );
+  });
+
   test("loadRpcEndpointsList falls back when pagination meta is absent", async () => {
     const spy = vi.spyOn(listQuery, "applyQueryFilters").mockReturnValue({
       data: {
@@ -332,8 +386,11 @@ describe("rpc-endpoints-mcp (#7886)", () => {
       );
       assert.equal(out.total, 2);
       assert.equal(out.returned, 2);
+      assert.equal(out.limit, 2);
       assert.equal(out.cursor, 0);
       assert.equal(out.next_cursor, null);
+      assert.equal(out.sort, null);
+      assert.equal(out.order, null);
     } finally {
       spy.mockRestore();
     }
@@ -352,5 +409,19 @@ describe("rpc-endpoints-mcp (#7886)", () => {
     );
     assert.deepEqual(out.endpoints, []);
     assert.equal(out.total, 0);
+    assert.equal(out.returned, 0);
+  });
+
+  test("MCP tool metadata and outputSchema compile", () => {
+    assert.equal(LIST_RPC_ENDPOINTS_MCP_TOOL.name, "list_rpc_endpoints");
+    assert.ok(
+      new Ajv2020({ strict: false }).compile(LIST_RPC_ENDPOINTS_OUTPUT_SCHEMA),
+    );
+  });
+
+  test("MCP server exports wire list_rpc_endpoints", () => {
+    const tool = MCP_TOOLS.find((t: Row) => t.name === "list_rpc_endpoints");
+    assert.ok(tool);
+    assert.equal(tool.title, "List Bittensor RPC endpoints");
   });
 });
