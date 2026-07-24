@@ -6,58 +6,57 @@ import {
   RPC_ENDPOINTS_ARTIFACT,
   LIST_RPC_ENDPOINTS_MCP_TOOL,
   LIST_RPC_ENDPOINTS_OUTPUT_SCHEMA,
+  loadRpcEndpointsList,
   rpcEndpointsMcpError,
   rpcEndpointsQueryUrl,
-  loadRpcEndpointsList,
 } from "../src/rpc-endpoints-mcp.ts";
 import type { Row } from "./row-type.ts";
-
-type LoadCtx = Parameters<typeof loadRpcEndpointsList>[0];
-type LoadDeps = Parameters<typeof loadRpcEndpointsList>[2];
-
 import { MCP_TOOLS } from "../src/mcp-server.ts";
+
+type Ctx = Parameters<typeof loadRpcEndpointsList>[0];
+type Deps = Parameters<typeof loadRpcEndpointsList>[2];
 
 const SAMPLE_BLOB = {
   generated_at: "2026-07-01T00:00:00.000Z",
+  schema_version: 1,
   notes: "test",
-  source: "static-build",
-  operational_observed_at: null,
+  summary: { endpoint_count: 3 },
   endpoints: [
     {
-      id: "finney-1",
-      kind: "subtensor-rpc",
-      layer: "bittensor-base",
-      netuid: 0,
-      provider: "opentensor",
-      publication_state: "monitored",
-      status: "ok",
-      pool_eligible: true,
-      latency_ms: 120,
-      score: 0.9,
-    },
-    {
-      id: "finney-2",
+      id: "finney-wss",
       kind: "subtensor-wss",
       layer: "bittensor-base",
-      netuid: 0,
       provider: "opentensor",
-      publication_state: "pool-eligible",
+      publication_state: "monitored",
       status: "degraded",
-      pool_eligible: false,
-      latency_ms: 800,
-      score: 0.4,
+      latency_ms: 200,
+      score: 40,
+      pool_eligible: true,
+      netuid: 0,
     },
     {
-      id: "archive-1",
-      kind: "archive",
+      id: "subvortex",
+      kind: "subtensor-wss",
       layer: "bittensor-base",
-      netuid: 0,
-      provider: "datura",
+      provider: "subvortex",
       publication_state: "monitored",
       status: "ok",
+      latency_ms: 80,
+      score: 70,
+      pool_eligible: false,
+      netuid: 0,
+    },
+    {
+      id: "finney-rpc",
+      kind: "subtensor-rpc",
+      layer: "bittensor-base",
+      provider: "opentensor",
+      publication_state: "pool-eligible",
+      status: "ok",
+      latency_ms: 50,
+      score: 90,
       pool_eligible: true,
-      latency_ms: 300,
-      score: 0.7,
+      netuid: 0,
     },
   ],
 };
@@ -69,142 +68,140 @@ function readArtifact(_env: unknown, path: string) {
   return Promise.resolve({ ok: false, code: "artifact_not_found" });
 }
 
-describe("rpc-endpoints-mcp", () => {
-  test("rpcEndpointsMcpError is shaped for MCP toolError handling", () => {
+describe("rpc-endpoints-mcp (#7886, #7893)", () => {
+  test("rpcEndpointsMcpError is shaped for toolError handling", () => {
     const err = rpcEndpointsMcpError("invalid_params", "bad sort");
     assert.equal(err.code, "invalid_params");
     assert.equal(err.toolError, true);
   });
 
-  test("rpcEndpointsQueryUrl validates filters, range bounds, and cursor", () => {
+  test("rpcEndpointsQueryUrl forwards the full REST filter set", () => {
     const url = rpcEndpointsQueryUrl({
       kind: "subtensor-rpc",
       layer: "bittensor-base",
       netuid: 0,
+      pool_eligible: true,
       provider: "opentensor",
       publication_state: "monitored",
       status: "ok",
-      pool_eligible: true,
       min_latency_ms: 10,
-      max_latency_ms: 500,
-      min_score: 0.1,
-      max_score: 0.95,
+      max_latency_ms: 100,
+      min_score: 50,
+      max_score: 100,
+      fields: ["id", "latency_ms"],
       sort: "latency_ms",
-      order: "desc",
-      fields: "id,status",
+      order: "asc",
       limit: 10,
-      cursor: 5,
+      cursor: "0",
     });
     assert.equal(url.searchParams.get("kind"), "subtensor-rpc");
     assert.equal(url.searchParams.get("layer"), "bittensor-base");
     assert.equal(url.searchParams.get("netuid"), "0");
+    assert.equal(url.searchParams.get("pool_eligible"), "true");
     assert.equal(url.searchParams.get("provider"), "opentensor");
     assert.equal(url.searchParams.get("publication_state"), "monitored");
     assert.equal(url.searchParams.get("status"), "ok");
-    assert.equal(url.searchParams.get("pool_eligible"), "true");
     assert.equal(url.searchParams.get("min_latency_ms"), "10");
-    assert.equal(url.searchParams.get("max_latency_ms"), "500");
-    assert.equal(url.searchParams.get("min_score"), "0.1");
-    assert.equal(url.searchParams.get("max_score"), "0.95");
+    assert.equal(url.searchParams.get("max_latency_ms"), "100");
+    assert.equal(url.searchParams.get("min_score"), "50");
+    assert.equal(url.searchParams.get("max_score"), "100");
+    assert.equal(url.searchParams.get("fields"), "id,latency_ms");
     assert.equal(url.searchParams.get("sort"), "latency_ms");
-    assert.equal(url.searchParams.get("order"), "desc");
-    assert.equal(url.searchParams.get("fields"), "id,status");
+    assert.equal(url.searchParams.get("order"), "asc");
     assert.equal(url.searchParams.get("limit"), "10");
-    assert.equal(url.searchParams.get("cursor"), "5");
+    assert.equal(url.searchParams.get("cursor"), "0");
   });
 
-  test("rpcEndpointsQueryUrl rejects invalid kind", () => {
+  test("rpcEndpointsQueryUrl accepts a string fields projection and numeric cursor", () => {
+    const url = rpcEndpointsQueryUrl({
+      fields: " id,score ",
+      cursor: 5,
+      limit: 2000,
+    });
+    assert.equal(url.searchParams.get("fields"), "id,score");
+    assert.equal(url.searchParams.get("cursor"), "5");
+    assert.equal(url.searchParams.get("limit"), "1000");
+  });
+
+  test("rpcEndpointsQueryUrl clamps a non-positive limit to the default", () => {
+    const url = rpcEndpointsQueryUrl({ limit: 0 });
+    assert.equal(url.searchParams.get("limit"), "50");
+    const nanUrl = rpcEndpointsQueryUrl({ limit: Number.NaN });
+    assert.equal(nanUrl.searchParams.get("limit"), "50");
+    const strUrl = rpcEndpointsQueryUrl({ limit: "lots" });
+    assert.equal(strUrl.searchParams.get("limit"), "50");
+  });
+
+  test("rpcEndpointsQueryUrl rejects invalid inputs", () => {
+    assert.throws(
+      () => rpcEndpointsQueryUrl({ sort: "bogus" }),
+      (err: Row) => err.code === "invalid_params",
+    );
     assert.throws(
       () => rpcEndpointsQueryUrl({ kind: "bogus" }),
       (err: Row) => err.code === "invalid_params",
     );
-  });
-
-  test("rpcEndpointsQueryUrl rejects a negative netuid", () => {
     assert.throws(
       () => rpcEndpointsQueryUrl({ netuid: -1 }),
       (err: Row) => err.code === "invalid_params",
     );
-  });
-
-  test("rpcEndpointsQueryUrl rejects a non-integer netuid", () => {
     assert.throws(
       () => rpcEndpointsQueryUrl({ netuid: 1.5 }),
       (err: Row) => err.code === "invalid_params",
     );
-  });
-
-  test("rpcEndpointsQueryUrl rejects empty provider", () => {
     assert.throws(
-      () => rpcEndpointsQueryUrl({ provider: "   " }),
+      () => rpcEndpointsQueryUrl({ pool_eligible: "yes" }),
       (err: Row) => err.code === "invalid_params",
     );
-  });
-
-  test("rpcEndpointsQueryUrl rejects a non-boolean pool_eligible", () => {
     assert.throws(
-      () => rpcEndpointsQueryUrl({ pool_eligible: "true" }),
+      () => rpcEndpointsQueryUrl({ fields: [] }),
       (err: Row) => err.code === "invalid_params",
     );
-  });
-
-  test("rpcEndpointsQueryUrl rejects non-numeric range bounds", () => {
-    assert.throws(
-      () => rpcEndpointsQueryUrl({ min_latency_ms: "lots" }),
-      (err: Row) => err.code === "invalid_params",
-    );
-  });
-
-  test("rpcEndpointsQueryUrl rejects negative cursor", () => {
-    assert.throws(
-      () => rpcEndpointsQueryUrl({ cursor: -1 }),
-      (err: Row) => err.code === "invalid_params",
-    );
-  });
-
-  test("rpcEndpointsQueryUrl rejects a non-integer cursor", () => {
-    assert.throws(
-      () => rpcEndpointsQueryUrl({ cursor: 1.5 }),
-      (err: Row) => err.code === "invalid_params",
-    );
-  });
-
-  test("rpcEndpointsQueryUrl rejects empty fields projection", () => {
     assert.throws(
       () => rpcEndpointsQueryUrl({ fields: "   " }),
       (err: Row) => err.code === "invalid_params",
     );
-  });
-
-  test("rpcEndpointsQueryUrl rejects a sub-minimum limit", () => {
     assert.throws(
-      () => rpcEndpointsQueryUrl({ limit: 0 }),
+      () => rpcEndpointsQueryUrl({ cursor: "abc" }),
+      (err: Row) => err.code === "invalid_params",
+    );
+    assert.throws(
+      () => rpcEndpointsQueryUrl({ cursor: -1 }),
+      (err: Row) => err.code === "invalid_params",
+    );
+    assert.throws(
+      () => rpcEndpointsQueryUrl({ provider: 12 }),
+      (err: Row) => err.code === "invalid_params",
+    );
+    assert.throws(
+      () => rpcEndpointsQueryUrl({ min_latency_ms: "slow" }),
       (err: Row) => err.code === "invalid_params",
     );
   });
 
-  test("rpcEndpointsQueryUrl rejects a limit above the MCP maximum", () => {
-    assert.throws(
-      () => rpcEndpointsQueryUrl({ limit: 500 }),
-      (err: Row) => err.code === "invalid_params",
-    );
-  });
-
-  test("loadRpcEndpointsList combines kind + status + pool_eligible filters", async () => {
+  test("loadRpcEndpointsList combines filters and sorts", async () => {
     const out = await loadRpcEndpointsList(
-      { env: {}, readArtifact } as unknown as LoadCtx,
-      { kind: "subtensor-rpc", status: "ok", pool_eligible: true },
+      { env: {}, readArtifact } as unknown as Ctx,
+      {
+        kind: "subtensor-wss",
+        provider: "opentensor",
+        pool_eligible: true,
+        sort: "latency_ms",
+        order: "asc",
+      },
     );
-    assert.equal(out.returned, 1);
-    assert.equal(out.endpoints[0].id, "finney-1");
+    assert.equal(out.total, 1);
+    assert.equal(out.endpoints[0].id, "finney-wss");
+    assert.equal(out.sort, "latency_ms");
+    assert.equal(out.order, "asc");
   });
 
   test("loadRpcEndpointsList combines provider + range filters + sort/order", async () => {
     const out = await loadRpcEndpointsList(
-      { env: {}, readArtifact } as unknown as LoadCtx,
+      { env: {}, readArtifact } as unknown as Ctx,
       {
         provider: "opentensor",
-        min_latency_ms: 100,
+        min_latency_ms: 40,
         sort: "latency_ms",
         order: "desc",
       },
@@ -212,49 +209,65 @@ describe("rpc-endpoints-mcp", () => {
     assert.equal(out.returned, 2);
     assert.deepEqual(
       out.endpoints.map((e) => e.id),
-      ["finney-2", "finney-1"],
+      ["finney-wss", "finney-rpc"],
     );
   });
 
-  test("loadRpcEndpointsList applies the live health overlay before filtering", async () => {
+  test("loadRpcEndpointsList applies the live overlay before filtering", async () => {
     const out = await loadRpcEndpointsList(
       {
         env: {},
         readArtifact,
         readHealthKv: async () => ({
-          last_run_at: "2026-07-02T00:00:00.000Z",
-          endpoints: [{ id: "finney-2", status: "ok", latency_ms: 50 }],
+          last_run_at: "2026-07-20T12:00:00.000Z",
+          endpoints: [
+            {
+              id: "finney-wss",
+              status: "ok",
+              classification: "live",
+              latency_ms: 42,
+            },
+          ],
         }),
-      } as unknown as LoadCtx,
-      { status: "ok" },
+      } as unknown as Ctx,
+      { max_latency_ms: 50 },
     );
     assert.equal(out.source, "live-cron-prober");
-    assert.equal(out.operational_observed_at, "2026-07-02T00:00:00.000Z");
-    assert.equal(out.returned, 3);
-    const overlaid = out.endpoints.find((e) => e.id === "finney-2");
-    assert.equal(overlaid?.latency_ms, 50);
-    assert.equal(overlaid?.health_source, "probe-derived");
+    const overlaid = out.endpoints.find((e) => e.id === "finney-wss");
+    assert.ok(overlaid);
+    assert.equal(overlaid.latency_ms, 42);
+    assert.ok(out.endpoints.every((e) => (e.latency_ms as number) <= 50));
   });
 
-  test("loadRpcEndpointsList falls back to the static artifact when no live pool is present", async () => {
-    const out = await loadRpcEndpointsList(
-      { env: {}, readArtifact } as unknown as LoadCtx,
-      {},
-    );
-    assert.equal(out.source, "static-build");
-    assert.equal(out.returned, 3);
-  });
-
-  test("loadRpcEndpointsList skips the overlay when the live snapshot has no endpoints array", async () => {
+  test("loadRpcEndpointsList keeps static catalog when live merge cannot apply", async () => {
     const out = await loadRpcEndpointsList(
       {
         env: {},
         readArtifact,
-        readHealthKv: async () => ({ last_run_at: "2026-07-02T00:00:00.000Z" }),
-      } as unknown as LoadCtx,
+        readHealthKv: async () => ({ endpoints: "nope" }),
+      } as unknown as Ctx,
+      {},
+    );
+    assert.equal(out.source, null);
+    assert.equal(out.endpoints.length, 3);
+  });
+
+  test("loadRpcEndpointsList falls back to the static artifact when no live pool is present", async () => {
+    const out = await loadRpcEndpointsList(
+      {
+        env: {},
+        readArtifact: async (_env, path) =>
+          path === RPC_ENDPOINTS_ARTIFACT
+            ? {
+                ok: true,
+                data: { ...SAMPLE_BLOB, source: "static-build" },
+              }
+            : { ok: false, code: "artifact_not_found" },
+      } as unknown as Ctx,
       {},
     );
     assert.equal(out.source, "static-build");
+    assert.equal(out.returned, 3);
   });
 
   test("loadRpcEndpointsList uses an injected readArtifact dep", async () => {
@@ -262,16 +275,16 @@ describe("rpc-endpoints-mcp", () => {
       {
         env: {},
         readArtifact: async () => ({ ok: false }),
-      } as unknown as LoadCtx,
+      } as unknown as Ctx,
       {},
       {
         readArtifact: async () => ({
           ok: true,
-          data: { endpoints: [{ id: "test" }] },
+          data: { endpoints: [{ id: "injected", netuid: 0 }] },
         }),
-      } as unknown as LoadDeps,
+      } as unknown as Deps,
     );
-    assert.equal(out.endpoints[0].id, "test");
+    assert.equal(out.endpoints[0].id, "injected");
   });
 
   test("loadRpcEndpointsList maps artifact_not_found to not_found", async () => {
@@ -284,7 +297,7 @@ describe("rpc-endpoints-mcp", () => {
               ok: false,
               code: "artifact_not_found",
             }),
-          } as unknown as LoadCtx,
+          } as unknown as Ctx,
           {},
         ),
       (err: Row) => err.code === "not_found",
@@ -301,47 +314,12 @@ describe("rpc-endpoints-mcp", () => {
               ok: false,
               code: "artifact_timeout",
             }),
-          } as unknown as LoadCtx,
+          } as unknown as Ctx,
           {},
         ),
       (err: Row) =>
         err.code === "artifact_timeout" &&
         /rpc-endpoints\.json/.test(err.message),
-    );
-  });
-
-  test("loadRpcEndpointsList rejects invalid list-query params from REST parity", async () => {
-    await assert.rejects(
-      () =>
-        loadRpcEndpointsList({ env: {}, readArtifact } as unknown as LoadCtx, {
-          fields: "not_a_column",
-        }),
-      (err: Row) => err.code === "invalid_params",
-    );
-  });
-
-  test("loadRpcEndpointsList rejects contradictory range bounds", async () => {
-    await assert.rejects(
-      () =>
-        loadRpcEndpointsList({ env: {}, readArtifact } as unknown as LoadCtx, {
-          min_latency_ms: 900,
-          max_latency_ms: 100,
-        }),
-      (err: Row) => err.code === "invalid_params",
-    );
-  });
-
-  test("loadRpcEndpointsList rejects a malformed artifact payload", async () => {
-    await assert.rejects(
-      () =>
-        loadRpcEndpointsList(
-          {
-            env: {},
-            readArtifact: async () => ({ ok: true, data: null }),
-          } as unknown as LoadCtx,
-          {},
-        ),
-      (err: Row) => err.code === "not_found",
     );
   });
 
@@ -352,21 +330,58 @@ describe("rpc-endpoints-mcp", () => {
           {
             env: {},
             readArtifact: async () => ({ ok: false }),
-          } as unknown as LoadCtx,
+          } as unknown as Ctx,
           {},
         ),
       (err: Row) => err.code === "artifact_unavailable",
     );
   });
 
+  test("loadRpcEndpointsList rejects a malformed artifact payload", async () => {
+    await assert.rejects(
+      () =>
+        loadRpcEndpointsList(
+          {
+            env: {},
+            readArtifact: async () => ({ ok: true, data: null }),
+          } as unknown as Ctx,
+          {},
+        ),
+      (err: Row) => err.code === "not_found",
+    );
+  });
+
+  test("loadRpcEndpointsList rejects invalid list-query params from REST parity", async () => {
+    await assert.rejects(
+      () =>
+        loadRpcEndpointsList({ env: {}, readArtifact } as unknown as Ctx, {
+          fields: "not_a_column",
+        }),
+      (err: Row) => err.code === "invalid_params",
+    );
+  });
+
+  test("loadRpcEndpointsList rejects contradictory range bounds", async () => {
+    await assert.rejects(
+      () =>
+        loadRpcEndpointsList({ env: {}, readArtifact } as unknown as Ctx, {
+          min_latency_ms: 900,
+          max_latency_ms: 100,
+        }),
+      (err: Row) => err.code === "invalid_params",
+    );
+  });
+
   test("loadRpcEndpointsList falls back when pagination meta is absent", async () => {
     const spy = vi.spyOn(listQuery, "applyQueryFilters").mockReturnValue({
-      data: { endpoints: [{ id: "a" }, { id: "b" }] },
-      meta: {},
+      data: {
+        endpoints: [{ id: "a" }, { id: "b" }],
+      },
+      meta: undefined,
     });
     try {
       const out = await loadRpcEndpointsList(
-        { env: {}, readArtifact } as unknown as LoadCtx,
+        { env: {}, readArtifact } as unknown as Ctx,
         {},
       );
       assert.equal(out.total, 2);
@@ -381,22 +396,20 @@ describe("rpc-endpoints-mcp", () => {
     }
   });
 
-  test("loadRpcEndpointsList defaults endpoints to an empty array when the transformed data lacks one", async () => {
-    const spy = vi.spyOn(listQuery, "applyQueryFilters").mockReturnValue({
-      data: {},
-      meta: {},
-    });
-    try {
-      const out = await loadRpcEndpointsList(
-        { env: {}, readArtifact } as unknown as LoadCtx,
-        {},
-      );
-      assert.deepEqual(out.endpoints, []);
-      assert.equal(out.total, 0);
-      assert.equal(out.returned, 0);
-    } finally {
-      spy.mockRestore();
-    }
+  test("loadRpcEndpointsList treats a non-array endpoints key as empty", async () => {
+    const out = await loadRpcEndpointsList(
+      {
+        env: {},
+        readArtifact: async () => ({
+          ok: true,
+          data: { endpoints: null },
+        }),
+      } as unknown as Ctx,
+      {},
+    );
+    assert.deepEqual(out.endpoints, []);
+    assert.equal(out.total, 0);
+    assert.equal(out.returned, 0);
   });
 
   test("MCP tool metadata and outputSchema compile", () => {

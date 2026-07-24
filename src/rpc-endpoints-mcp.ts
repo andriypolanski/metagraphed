@@ -1,12 +1,12 @@
 // RPC endpoint list loader for MCP parity on GET /api/v1/rpc/endpoints (#7893).
 // Applies the same list-query transforms as the REST route over the baked
-// /metagraph/rpc-endpoints.json artifact, after the live 15-minute cron
-// overlay (mergeRpcEndpoints) — same order REST's liveHealthOverlay ->
+// /metagraph/rpc-endpoints.json artifact, after the live 15-minute cron overlay
+// (mergeRpcEndpoints) — same order REST's liveHealthOverlay ->
 // applyQueryFilters pipeline uses for the "rpc-endpoints" route id, so a
 // filter like status or min_/max_latency_ms reads live health, not a stale
-// baked value. Structurally mirrors rpc-pools-mcp.ts (the closest sibling:
-// same live-overlay-before-applyQueryFilters ordering over the shared
-// "endpoints" query collection provider-endpoints-mcp.ts also uses).
+// baked value. GraphQL rpc_endpoints (#7966) shares this loader. Structurally
+// mirrors provider-endpoints-mcp.ts (endpoints collection filters) and
+// rpc-pools-mcp.ts (live overlay before filter).
 
 import { applyQueryFilters, type Row } from "../workers/list-query.ts";
 import type { StorageReadResult } from "../workers/storage.ts";
@@ -83,6 +83,56 @@ function optionalRangeBound(
   return value;
 }
 
+function clampLimit(value: unknown, fallback: number, max: number): number {
+  if (typeof value !== "number") return fallback;
+  if (!Number.isFinite(value) || value < 1) return fallback;
+  return Math.min(max, Math.floor(value));
+}
+
+function resolveFieldsProjection(
+  args: Record<string, unknown> | null | undefined,
+): string | null {
+  const value = args?.fields;
+  if (value === undefined || value === null || value === "") return null;
+  if (Array.isArray(value)) {
+    const parts = value
+      .filter((part): part is string => typeof part === "string")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length === 0) {
+      throw rpcEndpointsMcpError(
+        "invalid_params",
+        "Argument `fields` must be a non-empty list of field names when provided.",
+      );
+    }
+    return parts.join(",");
+  }
+  return optionalString(args, "fields");
+}
+
+function resolveCursor(
+  args: Record<string, unknown> | null | undefined,
+): number | null {
+  const value = args?.cursor;
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "string") {
+    if (!/^\d+$/.test(value.trim())) {
+      throw rpcEndpointsMcpError(
+        "invalid_params",
+        "cursor must be a non-negative integer.",
+      );
+    }
+    return Number(value.trim());
+  }
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    throw rpcEndpointsMcpError(
+      "invalid_params",
+      "cursor must be a non-negative integer.",
+    );
+  }
+  return value;
+}
+
 export function rpcEndpointsQueryUrl(
   args: Record<string, unknown> | null | undefined,
 ): URL {
@@ -113,7 +163,7 @@ export function rpcEndpointsQueryUrl(
   }
   const status = optionalEnum(args, "status", HEALTH_STATUSES);
   if (status) url.searchParams.set("status", status);
-  if (args?.pool_eligible !== undefined) {
+  if (args?.pool_eligible !== undefined && args?.pool_eligible !== null) {
     if (typeof args.pool_eligible !== "boolean") {
       throw rpcEndpointsMcpError(
         "invalid_params",
@@ -126,7 +176,7 @@ export function rpcEndpointsQueryUrl(
   if (sort) url.searchParams.set("sort", sort);
   const order = optionalEnum(args, "order", ["asc", "desc"]);
   if (order) url.searchParams.set("order", order);
-  const fields = optionalString(args, "fields");
+  const fields = resolveFieldsProjection(args);
   if (fields) url.searchParams.set("fields", fields);
   const minLatency = optionalRangeBound(args, "min_latency_ms");
   if (minLatency !== null) {
@@ -141,45 +191,18 @@ export function rpcEndpointsQueryUrl(
   const maxScore = optionalRangeBound(args, "max_score");
   if (maxScore !== null) url.searchParams.set("max_score", String(maxScore));
   if (args?.limit !== undefined) {
-    const limit = args.limit;
-    if (
-      typeof limit !== "number" ||
-      !Number.isInteger(limit) ||
-      limit < 1 ||
-      limit > 100
-    ) {
-      throw rpcEndpointsMcpError(
-        "invalid_params",
-        "limit must be an integer between 1 and 100.",
-      );
-    }
-    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("limit", String(clampLimit(args.limit, 50, 1000)));
   }
-  if (args?.cursor !== undefined) {
-    const cursor = args.cursor;
-    if (typeof cursor !== "number" || !Number.isInteger(cursor) || cursor < 0) {
-      throw rpcEndpointsMcpError(
-        "invalid_params",
-        "cursor must be a non-negative integer.",
-      );
-    }
-    url.searchParams.set("cursor", String(cursor));
-  }
+  const cursor = resolveCursor(args);
+  if (cursor !== null) url.searchParams.set("cursor", String(cursor));
   return url;
-}
-
-interface RpcEndpointsMcpCtx {
-  env: Env;
-  readArtifact: (env: Env, path: string) => Promise<StorageReadResult>;
-  readHealthKv?: (
-    env: Env,
-    key: string,
-  ) => Promise<Record<string, unknown> | null>;
 }
 
 export interface RpcEndpointsListResult {
   generated_at: unknown;
   notes: unknown;
+  schema_version: unknown;
+  summary: unknown;
   source: unknown;
   operational_observed_at: unknown;
   endpoints: Row[];
@@ -192,8 +215,17 @@ export interface RpcEndpointsListResult {
   order: unknown;
 }
 
+type RpcEndpointsCtx = {
+  env: Env;
+  readArtifact: (env: Env, path: string) => Promise<StorageReadResult>;
+  readHealthKv?: (
+    env: Env,
+    key: string,
+  ) => Promise<Record<string, unknown> | null>;
+};
+
 export async function loadRpcEndpointsList(
-  ctx: RpcEndpointsMcpCtx,
+  ctx: RpcEndpointsCtx,
   args: Record<string, unknown> | null | undefined,
   {
     readArtifact,
@@ -210,7 +242,7 @@ export async function loadRpcEndpointsList(
     if (code === "artifact_not_found") {
       throw rpcEndpointsMcpError(
         "not_found",
-        "RPC endpoint snapshot unavailable.",
+        "RPC endpoints catalog snapshot unavailable.",
       );
     }
     throw rpcEndpointsMcpError(
@@ -222,34 +254,36 @@ export async function loadRpcEndpointsList(
   if (!blob || typeof blob !== "object") {
     throw rpcEndpointsMcpError(
       "not_found",
-      "RPC endpoint snapshot unavailable.",
+      "RPC endpoints catalog snapshot unavailable.",
     );
   }
 
-  // Live 15-minute cron overlay, matching REST's liveHealthOverlay for the
-  // "rpc-endpoints" route id — applied before filtering so a filter like
-  // status or the latency_ms/score bounds reads the current snapshot, not
-  // the baked one. Falls back to the static artifact unchanged when there is
-  // no live pool snapshot yet (mergeRpcEndpoints returns null in that case).
+  // Live overlay matching GraphQL/REST: with no live snapshot the static
+  // catalog passes through; with a snapshot, mergeRpcEndpoints replaces
+  // stale build-time health/latency before filters run.
   let overlaid = blob as Record<string, unknown>;
   const livePool = ctx.readHealthKv
     ? await ctx.readHealthKv(ctx.env, KV_HEALTH_RPC_POOL)
     : null;
-  const merged = livePool ? mergeRpcEndpoints(overlaid, livePool) : null;
-  if (merged) overlaid = merged as Record<string, unknown>;
+  if (livePool) {
+    const merged = mergeRpcEndpoints(overlaid, livePool);
+    if (merged) overlaid = merged as Record<string, unknown>;
+  }
 
   const transformed = applyQueryFilters(overlaid, queryUrl, "endpoints", []);
   if (transformed.error) {
     throw rpcEndpointsMcpError("invalid_params", transformed.error.message);
   }
   const data = transformed.data as Record<string, unknown>;
-  const meta = transformed.meta as Record<string, unknown>;
+  const meta = (transformed.meta ?? {}) as Record<string, unknown>;
   const page = (meta.pagination as Record<string, unknown>) || {};
   const rows = Array.isArray(data.endpoints) ? (data.endpoints as Row[]) : [];
   const rowLen = rows.length;
   return {
     generated_at: data.generated_at ?? null,
     notes: data.notes ?? null,
+    schema_version: data.schema_version ?? null,
+    summary: data.summary ?? null,
     source: data.source ?? null,
     operational_observed_at: data.operational_observed_at ?? null,
     endpoints: rows,
@@ -272,7 +306,7 @@ export const LIST_RPC_ENDPOINTS_MCP_TOOL = {
     "health/latency). Filter by kind/layer/netuid/provider/" +
     "publication_state/status/pool_eligible, threshold with min_/" +
     "max_latency_ms and min_/max_score, sort with sort + order, and page " +
-    "with limit (1-100) / cursor. This is the full-catalog view; use " +
+    "with limit / cursor. This is the full-catalog view; use " +
     "get_best_rpc_endpoint instead to pick one live-healthy endpoint. " +
     "Mirrors GET /api/v1/rpc/endpoints.",
   inputSchema: {
@@ -334,20 +368,36 @@ export const LIST_RPC_ENDPOINTS_MCP_TOOL = {
         description: "Sort direction for sort (default asc).",
       },
       fields: {
-        type: "string",
-        description:
-          "Comma-separated projection of endpoint row fields to return.",
+        oneOf: [
+          {
+            type: "string",
+            description:
+              "Comma-separated projection of endpoint row fields to return.",
+          },
+          {
+            type: "array",
+            items: { type: "string" },
+            description: "Field names to return.",
+          },
+        ],
       },
       limit: {
         type: "integer",
-        description: "Max rows to return (1-100). Enables pagination.",
+        description: "Max rows to return (clamped to REST parity).",
         minimum: 1,
-        maximum: 100,
       },
       cursor: {
-        type: "integer",
-        description: "Pagination cursor from a prior response's next_cursor.",
-        minimum: 0,
+        oneOf: [
+          {
+            type: "integer",
+            description: "Pagination cursor from a prior response's next_cursor.",
+            minimum: 0,
+          },
+          {
+            type: "string",
+            description: "String-form pagination cursor.",
+          },
+        ],
       },
     },
     additionalProperties: false,
@@ -367,6 +417,8 @@ export const LIST_RPC_ENDPOINTS_OUTPUT_SCHEMA = {
       type: ["array", "string", "null"],
       items: { type: "string" },
     },
+    schema_version: NULLABLE_INT,
+    summary: { type: ["object", "null"] },
     source: NULLABLE_STRING,
     operational_observed_at: NULLABLE_STRING,
     endpoints: { type: "array", items: { type: "object" } },

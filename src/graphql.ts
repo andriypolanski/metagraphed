@@ -45,6 +45,10 @@ import { loadEndpointIncidentsList } from "./endpoint-incidents-mcp.ts";
 // same loadProviderEndpointsList that MCP list_provider_endpoints already calls
 // (#3289) -- not a reimplementation.
 import { loadProviderEndpointsList } from "./provider-endpoints-mcp.ts";
+// #7886: GraphQL parity for GET /api/v1/rpc/endpoints filters — reuse
+// loadRpcEndpointsList (live overlay + applyQueryFilters on the endpoints
+// collection), matching endpoint_pools / rpc_pools / provider_endpoints.
+import { loadRpcEndpointsList } from "./rpc-endpoints-mcp.ts";
 // #7167: GraphQL parity for the /api/v1/review/* contributor-review family,
 // reusing each list_* MCP loader unchanged (same artifact read, filter, sort,
 // and page logic REST and MCP already use) -- not a reimplementation.
@@ -52,6 +56,10 @@ import { loadAdapterCandidatesList } from "./adapter-candidates-mcp.ts";
 import { loadEnrichmentEvidenceList } from "./enrichment-evidence-mcp.ts";
 import { loadEnrichmentQueueList } from "./enrichment-queue-mcp.ts";
 import { loadReviewEnrichmentTargetsList } from "./review-enrichment-targets-mcp.ts";
+// #7878: GraphQL parity for GET /api/v1/subnets/{netuid}/candidates, reusing
+// loadSubnetCandidatesList that MCP list_subnet_candidates already calls
+// (#7899) -- not a reimplementation.
+import { loadSubnetCandidatesList } from "./subnet-candidates-mcp.ts";
 import { loadReviewGapsList } from "./review-gaps-mcp.ts";
 import { loadProfileCompletenessList } from "./profile-completeness-mcp.ts";
 // #6984: GraphQL parity for GET /api/v1/adapters/{slug}, reusing loadAdapter that
@@ -173,7 +181,6 @@ import {
   LEADERBOARD_BOARDS,
   loadSubnetTrajectory,
   mergeFreshness,
-  mergeRpcEndpoints,
   overlayOverviewHealth,
   loadSubnetReliability,
   overlayCatalogDetail,
@@ -340,7 +347,7 @@ import {
   buildCounterparties,
   buildCounterpartyRelationship,
 } from "./counterparties.ts";
-import { KV_HEALTH_META, KV_HEALTH_RPC_POOL } from "./kv-keys.ts";
+import { KV_HEALTH_META } from "./kv-keys.ts";
 import {
   ANALYTICS_WINDOWS,
   DEFAULT_ANALYTICS_WINDOW,
@@ -578,8 +585,8 @@ export const SDL = `
     subnet_gaps(netuid: Int!): JSON
     "One subnet's curation evidence record — the provenance trail (source URLs, checks, reviewer notes) behind its registry entry. Null when no evidence record has been baked for the netuid (rather than a GraphQL error). Opaque JSON passed through verbatim, matching the get_subnet_evidence MCP/REST shape. Mirrors GET /api/v1/subnets/{netuid}/evidence."
     subnet_evidence(netuid: Int!): JSON
-    "One subnet's unpromoted candidate-surface queue — the baked per-subnet /metagraph/candidates/{netuid}.json artifact the REST route and get_subnet_candidates MCP tool read. Null when no candidate artifact has been baked for the netuid (rather than a GraphQL error). Opaque JSON passed through verbatim. Distinct from candidates(...) (the filterable network-wide candidate catalog). Mirrors GET /api/v1/subnets/{netuid}/candidates."
-    subnet_candidates(netuid: Int!): JSON
+    "One subnet's unpromoted candidate-surface queue — the baked per-subnet /metagraph/candidates/{netuid}.json artifact the REST route and get_subnet_candidates MCP tool read. Filter with kind, provider, state, id, and confidence; sort with sort + order; and page with limit (1-100) / cursor, exactly as REST does — an unsupported filter/sort value is a GraphQL error, not a silently substituted default. The envelope carries the same pagination meta REST returns (total, returned, limit, cursor, next_cursor, sort, order) alongside the candidates rows. Null when no candidate artifact has been baked for the netuid (rather than a GraphQL error). Distinct from candidates(...) (the filterable network-wide candidate catalog). Mirrors GET /api/v1/subnets/{netuid}/candidates."
+    subnet_candidates(netuid: Int!, kind: String, provider: String, state: String, id: String, confidence: String, sort: String, order: String, fields: String, limit: Int, cursor: Int): JSON
     "Per-subnet axon-removal activity over a 7d/30d window (distinct removers, AxonInfoRemoved count, and removals per remover); a subnet with no events in the window resolves to a schema-stable zeroed card, never null. Mirrors GET /api/v1/subnets/{netuid}/axon-removals."
     subnet_axon_removals(netuid: Int!, window: String): SubnetAxonRemovals!
     "Per-subnet validator weight-setting activity over a 7d/30d window (distinct weight-setters, WeightsSet count, and sets per setter); a subnet with no events in the window resolves to a schema-stable zeroed card, never null. Mirrors GET /api/v1/subnets/{netuid}/weights."
@@ -674,8 +681,8 @@ export const SDL = `
     source_health: JSON
     "The maintainer-approved cross-network subnet lineage: which testnet subnets have graduated to mainnet (mainnet <-> testnet pairs with match evidence), plus any flagged broken links. Null when the lineage has not been baked in this environment (rather than a GraphQL error). Opaque JSON passed through verbatim, matching the get_lineage MCP/REST shape. Mirrors GET /api/v1/lineage."
     lineage: JSON
-    "The full catalog of monitored Bittensor base-layer RPC endpoints and their status (each endpoint's URL, network, and probe-derived health/latency), with the same live 15-minute cron RPC-pool overlay REST and MCP apply before serving. Null when the catalog has not been baked in this environment (rather than a GraphQL error). Opaque JSON passed through verbatim, matching the list_rpc_endpoints MCP/REST shape. Mirrors GET /api/v1/rpc/endpoints."
-    rpc_endpoints: JSON
+    "The full catalog of monitored Bittensor base-layer RPC endpoints and their status (each endpoint's URL, network, and probe-derived health/latency), with the same live 15-minute cron RPC-pool overlay REST and MCP apply before serving. Filter by kind/layer/netuid/pool_eligible/provider/publication_state/status, threshold with min_/max_latency_ms and min_/max_score, project with fields, sort with sort/order, and page with limit/cursor. An invalid filter/sort/limit/cursor is a GraphQL error, not a silently substituted default; a cold/absent catalog is likewise a GraphQL error (matching endpoint_pools / rpc_pools). Opaque JSON passed through verbatim, matching the list_rpc_endpoints MCP/REST shape. Mirrors GET /api/v1/rpc/endpoints."
+    rpc_endpoints(kind: String, layer: String, netuid: Int, pool_eligible: Boolean, provider: String, publication_state: String, status: String, min_latency_ms: Int, max_latency_ms: Int, min_score: Float, max_score: Float, fields: [String!], limit: Int, cursor: String, sort: String, order: String): JSON
     "The latest generated registry changelog: artifact added/modified/removed rows, subnet added/removed/renamed events, and coverage deltas since the previous publish. Resolves to a GraphQL error (not null) when the changelog artifact has not been baked in this environment, matching the REST route's 404 and the get_changelog MCP tool. Mirrors GET /api/v1/changelog."
     changelog: Changelog
     "The registry's public artifact contract metadata: every baked artifact path, storage tier, schema reference, and consumer notes. Resolves to a GraphQL error (not null) when the contracts artifact has not been baked in this environment, matching the REST route's 404 and the get_contracts MCP tool. Mirrors GET /api/v1/contracts."
@@ -6445,21 +6452,20 @@ const rootValue = {
     return loadArtifact(context, "/metagraph/lineage.json");
   },
 
-  async rpc_endpoints(_args: unknown, context: GqlContext) {
-    // Same baked catalog the REST route + list_rpc_endpoints MCP tool read,
-    // with the same live overlay: the 15-minute cron RPC-pool KV snapshot
-    // replaces the stale build-time health/latency (mergeRpcEndpoints). With no
-    // live snapshot the static catalog passes through; a cold artifact degrades
-    // to null instead of erroring, matching the other artifact-backed resolvers.
-    const staticData = await loadArtifact(
-      context,
-      "/metagraph/rpc-endpoints.json",
+  rpc_endpoints(args: Row, context: GqlContext) {
+    // #7886: reuse loadRpcEndpointsList — same live 15-minute cron overlay +
+    // endpoints-collection list-query transforms REST applies. The loader
+    // validates its own args and throws on an invalid filter/sort or a cold
+    // artifact; that throw becomes a GraphQL error, matching endpoint_pools /
+    // rpc_pools' "an unsupported filter/sort is a GraphQL error, not a
+    // silently substituted default" convention.
+    return loadRpcEndpointsList(
+      { ...context, readHealthKv } as unknown as Parameters<
+        typeof loadRpcEndpointsList
+      >[0],
+      args,
+      { readArtifact },
     );
-    const pool = (await readHealthKv(
-      context.env,
-      KV_HEALTH_RPC_POOL,
-    )) as Row | null;
-    return pool ? mergeRpcEndpoints(staticData ?? {}, pool) : staticData;
   },
 
   // #7170: reuse get_changelog's/get_contracts's own loaders unchanged (the same
@@ -7055,17 +7061,41 @@ const rootValue = {
     return loadArtifact(context, `/metagraph/evidence/${netuid}.json`);
   },
 
-  async subnet_candidates({ netuid }: Row, context: GqlContext) {
+  async subnet_candidates(args: Row, context: GqlContext) {
+    const { netuid } = args;
     if (!Number.isInteger(netuid) || netuid < 0) {
       throw new GraphQLError("netuid must be a non-negative integer.", {
         extensions: { code: "BAD_USER_INPUT" },
       });
     }
-    // Same baked per-subnet candidates artifact the REST route +
-    // get_subnet_candidates MCP tool read (distinct from the network-wide
-    // candidates(...) catalog); null when no artifact has been baked for this
-    // netuid, matching subnet_gaps/subnet_evidence's cold-artifact convention.
-    return loadArtifact(context, `/metagraph/candidates/${netuid}.json`);
+    // #7878: reuse loadSubnetCandidatesList -- the same loader the
+    // list_subnet_candidates MCP tool calls (#7899) -- rather than
+    // reimplementing the filter/sort/page pass here, so this field cannot
+    // drift from GET /api/v1/subnets/{netuid}/candidates. It reads the same
+    // baked per-subnet artifact (distinct from the network-wide candidates(...)
+    // catalog) and validates every filter/sort value against the REST
+    // allowlists, throwing on an unsupported one; that throw surfaces as a
+    // normal GraphQL error, matching the review_* family's convention.
+    try {
+      return await loadSubnetCandidatesList(mcpCtx(context), args, {
+        readArtifact,
+      });
+    } catch (rawErr) {
+      const err = rawErr as Row;
+      // An unsupported filter/sort value is BAD_USER_INPUT, matching every
+      // other field's "not a silently substituted default" convention.
+      if (err?.toolError && err.code === "invalid_params") {
+        throw new GraphQLError(err.message, {
+          extensions: { code: "BAD_USER_INPUT" },
+        });
+      }
+      // Any other loader miss (not baked / cold R2 / unavailable) stays null,
+      // preserving this field's documented cold-artifact contract --
+      // loadArtifact, which this resolver used before, swallowed those the
+      // same way.
+      if (err?.toolError) return null;
+      throw err;
+    }
   },
 
   async subnet_health_incidents({ netuid, window }: Row, context: GqlContext) {
