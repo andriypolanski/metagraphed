@@ -526,7 +526,7 @@ export const SDL = `
     "One subnet's live on-chain hyperparameters (latest snapshot only). The hyperparameters block is null when the subnet has no captured row -- a schema-stable card, never a GraphQL error, matching the Query.block ref-lookup convention. Mirrors GET /api/v1/subnets/{netuid}/hyperparameters."
     subnet_hyperparameters(netuid: Int!): SubnetHyperparameters
     "One subnet's append-only hyperparameter-change history, newest first, one entry per observed change. Forward-only: entries exist only from when the diff-on-change write started. A subnet with no recorded changes resolves to an empty entry list, never null. Mirrors GET /api/v1/subnets/{netuid}/hyperparameters/history."
-    subnet_hyperparameters_history(netuid: Int!, limit: Int, offset: Int): SubnetHyperparamsHistory!
+    subnet_hyperparameters_history(netuid: Int!, limit: Int, offset: Int, cursor: String): SubnetHyperparamsHistory!
     "Per-subnet neuron-deregistration activity over a 7d/30d window (distinct deregistered hotkeys, NeuronDeregistered count, and deregistrations per hotkey); a subnet with no events in the window resolves to a schema-stable zeroed card, never null. Mirrors GET /api/v1/subnets/{netuid}/deregistrations."
     subnet_deregistrations(netuid: Int!, window: String): SubnetDeregistrations!
     "Per-subnet axon-serving activity over a 7d/30d window (distinct servers, AxonServed announcement count, and announcements per server); a subnet with no events in the window resolves to a schema-stable zeroed card, never null. Mirrors GET /api/v1/subnets/{netuid}/serving."
@@ -711,8 +711,8 @@ export const SDL = `
     extrinsic(ref: String!): ExtrinsicDetail
     "Subtensor's root-origin hyperparameter/network-config change feed (newest first) -- the extrinsics feed fixed to call_module=AdminUtils, so it takes no signer/call_module filter. Same ExtrinsicList shape as extrinsics. Mirrors GET /api/v1/governance/config-changes."
     governance_config_changes(limit: Int, offset: Int, cursor: String, block: Int, call_function: String, success: Boolean): ExtrinsicList!
-    "Recent-block feed (newest first). Mirrors GET /api/v1/blocks."
-    blocks(limit: Int, offset: Int, cursor: String): BlockList!
+    "Recent-block feed (newest first). Optionally filter by author (SS58), spec_version, block_start/block_end (inclusive block-height range), from/to (observed_at epoch-ms range — String args because epoch-ms exceeds GraphQL Int's 32-bit range, matching account_history), min_extrinsics, and min_events — the same filter set MCP list_blocks and GET /api/v1/blocks accept. Mirrors GET /api/v1/blocks."
+    blocks(limit: Int, offset: Int, cursor: String, author: String, spec_version: Int, block_start: Int, block_end: Int, from: String, to: String, min_extrinsics: Int, min_events: Int): BlockList!
     "One block by numeric height or 0x block hash; block is null when the ref doesn't resolve (schema-stable, never a GraphQL error). Mirrors GET /api/v1/blocks/{ref}."
     block(ref: String!): BlockDetail
     "The extrinsics in one block by ref (numeric block_number or 0x hash), in natural read order (extrinsic_index ASC), paginated with limit (1-100, default 50)/offset. Returns block_number:null + extrinsics:[] for an unknown ref or cold store, never a GraphQL error. Mirrors GET /api/v1/blocks/{ref}/extrinsics."
@@ -5139,7 +5139,7 @@ const rootValue = {
   },
 
   async subnet_hyperparameters_history(
-    { netuid, limit, offset }: Row,
+    { netuid, limit, offset, cursor }: Row,
     context: GqlContext,
   ) {
     // Same FEED_PAGINATION bounds parsePagination applies for REST, so a GraphQL
@@ -5149,6 +5149,13 @@ const rootValue = {
     const params = new URLSearchParams();
     params.set("limit", String(safeLimit));
     params.set("offset", String(safeOffset));
+    // #7882: forward the keyset cursor the route already accepts. The feed is
+    // append-only and ordered (observed_at, id) DESC, so the route switches to
+    // the keyset comparison and ignores OFFSET whenever a cursor is present --
+    // this field just hands the opaque token back, exactly as REST does, so a
+    // client can page with the next_cursor already returned below. An
+    // empty/absent cursor stays offset-paged, unchanged.
+    if (cursor != null && cursor !== "") params.set("cursor", String(cursor));
     const data =
       ((await tryPostgresTier(
         context.env,
@@ -7371,13 +7378,42 @@ const rootValue = {
     };
   },
 
-  async blocks({ limit, offset, cursor }: Row, context: GqlContext) {
+  async blocks(
+    {
+      limit,
+      offset,
+      cursor,
+      author,
+      spec_version: specVersion,
+      block_start: blockStart,
+      block_end: blockEnd,
+      from,
+      to,
+      min_extrinsics: minExtrinsics,
+      min_events: minEvents,
+    }: Row,
+    context: GqlContext,
+  ) {
     const safeLimit = clampLimit(limit, BLOCK_PAGINATION);
     const safeOffset = clampOffset(offset);
     const params = new URLSearchParams();
     params.set("limit", String(safeLimit));
     params.set("offset", String(safeOffset));
     if (cursor) params.set("cursor", cursor);
+    // #7870: forward the same optional filters MCP list_blocks / GET /api/v1/blocks
+    // accept, straight through to the Postgres tier (no duplicated filtering logic).
+    // block_start/block_end are block heights and min_* are counts, all within Int
+    // range; from/to are observed_at epoch-ms and overflow GraphQL Int's 32 bits, so
+    // they are String args passed verbatim (mirroring account_history's from/to).
+    if (author) params.set("author", author);
+    if (specVersion != null) params.set("spec_version", String(specVersion));
+    if (blockStart != null) params.set("block_start", String(blockStart));
+    if (blockEnd != null) params.set("block_end", String(blockEnd));
+    if (from != null) params.set("from", from);
+    if (to != null) params.set("to", to);
+    if (minExtrinsics != null)
+      params.set("min_extrinsics", String(minExtrinsics));
+    if (minEvents != null) params.set("min_events", String(minEvents));
     // #4909: blocks' D1 write path is retired and the table is dropped in
     // production, so the Postgres tier being cold is the expected steady state —
     // fall back to the same pure builder REST uses, never a GraphQL error.
