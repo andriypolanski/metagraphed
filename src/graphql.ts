@@ -28,6 +28,11 @@ import { loadEvidenceList } from "./evidence-mcp.ts";
 // baked /metagraph/search.json read + list-query transforms REST and MCP
 // already apply) -- not a reimplementation.
 import { loadSearchList } from "./search-mcp.ts";
+// #7877: GraphQL parity for the search_index field's type/netuid/q/sort/order
+// filters, reusing list_search_index's own loadSearchIndexList loader unchanged
+// (same baked /metagraph/search-index.json read + list-query transforms REST
+// and MCP already apply) -- not a reimplementation.
+import { loadSearchIndexList } from "./search-index-mcp.ts";
 // #7171: GraphQL parity for GET /api/v1/chain-events (paginated Query feed),
 // reusing loadChainEventsFeed that MCP list_chain_events already calls.
 // Distinct from Subscription.chainEvents (live WebSocket firehose).
@@ -3316,15 +3321,13 @@ const rootValue = {
     return loadSearchList(mcpCtx(context), args, { readArtifact });
   },
 
-  search_index({ limit, cursor }: Row, context: GqlContext) {
-    // The slim companion: identical documents minus the per-document token
-    // blobs, served from its own artifact exactly as REST serves it.
-    return listPage(context, ARTIFACT.searchIndex, "documents", {
-      limit,
-      cursor,
-      resultKey: "documents",
-      keyFn: (d: Row) => d.id,
-    });
+  // #7877: reuse loadSearchIndexList (the same loader MCP list_search_index +
+  // REST GET /api/v1/search-index call) unchanged. type/netuid/q/sort/order/
+  // limit/cursor validation and filtering are all handled by the loader --
+  // an invalid arg throws and becomes a GraphQL error, matching every other
+  // filtered field's convention (search/source_snapshots/evidence/profiles).
+  search_index(args: Row, context: GqlContext) {
+    return loadSearchIndexList(mcpCtx(context), args, { readArtifact });
   },
 
   async domains(_args: unknown, context: GqlContext) {

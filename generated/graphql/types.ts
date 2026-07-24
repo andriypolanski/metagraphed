@@ -2596,8 +2596,8 @@ export type Query = {
   schemas?: Maybe<Scalars['JSON']['output']>;
   /** The full compact search index: one document per subnet/surface/provider/doc, each with its id, type, title, subtitle, url, and the per-document token blob that widens server-side recall. Filter by type/netuid, keyword-search with q, sort with sort/order, and page with limit (1-100)/cursor -- the same list-query transforms REST and MCP apply. An invalid type/sort/order/limit/cursor is a GraphQL error, not a silently substituted default. Documents are heterogeneous by type, so each is passed through as opaque JSON. Mirrors GET /api/v1/search. */
   search: SearchDocumentList;
-  /** The slim search index -- the same documents as search without the per-document token blobs, for fast browser typeahead and listing. Mirrors GET /api/v1/search-index. */
-  search_index: SearchDocumentList;
+  /** The slim search index -- the same documents as search without the per-document token blobs, for fast browser typeahead and listing. Filter by type/netuid/q, sort with sort/order, and page with limit/cursor. An invalid filter/sort/limit/cursor is a GraphQL error. Mirrors GET /api/v1/search-index. */
+  search_index: SearchIndexList;
   /** The per-provider source-health rollup: for each provider/source, the candidate-surface count and its live/redirected/dead classification, endpoint and RPC-endpoint counts, verification-result count, and an overall status. Null when the rollup has not been baked in this environment (rather than a GraphQL error). Opaque JSON passed through verbatim, matching the get_source_health MCP/REST shape. Mirrors GET /api/v1/source-health. */
   source_health?: Maybe<Scalars['JSON']['output']>;
   /** Per-source input-hash ledger -- each registry data source's captured input hash and record count at ingest time, for detecting hash drift or seeing per-source contribution volume. Filter with q (keyword search across id/kind/path), sort with sort/order, and page with limit (1-100)/cursor. An invalid sort/limit/cursor is a GraphQL error, not a silently substituted default. Mirrors GET /api/v1/source-snapshots. */
@@ -3506,8 +3506,13 @@ export type QuerySearchArgs = {
 
 
 export type QuerySearch_IndexArgs = {
-  cursor?: InputMaybe<Scalars['String']['input']>;
+  cursor?: InputMaybe<Scalars['Int']['input']>;
   limit?: InputMaybe<Scalars['Int']['input']>;
+  netuid?: InputMaybe<Scalars['Int']['input']>;
+  order?: InputMaybe<Scalars['String']['input']>;
+  q?: InputMaybe<Scalars['String']['input']>;
+  sort?: InputMaybe<Scalars['String']['input']>;
+  type?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -4124,6 +4129,20 @@ export type SearchDocumentList = {
   /** Heterogeneous per-type documents (subnet/surface/provider/doc), passed through verbatim as opaque JSON. */
   documents: Array<Scalars['JSON']['output']>;
   next_cursor?: Maybe<Scalars['String']['output']>;
+  total: Scalars['Int']['output'];
+};
+
+/** Filtered and paginated search-index documents with full REST list-query pagination metadata (#7877). Mirrors GET /api/v1/search-index (and MCP list_search_index). */
+export type SearchIndexList = {
+  __typename?: 'SearchIndexList';
+  cursor: Scalars['Int']['output'];
+  documents: Array<Scalars['JSON']['output']>;
+  generated_at?: Maybe<Scalars['String']['output']>;
+  limit: Scalars['Int']['output'];
+  next_cursor?: Maybe<Scalars['Int']['output']>;
+  order?: Maybe<Scalars['String']['output']>;
+  returned: Scalars['Int']['output'];
+  sort?: Maybe<Scalars['String']['output']>;
   total: Scalars['Int']['output'];
 };
 
@@ -5451,6 +5470,7 @@ export type ResolversTypes = ResolversObject<{
   RuntimeVersionHistory: ResolverTypeWrapper<RuntimeVersionHistory>;
   ScoreDistribution: ResolverTypeWrapper<ScoreDistribution>;
   SearchDocumentList: ResolverTypeWrapper<SearchDocumentList>;
+  SearchIndexList: ResolverTypeWrapper<SearchIndexList>;
   SourceSnapshotList: ResolverTypeWrapper<SourceSnapshotList>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   Subnet: ResolverTypeWrapper<Subnet>;
@@ -5740,6 +5760,7 @@ export type ResolversParentTypes = ResolversObject<{
   RuntimeVersionHistory: RuntimeVersionHistory;
   ScoreDistribution: ScoreDistribution;
   SearchDocumentList: SearchDocumentList;
+  SearchIndexList: SearchIndexList;
   SourceSnapshotList: SourceSnapshotList;
   String: Scalars['String']['output'];
   Subnet: Subnet;
@@ -7847,7 +7868,7 @@ export type QueryResolvers<ContextType = GqlContext, ParentType extends Resolver
   saved_query?: Resolver<Maybe<ResolversTypes['JSON']>, ParentType, ContextType, RequireFields<QuerySaved_QueryArgs, 'id'>>;
   schemas?: Resolver<Maybe<ResolversTypes['JSON']>, ParentType, ContextType>;
   search?: Resolver<ResolversTypes['SearchDocumentList'], ParentType, ContextType, Partial<QuerySearchArgs>>;
-  search_index?: Resolver<ResolversTypes['SearchDocumentList'], ParentType, ContextType, Partial<QuerySearch_IndexArgs>>;
+  search_index?: Resolver<ResolversTypes['SearchIndexList'], ParentType, ContextType, Partial<QuerySearch_IndexArgs>>;
   source_health?: Resolver<Maybe<ResolversTypes['JSON']>, ParentType, ContextType>;
   source_snapshots?: Resolver<ResolversTypes['SourceSnapshotList'], ParentType, ContextType, Partial<QuerySource_SnapshotsArgs>>;
   subnet?: Resolver<Maybe<ResolversTypes['Subnet']>, ParentType, ContextType, RequireFields<QuerySubnetArgs, 'netuid'>>;
@@ -8097,6 +8118,18 @@ export type ScoreDistributionResolvers<ContextType = GqlContext, ParentType exte
 export type SearchDocumentListResolvers<ContextType = GqlContext, ParentType extends ResolversParentTypes['SearchDocumentList'] = ResolversParentTypes['SearchDocumentList']> = ResolversObject<{
   documents?: Resolver<Array<ResolversTypes['JSON']>, ParentType, ContextType>;
   next_cursor?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  total?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+}>;
+
+export type SearchIndexListResolvers<ContextType = GqlContext, ParentType extends ResolversParentTypes['SearchIndexList'] = ResolversParentTypes['SearchIndexList']> = ResolversObject<{
+  cursor?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  documents?: Resolver<Array<ResolversTypes['JSON']>, ParentType, ContextType>;
+  generated_at?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  limit?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  next_cursor?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  order?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  returned?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  sort?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   total?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
 }>;
 
@@ -9147,6 +9180,7 @@ export type Resolvers<ContextType = GqlContext> = ResolversObject<{
   RuntimeVersionHistory?: RuntimeVersionHistoryResolvers<ContextType>;
   ScoreDistribution?: ScoreDistributionResolvers<ContextType>;
   SearchDocumentList?: SearchDocumentListResolvers<ContextType>;
+  SearchIndexList?: SearchIndexListResolvers<ContextType>;
   SourceSnapshotList?: SourceSnapshotListResolvers<ContextType>;
   Subnet?: SubnetResolvers<ContextType>;
   SubnetAxonRemovals?: SubnetAxonRemovalsResolvers<ContextType>;

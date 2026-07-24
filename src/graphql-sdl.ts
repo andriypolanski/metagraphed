@@ -114,8 +114,16 @@ export const SDL = /* GraphQL */ `
       limit: Int
       cursor: Int
     ): SearchDocumentList!
-    "The slim search index -- the same documents as search without the per-document token blobs, for fast browser typeahead and listing. Mirrors GET /api/v1/search-index."
-    search_index(limit: Int, cursor: String): SearchDocumentList!
+    "The slim search index -- the same documents as search without the per-document token blobs, for fast browser typeahead and listing. Filter by type/netuid/q, sort with sort/order, and page with limit/cursor. An invalid filter/sort/limit/cursor is a GraphQL error. Mirrors GET /api/v1/search-index."
+    search_index(
+      type: String
+      netuid: Int
+      q: String
+      sort: String
+      order: String
+      limit: Int
+      cursor: Int
+    ): SearchIndexList!
     "The per-domain rollup overview: every tag in the fixed 14-tag capability taxonomy with its member subnet count, total stake, total emission share, and within-domain emission concentration. Computed live from the subnets index + economics tier. Mirrors GET /api/v1/domains."
     domains: DomainOverview!
     "One domain/capability tag's own rollup. tag must be one of the 14 fixed domain tags (the same enum ?domain= validates on subnets); an unknown tag is a BAD_USER_INPUT error. Mirrors GET /api/v1/domains/{tag}/summary."
@@ -2895,6 +2903,19 @@ export const SDL = /* GraphQL */ `
     documents: [JSON!]!
     total: Int!
     next_cursor: String
+  }
+
+  "Filtered and paginated search-index documents with full REST list-query pagination metadata (#7877). Mirrors GET /api/v1/search-index (and MCP list_search_index)."
+  type SearchIndexList {
+    documents: [JSON!]!
+    total: Int!
+    returned: Int!
+    limit: Int!
+    cursor: Int!
+    next_cursor: Int
+    sort: String
+    order: String
+    generated_at: String
   }
 
   "One domain/capability tag's rollup (#6989). Mirrors GET /api/v1/domains/{tag}/summary."
